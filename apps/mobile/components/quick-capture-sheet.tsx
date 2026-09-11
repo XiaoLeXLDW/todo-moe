@@ -257,8 +257,8 @@ export function QuickCaptureSheet({
   const [optionsExpanded, setOptionsExpanded] = useState(false);
   const [androidKeyboardAvoidingEnabled, setAndroidKeyboardAvoidingEnabled] = useState(true);
   // The picker overlays render outside the KeyboardAvoidingView, so iOS needs
-  // the measured inset too (#891). Android's entire dialog now resizes for its
-  // own IME; subtracting the Activity keyboard frame again would double-lift it.
+  // the measured inset too (#891). Android's shared Dialog viewport excludes its
+  // native IME overlap; subtracting Activity keyboard coordinates would double-lift it.
   const overlayKeyboardInset = useKeyboardInset(visible && Platform.OS === 'ios');
   const [addAnother, setAddAnother] = useState(false);
   const [focusNewTask, setFocusNewTask] = useState(false);

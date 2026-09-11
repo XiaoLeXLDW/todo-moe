@@ -115,7 +115,7 @@ export function QuickCaptureSheetPickers({
   const showDateLayer = pickerLayer !== 'overlay';
   const showOverlayLayer = pickerLayer !== 'date';
   // iOS pickers sit outside the body's KeyboardAvoidingView, so they need this
-  // inset. Android's dialog already resizes; its caller passes zero here.
+  // inset. Android's measured viewport excludes the IME; its caller passes zero.
   const overlayStyle = overlayKeyboardInset > 0
     ? [styles.overlay, { paddingBottom: overlayKeyboardInset }]
     : styles.overlay;
