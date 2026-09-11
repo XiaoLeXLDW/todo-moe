@@ -2,20 +2,19 @@
 
 本文件只记录已经完成的工作。App 版本的计划见 [版本索引](docs/versions/README.md)，不得提前作为发布记录填写。
 
-## 未发布 · 2026-09-11 · 0.1.0-dev 开发候选
+## 未发布 · 2026-09-11 · 0.1.0-dev 构建2
 
-用户提供自己的 XiaoLeXLDW/todo-moe fork 后已进入开发。本轮采用 main 快照 0b13b85a47f18360b62f657296cfd0280bb2495c（源码版本1.3.0，非稳定tag），在 feat/todo-moe 的 dirty 工作区实现；最终实现commit和APK待主代理填写。详见 [完整候选记录](docs/versions/0.1.0-dev-2026-09-11.md) 与 [IMPLEMENTATION](IMPLEMENTATION.md)。
+运行源码提交为 `d06452a5ab011a6da450409e9709b135a399ca0d`，本地分支 `feat/todo-moe`。Dev vc2从干净源码构建，原版Benchmark对照也已核验。完整字段、历史失败和未验事项见 [候选记录](docs/versions/0.1.0-dev-2026-09-11.md) 与 [验证记录](VALIDATION.md)。
 
-| 已完成工作 | 当前验证边界 |
+| 已完成工作 | 验证边界 |
 |---|---|
-| 独立Todo Moe/Dev品牌、包名/scheme、真实About元数据、上游服务身份关闭 | 真实Node/Expo配置验证通过；家族Logo仍是注明来源的原创占位 |
-| 日用三页、独立新增、原实体映射、主题偏好、触感、完成反馈与庆祝控制 | 局部回归已有结果；完整mobile修复后重跑尚未完成，设备未验 |
-| 原创Android玻璃模块、RN接入、实验页、关闭/柔和/液态回退 | Kotlin/Java/JAR编译已通过；APK仍打包，动态效果/性能未验 |
-| 可追溯Windows/CI构建、稳定上游发现与merge、幂等/冲突处理、受控签名发布脚本、上游发行guard | 工程脚本16tests通过；无远程push/PR/签名Stable/Release或Obtainium闭环 |
-| Windows Bun重复补丁/缓存、Expo Node/iOS插件、原生生成顺序、CRLF校验与Ninja长路径问题定位修复 | 锁定安装/prebuild通过；core 3867pass/8skip，schema13tests与检查通过；Ninja1.13.2已越过旧路径失败点 |
+| 独立品牌/身份、三页导航、多清单、主题/触感/动效与原生玻璃 | 代码、定向回归和APK编译已有证据；家族Logo占位，真机体验未验 |
+| 数据/同步边界保护 | 保留生产core/schema；Dev目标确认已有测试；实际后端/Android恢复待验 |
+| Windows/CI构建、上游merge、冲突/幂等与受控签名流程 | 18项工程测试、工作流静态检查通过；未运行远程PR/Release闭环 |
+| Dev与原版对照产物 | 包名/版本/签名/哈希已核验，详见清单；均未安装或运行UI |
+| 自动化结果 | core3867通过/8跳过；mobile全量加修复复测覆盖2679项；类型检查通过，lint 0错误/78警告 |
 
-mobile tsc/lint为0errors，约78条上游lint warning保留。完整mobile第一轮旧fixture失败已定位并修复，第二轮在C++编译并行时超时已停止，将在编译后单独重跑。当前没有成品APK、设备安装、真实同步/恢复/连续升级、7天日用或稳定发布结果；模拟器预检accel6，未修改系统虚拟化。日志是本地工作区记录，不冒充已提交的Git证据。
-
+后续文档补录单独提交；不会将文档HEAD冒充APK源码。当前未推送、未配置正式签名、未进行手机同步/恢复/覆盖升级、日用观察或稳定发布。硬件加速不可用；隔离软件AVD在ADB出现前以0xC0000005退出，未安装应用。
 以下早期条目保留原历史状态，不能用其中“未引入源码”描述现在的工程。
 
 ## 未发布 · 2026-09-11 · 开发方案文档建立
