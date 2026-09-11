@@ -15,7 +15,9 @@ class QuickCapturePayloadAudioTest {
     assertEquals("Record audio", payload.quickCapture.audioRecord)
     assertEquals("Stop recording", payload.quickCapture.audioStop)
     assertEquals("Recording ready to save.", payload.quickCapture.audioReady)
-    assertEquals("Saved. Audio will be transcribed when you open Mindwtr.", payload.quickCapture.audioSaved)
+    // Legacy payloads without an application label use the neutral fallback;
+    // actual Dev/Stable application labels are covered in WidgetPayloadTest.
+    assertEquals("Saved. Open the app to transcribe audio.", payload.quickCapture.audioSaved)
   }
 
   @Test

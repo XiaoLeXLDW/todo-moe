@@ -415,9 +415,11 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Setup Ruby
+        if: github.repository == 'dongdongbh/Mindwtr'
         run: bash scripts/ci/setup-ruby.sh 3.3
 
       - name: Install pinned CocoaPods
+        if: github.repository == 'dongdongbh/Mindwtr'
         run: gem install cocoapods --version 1.16.2 --no-document
 
       - name: Select Xcode (iOS 26 SDK required)
@@ -490,7 +492,9 @@ jobs:
       - name: Run Watch outbox retry tests
         run: swift test --package-path apps/mobile/targets/watch
 
+      # Todo Moe configures Android only. Swift contracts above still run on forks.
       - name: Generate iOS native project
+        if: github.repository == 'dongdongbh/Mindwtr'
         working-directory: apps/mobile
         env:
           EXPO_NO_TELEMETRY: "1"
@@ -503,6 +507,7 @@ jobs:
             --no-install
 
       - name: Validate generated Watch Xcode project
+        if: github.repository == 'dongdongbh/Mindwtr'
         run: |
           ruby -rxcodeproj - apps/mobile/ios/Mindwtr.xcodeproj <<'RUBY'
           project = Xcodeproj::Project.open(ARGV.fetch(0))
@@ -521,10 +526,12 @@ jobs:
           RUBY
 
       - name: Install CocoaPods dependencies
+        if: github.repository == 'dongdongbh/Mindwtr'
         working-directory: apps/mobile/ios
         run: pod install
 
       - name: Compile Watch app and complications
+        if: github.repository == 'dongdongbh/Mindwtr'
         run: |
           xcodebuild \
             -project apps/mobile/ios/Mindwtr.xcodeproj \
@@ -536,6 +543,7 @@ jobs:
             build
 
       - name: Compile iOS app and native Swift modules
+        if: github.repository == 'dongdongbh/Mindwtr'
         run: |
           xcodebuild \
             -workspace apps/mobile/ios/Mindwtr.xcworkspace \

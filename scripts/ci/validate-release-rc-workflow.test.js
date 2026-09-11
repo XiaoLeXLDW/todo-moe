@@ -12,12 +12,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parse } from "yaml";
 
-const readIosRelease = () => parse(readFileSync('.github/workflows/release-ios-appstore.yml', 'utf8'));
+const readWorkflowText = (path) => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
+const readIosRelease = () => parse(readWorkflowText('.github/workflows/release-ios-appstore.yml'));
 const asNeedsList = (needs) => (Array.isArray(needs) ? needs : [needs]);
 
 test('Watch release routing embeds Watch in stable and RC archives', () => {
-  const stable = parse(readFileSync('.github/workflows/release.yml', 'utf8'));
-  const rc = parse(readFileSync('.github/workflows/release-rc.yml', 'utf8'));
+  const stable = parse(readWorkflowText('.github/workflows/release.yml'));
+  const rc = parse(readWorkflowText('.github/workflows/release-rc.yml'));
   const stableIos = stable.jobs['ios-appstore'];
   expect(stableIos.with.include_watch).toBe(true);
   expect(stableIos.with.testflight_only).toBe(false);
@@ -47,7 +48,7 @@ test('Watch release routing embeds Watch in stable and RC archives', () => {
 });
 
 test('stable Watch release keeps the existing iOS recovery selection gate', () => {
-  const workflow = parse(readFileSync('.github/workflows/release.yml', 'utf8'));
+  const workflow = parse(readWorkflowText('.github/workflows/release.yml'));
   const expression = workflow.jobs['ios-appstore'].if
     .replace(/^\$\{\{\s*|\s*\}\}$/g, '')
     .replace(/always\(\)/g, 'true')
@@ -57,17 +58,25 @@ test('stable Watch release keeps the existing iOS recovery selection gate', () =
     validate: { result: 'success' },
     'android-version-code': { result: 'success' },
   };
-  expect(selected({ event_name: 'push' }, {}, needs)).toBe(true);
-  expect(selected({ event_name: 'workflow_dispatch' }, {}, needs)).toBe(false);
   const iosOnly = { run_ios_appstore: true };
   const skipped = {
     ...needs,
     'android-version-code': { result: 'skipped' },
   };
-  expect(selected({ event_name: 'workflow_dispatch' }, iosOnly, skipped)).toBe(true);
-  expect(selected({ event_name: 'workflow_dispatch' }, { ...iosOnly, run_android: true }, skipped)).toBe(false);
-  for (const dependency of ['validate', 'android-version-code']) {
-    expect(selected({ event_name: 'push' }, {}, { ...needs, [dependency]: { result: 'failure' } })).toBe(false);
+  const scenarios = [
+    ['push', {}, needs, true],
+    ['workflow_dispatch', {}, needs, false],
+    ['workflow_dispatch', iosOnly, skipped, true],
+    ['workflow_dispatch', { ...iosOnly, run_android: true }, skipped, false],
+    ...['validate', 'android-version-code'].map((dependency) => (
+      ['push', {}, { ...needs, [dependency]: { result: 'failure' } }, false]
+    )),
+  ];
+  for (const [event_name, inputs, dependencies, expected] of scenarios) {
+    expect(selected({ repository: 'dongdongbh/Mindwtr', event_name }, inputs, dependencies)).toBe(expected);
+    // The fork must never run the upstream App Store/Watch publisher, even
+    // when the identical upstream event/input/dependency gates would allow it.
+    expect(selected({ repository: 'XiaoLeXLDW/todo-moe', event_name }, inputs, dependencies)).toBe(false);
   }
 });
 
@@ -180,7 +189,7 @@ test('production and TestFlight-only artifact names cannot collide', () => {
 
 test("Docker app builds receive only validated release identities", () => {
   const workflow = parse(
-    readFileSync(".github/workflows/docker-image-reusable.yml", "utf8"),
+    readWorkflowText(".github/workflows/docker-image-reusable.yml"),
   );
   const steps = workflow.jobs["build-and-push-image"].steps;
   const resolveStep = steps.find(
@@ -244,7 +253,7 @@ test("Docker app builds receive only validated release identities", () => {
 
 test("later RC app images rebuild for their embedded release identity", () => {
   const workflow = parse(
-    readFileSync(".github/workflows/docker-image-reusable.yml", "utf8"),
+    readWorkflowText(".github/workflows/docker-image-reusable.yml"),
   );
   const rcStep = workflow.jobs["build-and-push-image"].steps.find(
     (step) => step.name === "Check Docker-relevant changes since previous RC",
@@ -281,7 +290,7 @@ test("tag-accepting release workflows queue by effective tag or shared Store fli
     .filter((file) => /^release(?:-.+)?\.yml$/.test(file))
     .filter((file) => {
       const workflow = parse(
-        readFileSync(join(workflowDirectory, file), "utf8"),
+        readWorkflowText(join(workflowDirectory, file)),
       );
       return Boolean(
         workflow.on?.workflow_call?.inputs?.tag ||
@@ -293,7 +302,7 @@ test("tag-accepting release workflows queue by effective tag or shared Store fli
   expect(tagAcceptingFiles).toEqual([...expectedGroups.keys()]);
   for (const file of tagAcceptingFiles) {
     const workflow = parse(
-      readFileSync(join(workflowDirectory, file), "utf8"),
+      readWorkflowText(join(workflowDirectory, file)),
     );
     expect(workflow.concurrency.group).toBe(expectedGroups.get(file));
     expect(workflow.concurrency["cancel-in-progress"]).toBe(false);
@@ -301,7 +310,7 @@ test("tag-accepting release workflows queue by effective tag or shared Store fli
 });
 
 test("stable release validates tags and committed versions before any build or publish", () => {
-  const workflow = parse(readFileSync(".github/workflows/release.yml", "utf8"));
+  const workflow = parse(readWorkflowText(".github/workflows/release.yml"));
   const validate = workflow.jobs.validate;
   const steps = validate.steps;
   const stepNames = steps.map((step) => step.name);
@@ -404,7 +413,7 @@ test("stable release validates tags and committed versions before any build or p
 
 test("RC tag pushes publish Android builds to Play internal and open testing", () => {
   const workflow = parse(
-    readFileSync(".github/workflows/release-rc.yml", "utf8"),
+    readWorkflowText(".github/workflows/release-rc.yml"),
   );
   const playTrack = workflow.jobs.android.with.play_track;
 
@@ -413,7 +422,7 @@ test("RC tag pushes publish Android builds to Play internal and open testing", (
 
 test("RC workflow dispatch defaults include Play open testing", () => {
   const workflow = parse(
-    readFileSync(".github/workflows/release-rc.yml", "utf8"),
+    readWorkflowText(".github/workflows/release-rc.yml"),
   );
 
   expect(workflow.on.workflow_dispatch.inputs.play_track.default).toBe("beta");
@@ -421,7 +430,7 @@ test("RC workflow dispatch defaults include Play open testing", () => {
 
 test("RC Android Play and FOSS builds share a parallel versionCode preflight", () => {
   const workflow = parse(
-    readFileSync(".github/workflows/release-rc.yml", "utf8"),
+    readWorkflowText(".github/workflows/release-rc.yml"),
   );
 
   expect(workflow.jobs["android-version-code"]).toBeDefined();
@@ -443,14 +452,14 @@ test("RC Android Play and FOSS builds share a parallel versionCode preflight", (
 
 test("direct-download Android APK build gives R8 a release-sized heap", () => {
   const workflow = parse(
-    readFileSync(".github/workflows/release-android.yml", "utf8"),
+    readWorkflowText(".github/workflows/release-android.yml"),
   );
 
   expect(workflow.jobs["build-apk"].env.GRADLE_OPTS).toContain("-Xmx6144m");
 });
 
 test("Android release centralizes Google Play edit transactions", () => {
-  const text = readFileSync(".github/workflows/release-android.yml", "utf8");
+  const text = readWorkflowText(".github/workflows/release-android.yml");
   const workflow = parse(text);
   const publishSteps = workflow.jobs.publish.steps;
   const production = publishSteps.find(
@@ -487,7 +496,7 @@ test("Android release centralizes Google Play edit transactions", () => {
 
 test("RC validation checks the committed FOSS version before platform builds start", () => {
   const workflow = parse(
-    readFileSync(".github/workflows/release-rc.yml", "utf8"),
+    readWorkflowText(".github/workflows/release-rc.yml"),
   );
   const steps = workflow.jobs.validate.steps;
   const versionCheckIndex = steps.findIndex(
@@ -507,7 +516,7 @@ test("RC validation checks the committed FOSS version before platform builds sta
 });
 
 test("existing RC releases stay immutable while dispatch can retry beta channels", () => {
-  const text = readFileSync(".github/workflows/release-rc.yml", "utf8");
+  const text = readWorkflowText(".github/workflows/release-rc.yml");
   const workflow = parse(text);
   const validate = workflow.jobs.validate;
   const detectStep = validate.steps.find(
@@ -556,10 +565,7 @@ test("existing RC releases stay immutable while dispatch can retry beta channels
 });
 
 test("Windows release signs and publishes exactly the current NSIS installer", () => {
-  const windowsText = readFileSync(
-    ".github/workflows/release-windows.yml",
-    "utf8",
-  );
+  const windowsText = readWorkflowText(".github/workflows/release-windows.yml");
   const windows = parse(windowsText);
   const steps = windows.jobs.standalone.steps;
   const bundleStep = steps.find((step) => step.name === "Bundle installer");
@@ -607,7 +613,7 @@ test("Windows release signs and publishes exactly the current NSIS installer", (
     'Get-ChildItem "apps/desktop/src-tauri/target/release/bundle/nsis/*.exe"',
   );
 
-  const stable = parse(readFileSync(".github/workflows/release.yml", "utf8"));
+  const stable = parse(readWorkflowText(".github/workflows/release.yml"));
   const validateAssets = stable.jobs.release.steps.find(
     (step) => step.name === "Validate release assets",
   );
@@ -632,7 +638,7 @@ test("Windows release signs and publishes exactly the current NSIS installer", (
 // prevents the installer from signing/uploading when the app binary wasn't.
 test("Windows release retries a failed Bun install after clearing its package cache", () => {
   const windows = parse(
-    readFileSync(".github/workflows/release-windows.yml", "utf8"),
+    readWorkflowText(".github/workflows/release-windows.yml"),
   );
   const install = windows.jobs.standalone.steps.find(
     (step) => step.name === "Install dependencies",
@@ -648,7 +654,7 @@ test("Windows release retries a failed Bun install after clearing its package ca
 
 test("Windows release SignPath submissions are gated end to end and target the pinned slugs", () => {
   const windows = parse(
-    readFileSync(".github/workflows/release-windows.yml", "utf8"),
+    readWorkflowText(".github/workflows/release-windows.yml"),
   );
   const steps = windows.jobs.standalone.steps;
   const find = (name) => {
@@ -692,8 +698,8 @@ test("Windows release SignPath submissions are gated end to end and target the p
 });
 
 test("stable and RC releases sign and verify the checksum manifest", () => {
-  const stable = parse(readFileSync(".github/workflows/release.yml", "utf8"));
-  const rc = parse(readFileSync(".github/workflows/release-rc.yml", "utf8"));
+  const stable = parse(readWorkflowText(".github/workflows/release.yml"));
+  const rc = parse(readWorkflowText(".github/workflows/release-rc.yml"));
 
   for (const [job, validateStepName] of [
     [stable.jobs.release, "Validate release assets"],
@@ -715,12 +721,9 @@ test("stable and RC releases sign and verify the checksum manifest", () => {
 });
 
 test("update-aur and update-aur-beta publish directly with a pre-push ownership audit", () => {
-  const stableText = readFileSync(".github/workflows/release.yml", "utf8");
-  const rcText = readFileSync(".github/workflows/release-rc.yml", "utf8");
-  const betaText = readFileSync(
-    ".github/workflows/update-aur-beta.yml",
-    "utf8",
-  );
+  const stableText = readWorkflowText(".github/workflows/release.yml");
+  const rcText = readWorkflowText(".github/workflows/release-rc.yml");
+  const betaText = readWorkflowText(".github/workflows/update-aur-beta.yml");
   const stable = parse(stableText);
   const rc = parse(rcText);
   const beta = parse(betaText);
