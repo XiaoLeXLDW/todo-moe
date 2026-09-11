@@ -2,6 +2,14 @@
 
 本文件只记录已经完成的工作。App 版本的计划见 [版本索引](docs/versions/README.md)，不得提前作为发布记录填写。
 
+## 未发布 · 2026-09-12 · Dev vc12增量构建入口修复
+
+从安装包和生成Manifest定位两处实际增量构建问题：过滤器反复追加、另一个渠道的旧legacy Widget注册残留。品牌适配器现只处理完全相同的filter/节点和另一已知渠道的精确Widget receiver，保留不同入口语义、上游模块与无关组件。相关回归先RED后GREEN，完整工程124 pass/1默认skip；六次真实Dev/Stable prebuild无增长与跨渠道残留。
+
+源码87cd7d55的[Dev vc12](docs/versions/0.1.0-dev-vc12-2026-09-12.md)构建3m30、APK42,003,696字节，通过身份/签名/对齐/无诊断标记和完整组件名单核验。旧vc10/vc11保留为缺陷工程样本；vc11的去重窄项通过与Widget身份失败分别记录。手机仍vc7，诊断vc9及vc12未安装，导出实测、全矩阵与正式发布仍未完成。
+
+5a36c0b1的四组CI及APK现均成功，下载产物已核验；新源码的后续Checks保持独立，见[CI记录](CI-VALIDATION-20260911.md)。
+
 ## 未发布 · 2026-09-12 · Stable vc1发布资料链验证
 
 固定源码`5fb560d6f2f2bc3a5b0af65a4491f18df5ad27d6`的干净Stable无签名构建4m44通过，APK为41,986,980字节，SHA-256 `beb0dd84f855b8a5ee9ccf37635572a18e0833b66a5bb157c9421270c5ec0a26`。builder从批准Git源码生成说明输入；15个真实宿主签名场景直接消费该输入并通过（Node含父测试16 pass），原APK、manifest和sidecar字节未变，临时RSA测试证书与副本已清理。工程套件116 pass/1项重测试默认skip，该项随后独立运行通过；这不是正式证书或手机发行验收。[版本记录](docs/versions/0.1.0-stable-vc1-release-flow-2026-09-12.md)与[发布流程记录](RELEASE-FLOW-20260912.md)保留准确产物和拒绝路径。

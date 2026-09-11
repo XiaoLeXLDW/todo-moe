@@ -1,5 +1,17 @@
 # GitHub CI 首次运行与修正
 
+## 2026-09-12：5a36c0b1完整检查与APK已核验
+
+PR head `5a36c0b1b7b4091cbff6c839676dff1fa26e6a8a`对应的[自有检查与APK](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34635724876)、[常规CI](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34635724515)、[Native Platform CI](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34635724495)和[Dependency Audit](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34635724532)均已回读completed/success。
+
+check job103382996921实际日志为core3869 pass/8 skip、mobile274文件/2720 pass、工程116 pass/1默认skip/0 fail。实际检出及APK源码均为PR合并SHA`d02c44e768f4af6c66b6a4133216c3039d1ce9ec`；git fetch后核对其tree与PR head相同，均为`bc2e1004384b6eee1531fd06301b089977249d1d`。
+
+Dev APK job103384867791构建11m20，Widget宿主测试27秒通过。工件ID10278773614，ZIP32,912,030字节，下载SHA-256与Actions摘要相同：`85974ef109bee05805ebae90fee38c5af1cfa2b0f97cefb1b6cd771af421b999`。本地保存于`artifacts/ci-21927533-d02c44e7/`。
+
+实际APK为0.1.0 / Dev / versionCode21927533，42,030,060字节，SHA-256 `0bad51cd3ed601d10fd77909a66ac4d8a530af6133c399a960f6980dfe1e334a`。嵌入配置、原Dev证书、16KiB zipalign、32个ELF库对齐、无诊断标记、无重复或跨渠道组件已核验，未安装。这个干净CI检出样本没有复用本机切换渠道的历史目录，不能据其通过否定后续发现的增量构建残留；vc11曾在同一APK组件断言失败，vc12修复后全部52个组件名称/类型与此CI样本一致。
+
+后续87cd7d55是新的本机构建修复，工程124项、六次prebuild和vc12实际APK验证独立记录；它的远端结果必须读取新提交的Checks。下文保留此前运行的历史状态。
+
 追加：vc7对应PR head e6a797d5的全部工作流与APK运行已成功，实际合并构建SHA为39e380895067822ca6fd7b0acc6f5c7b4f573abd，两者Git tree相同；产物已下载并核验。后续源码89fcedb9的目录选择器/渠道缓存修复已完成本地2720移动测试、35工程测试及Dev/Stable往返构建，其新远端结果以PR为准。完整身份见[收尾记录](FOLLOWUP-20260912.md)。
 
 **首个远端APK已成功并下载核验。** [运行34615262274](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34615262274)使用4GiB Gradle堆，完整Android构建19m43成功，随后POSIX Widget测试46秒成功。源码`50fa606deb53f2f6a392c08cc2f5b7224ca549fe`，Dev versionCode21915124，42,030,840字节，APK SHA-256 `be4dac07b46ff0f3f4ce2069e1c6d0d38aedbaf4a4dc7be6406219fb58c02156`。此结果关闭该轮R8内存不足问题；后续提交的实时检查见[PR #1](https://github.com/XiaoLeXLDW/todo-moe/pull/1)。

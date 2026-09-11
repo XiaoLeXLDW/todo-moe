@@ -1,11 +1,13 @@
 # 分版本开发与验收记录
 
-最新工程记录：[Stable vc1 发布资料链验证](0.1.0-stable-vc1-release-flow-2026-09-12.md)。源码`5fb560d6`的干净无签名构建4m44通过，直接消费builder说明输入的15个真实临时证书签名场景通过（Node含父测试16 pass）；未使用正式私钥、未安装Stable或发布Release。此前`89fcedb9`的[干净Dev vc10](0.1.0-dev-vc10-2026-09-12.md)与[旧Stable vc1无签名样本](0.1.0-stable-vc1-unsigned-2026-09-12.md)分别保留，vc10已构建、未安装。手机仍为已测限定路径的vc7；[诊断vc9](0.1.0-diagnostic-vc9-2026-09-12.md)未安装，[临时诊断vc8](0.1.0-diagnostic-vc8-2026-09-12.md)未安装且已替代。证据范围见[收尾记录](../../FOLLOWUP-20260912.md)与[发布流程记录](../../RELEASE-FLOW-20260912.md)。
+最新候选：[Dev vc12](0.1.0-dev-vc12-2026-09-12.md)，源码87cd7d55，3m30构建、124项工程测试、六次实际渠道prebuild及APK身份/对齐/全部组件检查通过，未安装。[vc10](0.1.0-dev-vc10-2026-09-12.md)和[vc11](0.1.0-dev-vc11-2026-09-12.md)保留跨渠道Widget残留的缺陷记录，不作为后续交付候选。
+
+此前发布工程记录：[Stable vc1 发布资料链验证](0.1.0-stable-vc1-release-flow-2026-09-12.md)。源码`5fb560d6`的干净无签名构建4m44通过，直接消费builder说明输入的15个真实临时证书签名场景通过（Node含父测试16 pass）；未使用正式私钥、未安装Stable或发布Release。[旧Stable vc1无签名样本](0.1.0-stable-vc1-unsigned-2026-09-12.md)独立保留。手机仍为已测限定路径的vc7；[诊断vc9](0.1.0-diagnostic-vc9-2026-09-12.md)未安装，[临时诊断vc8](0.1.0-diagnostic-vc8-2026-09-12.md)未安装且已替代。证据范围见[收尾记录](../../FOLLOWUP-20260912.md)与[发布流程记录](../../RELEASE-FLOW-20260912.md)。
 
 > 历史快照（vc7初期）：vc7已覆盖安装并测过文案、About及内屏More；当时e6 CI APK尚在构建。该构建后来已成功并下载核验，实际合并构建SHA为`39e380895067822ca6fd7b0acc6f5c7b4f573abd`，与e6的Git tree相同；见[成功运行](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34620579432)和[收尾记录](../../FOLLOWUP-20260912.md)。历史排队状态不再代表当前结果。
 
 
-**更新：2026-09-12。当前手机为vc7；最新干净Dev构建为vc10，未安装；v1.0未放行。** 本次Git/远端回读基准为`5a36c0b1b7b4091cbff6c839676dff1fa26e6a8a`：上一提交`ac473a7e`四组CI已回读为success，该基准提交的自有check、Native Platform CI与Dependency Audit已success，普通CI和自有Dev APK仍in_progress，不能判为全通过，见[详细回读](../../VALIDATION.md)。用户明确本轮local-only，不要求为验收启用任务同步。
+**更新：2026-09-12。当前手机为vc7；最新干净Dev构建为vc12，未安装；v1.0未放行。** `5a36c0b1b7b4091cbff6c839676dff1fa26e6a8a`对应四组CI和Dev APK已全部success且下载核验；后续87cd7d55的结果需看对应新提交，不沿用旧结果。见[详细回读](../../CI-VALIDATION-20260911.md)。用户明确本轮local-only，不要求为验收启用任务同步。
 
 v0.1.0～v1.0.0 原本用于划分工程与验收里程碑，不能理解为已有五个发行版本。各阶段文档保留历史计划与验收标准，并在顶部和执行表标明当前真实状态。需求来源仍可追溯到[聊天归档](../sources/chatgpt-推荐待办应用-2026-09-11.md)。
 

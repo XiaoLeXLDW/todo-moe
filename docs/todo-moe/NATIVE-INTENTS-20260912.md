@@ -24,4 +24,4 @@ expo-share-intent 5.1.1实际插件每次concat分享过滤器；上游shortcut/
 
 第二处原因是上游android-widget插件按当前androidPackage添加兼容receiver，却保留上次渠道的完整类名。现只移除另一已知Todo Moe渠道的精确`.widget.TasksWidget`注册，当前/相对类名、上游模块Provider、第三方组件和其他receiver均保留。新增3 RED时原5项仍通过；修复后相关9 GREEN、71次断言，完整工程124 pass/1默认跳过/0 fail。实际APK检查已同时覆盖所有已登记组件，拒绝Dev包中出现另一个Todo Moe渠道的完整组件名前缀。
 
-后续只读复查旧vc10实际APK也找到相同Stable legacy Widget注册；Git干净、签名与数据对齐通过不能代替这项渠道注册验证，vc10/vc11均保留为历史工程样本。下一步对[vc12](docs/versions/0.1.0-dev-vc12-2026-09-12.md)实际执行完整插件循环和APK核验。手机仍为vc7，尚未安装诊断vc9或新候选；导出复测、完整系统/无障碍矩阵与正式发布仍未完成。
+后续只读复查旧vc10实际APK也找到相同Stable legacy Widget注册；Git干净、签名与数据对齐通过不能代替这项渠道注册验证，vc10/vc11均保留为历史工程样本。修复提交87cd7d55的[vc12](docs/versions/0.1.0-dev-vc12-2026-09-12.md)实际完成六次渠道prebuild，每次只保留当前渠道的一个legacy Widget；3m30构建及实际APK验证通过。全部52个注册组件的类型/名称集合与干净CI样本一致，无重复入口、无另一渠道组件注册。手机仍为vc7，尚未安装诊断vc9或新候选；导出复测、完整系统/无障碍矩阵与正式发布仍未完成。
