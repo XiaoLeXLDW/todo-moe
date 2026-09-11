@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, copyFi
 import { createHash } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ensureFreshReleaseBundle } from './gradle-bundle.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const mobile = join(root, 'apps/mobile');
@@ -62,6 +63,10 @@ if (channel === 'stable') {
     const gradle = join(native, 'app/build.gradle');
     writeFileSync(gradle, readFileSync(gradle, 'utf8').replace(/(release\s*\{[\s\S]*?)signingConfig null/, '$1signingConfig signingConfigs.debug'));
 }
+const appGradle = join(native, 'app/build.gradle');
+const configuredGradle = readFileSync(appGradle, 'utf8');
+const freshBundleGradle = ensureFreshReleaseBundle(configuredGradle);
+if (freshBundleGradle !== configuredGradle) writeFileSync(appGradle, freshBundleGradle);
 run(process.platform === 'win32' ? join(native, 'gradlew.bat') : join(native, 'gradlew'), [':app:assembleRelease', '--no-daemon', `-PreactNativeArchitectures=${env.MINDWTR_ANDROID_ARCHS}`], native, false, env);
 const output = join(root, 'build/moe', `${channel}-${versionCode}-${sourceSha.slice(0, 12)}`);
 mkdirSync(output, { recursive: true });

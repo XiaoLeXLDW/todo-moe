@@ -1,6 +1,6 @@
 # GitHub CI 首次运行与修正
 
-PR：[Todo Moe Android开发](https://github.com/XiaoLeXLDW/todo-moe/pull/1)，开发分支`feat/todo-moe`；未合并、未创建正式Release。本机运行候选仍为vc5 / 源码aacdaedfb754b1354094fe1fd2edbaed9b14b4bb，下面的治理/测试修改不改变APK生产代码。
+PR：[Todo Moe Android开发](https://github.com/XiaoLeXLDW/todo-moe/pull/1)，开发分支`feat/todo-moe`；未合并、未创建正式Release。本机候选已更新到vc6 / 源码70366ddb4973cd7cc4cf39815e178b4cc033513c；家族图标已集成并覆盖安装，手机界面待解锁复验。后续治理/构建脚本提交与本机APK运行源码分开记录。
 
 首次PR检查针对提交62e4075e67f3a48d82dd54ba661b383a3a425a20运行。自有[检查工作流](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34607358864)的check job已通过，APK任务排队。上游CI的core（3869通过/8跳过）、mobile、Web E2E、代码质量、性能预算、cloud/MCP、Windows Rust及Rust依赖审计已有成功结果。
 
@@ -22,3 +22,11 @@ PR：[Todo Moe Android开发](https://github.com/XiaoLeXLDW/todo-moe/pull/1)，�
 ## 开发构建去重
 
 首次实际运行显示同一开发提交同时由push和PR触发，Dev APK又在同一并发组串行等待。开发分支现在通过PR（可为草稿）执行完整检查及APK构建，main推送、手动与复用入口仍保留；不重复排入两个相同代码的Dev构建。没有跳过检查或签名/身份校验。
+
+## 完成的检查与本机构建缓存验证
+
+提交`efb2a335fcb8ea71c6438aed8e8bee7752af9611`的[常规CI](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34616624257)、[Native Platform CI](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34616624246)和[Dependency Audit](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34616624186)全部成功，自有check也成功。补录时APK仍排队，上一轮50fa606的push构建仍在执行；没有将排队或取消记作成功。
+
+独立审查确认Expo每次preBuild都生成app.config，新校验读取真正APK元数据；签名job没有引入依赖安装或缓存。另发现RN的Gradle输入只列mobile内的JS/TS，缺少图片、JSON及workspace外层源码。已为唯一的 `createBundleReleaseJsAndAssets` 任务注入强制执行和禁止缓存复用规则，保留全部原生增量；RN任务原本已有 `--reset-cache`。工程29项测试通过。
+
+用项目内Gradle8.14.3/JDK21执行独立fixture三次，耗时74.498秒：bundle每次执行；原生模拟任务第一次执行、第二次UP-TO-DATE、移除该fixture输出后第三次FROM-CACHE。规则真实生效且未影响其他任务。证据：`evidence/development/gradle-bundle-fixture-5Njitl/verdict.json`及三份日志；这不是完整Android构建。vc6的历史构建日志已确认bundle实际执行，且APK内图标解码像素与品牌源完全一致。

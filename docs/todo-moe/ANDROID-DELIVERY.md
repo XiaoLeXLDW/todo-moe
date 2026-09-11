@@ -38,11 +38,13 @@ node scripts/moe/build-android.mjs --variant development --version-code 1
 
 Windows 本机已观察到 Bun 1.3.5 的缓存 HTTP 304 等待和重复补丁问题；`--no-cache` 安装入口已验证。query-string 的兼容修复由保留的幂等 postinstall 处理，`node --test scripts/moe/verify-query-string.test.cjs` 验证实际四个移动端消费者；不能同时恢复同一内容的 patchedDependencies 登记。
 
-输出目录为 `build/moe/development-版本代码-源码SHA前12位/`，包含 APK、`build-manifest.json` 和 `SHA256SUMS`。Dev 采用 release JS 打包加测试签名，可脱离 Metro 启动；不是 release 私钥，也不是正式发行身份。脚本用 aapt 检查实际 manifest 包名和版本，用 apksigner 验证 Dev 证书。默认只构建 arm64-v8a；多 ABI 可给 `--archs arm64-v8a,armeabi-v7a`。
+输出目录为 `build/moe/development-版本代码-源码SHA前12位/`，包含 APK、`build-manifest.json` 和 `SHA256SUMS`。Dev 采用 release JS 打包加测试签名，可脱离 Metro 启动；不是 release 私钥，也不是正式发行身份。脚本用 aapt 检查实际 manifest 包名和版本，用 apksigner 验证 Dev 证书，并读取真正APK内 `assets/app.config` 校验源码、dirty、渠道、版本与品牌状态。默认只构建 arm64-v8a；多 ABI 可给 `--archs arm64-v8a,armeabi-v7a`。
+
+实际交付从干净提交构建，构建期间冻结源码和文档写入。dirty Dev仅用于中间开发调试，不作为可由单一Git提交重建的候选；当前前后HEAD/dirty检查不证明dirty内容完全未变。RN的默认Gradle输入未完整覆盖图片、JSON及mobile外的workspace源码，因此脚本只对 `createBundleReleaseJsAndAssets` 禁用up-to-date和缓存复用，每次重新打JS包；RN自身同时传 `--reset-cache`，其他原生任务仍可增量构建。
 
 脚本不执行 `prebuild --clean`，发现未带 Todo Moe 生成标记的现有 android/ 时停止，保护原生修改。应把可维护的原生改动放进 `modules/` 或 config plugin，并在干净工作树/新的检出重建。曾失败的首次 prebuild 需要先检查并保全 android/，再选择新的检出重建。不要直接删除未知 native 修改。
 
-连续升级测试用 versionCode 1、2、3 构建 A/B/C，并保留同一测试签名。用户明确安装授权后再运行 `adb install -r <APK>`，不能用卸载清数据掩盖升级失败，也不能加入降级参数。本脚本不会安装手机、连接云端或修改真实任务。Dev 必须选择独立测试同步目录；包名不同不能证明云端隔离。
+连续升级测试用 versionCode 1、2、3 构建 A/B/C，并保留同一测试签名。用户明确安装授权后再运行 `adb install -r <APK>`，不能用卸载清数据掩盖升级失败，也不能加入降级参数。本脚本不会安装手机、连接云端或修改真实任务。本轮用户选择暂不启用数据同步；以后若选择启用，Dev必须使用独立测试同步目录，包名不同不能证明云端隔离。
 
 ## 工作流与稳定发布
 
