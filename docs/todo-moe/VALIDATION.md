@@ -56,3 +56,5 @@ vc5首轮高并发全量的Review测试因缺NavigationContext替身而加载RN 
 损坏JSON负例只证明实际解析器拒绝边界及无副作用；没有自造平台保存门禁来宣称Android导入安全。成功链也是宿主共享组件组合，不能替代Android op-sqlite、SAF、应用重启、附件字节或实际云同步验收。没有运行或改写已交付APK。
 
 本地证据为 `artifacts/0.1.0-dev-vc2/host-backup-restore/run-ZsmgSw/`，包括原始备份、SQLite、关闭重开读取、独立预期、生成时间、测试源码及共享源码哈希。测试源码SHA-256为 `b09c17ad54c187ea9e12fb70f9692f87cb69c3910d60d8aa5134e20e9b827060`。旧的预期遗漏与不规范容器样本运行保留为历史，不作为规范样本通过依据。核心全量3867项是前轮记录，本次2项单独记数，不冒充重跑了全套。
+
+当前最终本机交付为vc5，APK内嵌配置/源码、签名与16KiB zipalign核验通过；源码与完整设备证据见 [DEVICE-VALIDATION](DEVICE-VALIDATION-20260911.md)。

@@ -1,6 +1,6 @@
 # Todo Moe 开发与验收台账
 
-更新：2026-09-11。已在 Xiaomi MIX Fold 2 / Android 15 完成 Dev vc2→vc3→vc4 两次正常覆盖升级，旧实体、字段、元数据、顺序及设置均保留。真实 Android 备份恢复、重复任务完成/撤销、五条新增任务、三主题与偏好重启、vc4首页键盘底部避让及热路径错误Toast已有通过证据。More展开后顶部安全区补丁等待vc5构建与实测；v1.0仍未放行。详情以 [真机验收记录](DEVICE-VALIDATION-20260911.md) 为准。
+更新：2026-09-11。最终本机Dev候选为vc5，运行源码 `aacdaedfb754b1354094fe1fd2edbaed9b14b4bb`，APK SHA-256 `aa33ebee6b3b7a08f13bb9acf7eb046bf75e17a8089ff87c01b084dd5d9a9dc9`。已在MIX Fold 2 / Android15完成vc2→vc3→vc4→vc5三次正常覆盖，真实备份恢复、重复任务撤销、五条新增、主题偏好、键盘与顶部安全区、热路径Toast及限定玻璃对照均有证据。完整移动端274文件/2713测试通过，TypeScript通过，lint 0错误/77警告。v1.0仍未放行，详见 [真机验收记录](DEVICE-VALIDATION-20260911.md)。
 
 vc2是历史首次交付：运行源码 `d06452a5ab011a6da450409e9709b135a399ca0d`，APK SHA-256 `1102ddd36a6092b52a5c2e3bd6dc930cf04ab055517f5e3310a2d6310977fdd9`。后续vc3/vc4为新的代码构建，各自源码与APK身份单独记录，文档提交不能冒充旧APK源码。用户已提供 `XiaoLeXLDW/todo-moe` 并授权按方案开发；原规划文档中的“尚未开发/仓库未建立”属于历史背景。
 

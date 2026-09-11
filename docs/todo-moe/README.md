@@ -2,7 +2,7 @@
 
 把 Mindwtr 二次开发为适合自己日用的 Android 待办：快速记录、文件夹与多清单、完成动画、家族品牌、模糊或液态玻璃，并保留数据与同步能力。
 
-**当前进度：Dev vc2→vc3→vc4已在Android 15手机完成两次正常覆盖升级；真实本地恢复、常用操作及vc4键盘/Toast已验，vc5 More顶部安全区待实测。** 最终mobile四worker全量274文件/2713测试通过，v1.0及正式发行仍未放行。当前状态见 [IMPLEMENTATION](IMPLEMENTATION.md)、[真机验收](DEVICE-VALIDATION-20260911.md) 和 [验证记录](VALIDATION.md)；[vc2候选记录](docs/versions/0.1.0-dev-2026-09-11.md)保留历史首次交付。原始需求来自归档的3轮聊天，当前进度以执行记录为准。
+**当前进度：Dev vc5已安装，三次保留数据覆盖升级与限定真机验收通过，完整移动端2713条测试通过。** 产物与源码见 [开发台账](IMPLEMENTATION.md)、[真机验收记录](DEVICE-VALIDATION-20260911.md) 和 [验证记录](VALIDATION.md)。仍为开发候选，真实跨端同步、正式发行、家族素材、完整设备矩阵及日用观察尚未完成。
 
 ## 从这里开始
 
