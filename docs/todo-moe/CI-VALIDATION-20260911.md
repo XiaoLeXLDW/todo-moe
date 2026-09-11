@@ -19,3 +19,6 @@ PR：[Todo Moe Android开发](https://github.com/XiaoLeXLDW/todo-moe/pull/1)，�
 自有APK job 103299017326 在26m29后因 `R8: java.lang.OutOfMemoryError: Java heap space` 失败；项目默认Gradle堆为2GiB，本机成功交付使用4GiB堆、1GiB metaspace及最多4个worker。CI现将这些成功参数写入其项目内GRADLE_USER_HOME，并缓存依赖与wrapper。
 
 同时增加实际APK内 `assets/app.config` 检查，防止缓存或构建期间源码变化造成源码SHA/版本/渠道/图标身份不一致；只读取有大小上限的单一元数据项。真实压缩ZIP的缺失、错误来源、错误渠道/版本/包名及超大元数据负例均能拒绝，已用于现有vc6实际APK。工程24项测试通过，缓存与资源修复仍需新CI构建完成后才能写为成功。
+## 开发构建去重
+
+首次实际运行显示同一开发提交同时由push和PR触发，Dev APK又在同一并发组串行等待。开发分支现在通过PR（可为草稿）执行完整检查及APK构建，main推送、手动与复用入口仍保留；不重复排入两个相同代码的Dev构建。没有跳过检查或签名/身份校验。

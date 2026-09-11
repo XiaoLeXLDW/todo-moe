@@ -2,7 +2,8 @@ name: Todo Moe checks and Dev APK
 on:
   pull_request:
   push:
-    branches: [main, 'feat/**']
+    # Development branches build through their PR; avoid duplicate APK queues.
+    branches: [main]
   workflow_dispatch:
   workflow_call:
     inputs:
