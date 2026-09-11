@@ -115,7 +115,7 @@ jobs:
         with:
           name: todo-moe-signed-stable
           path: signed
-      - name: Verify download and create exact-source release draft
+      - name: Verify and resume exact-artifact release publication
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.preflight.outputs.tag }}
@@ -123,10 +123,4 @@ jobs:
           MOE_APPROVED_SHA: ${{ inputs.approved_sha }}
           MOE_VERSION_CODE: ${{ inputs.version_code }}
           PUBLISH: ${{ inputs.publish }}
-        run: |
-          node scripts/moe/release-policy.mjs
-          cd signed
-          sha256sum -c SHA256SUMS
-          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/$TAG" -f "sha=$APPROVED_SHA"
-          gh release create "$TAG" ./*.apk SHA256SUMS release-manifest.json --verify-tag --target "$APPROVED_SHA" --title "Todo Moe $TAG" --notes-file RELEASE-NOTES.md --draft
-          if [ "$PUBLISH" = true ]; then gh release edit "$TAG" --draft=false --latest; fi
+        run: node scripts/moe/publish-release.mjs signed

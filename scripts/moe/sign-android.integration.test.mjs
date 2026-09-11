@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readArtifactReleaseNotes } from './release-notes.mjs';
 
 // Explicit host-only run; ordinary CI discovery must not need an APK or a key.
 // PowerShell: $env:MOE_SIGNING_INTEGRATION='1'; node --test scripts/moe/sign-android.integration.test.mjs
@@ -45,6 +46,13 @@ if (process.env.MOE_SIGNING_INTEGRATION !== '1' || process.versions.bun) {
   const sourceApkDigest = fileDigest(sourceApk);
   assert.equal(sourceApkDigest, sourceArtifact.sha256, 'The original unsigned test APK checksum must match.');
   assert.equal(sourceManifest.versionCode, 1, 'This explicit fixture verifies the supplied vc1 test APK.');
+  const hasBuildNotes = Object.hasOwn(sourceManifest, 'releaseNotes');
+  // New builder output must validate as-is. Only the historical unsigned
+  // artifact without a descriptor may use the artificial notes below.
+  const sourceNotes = hasBuildNotes ? readArtifactReleaseNotes(unsignedDir, sourceManifest) : null;
+  const sourceNotesPath = hasBuildNotes ? join(unsignedDir, 'release-notes-input.json') : null;
+  const sourceNotesBytes = sourceNotesPath ? readFileSync(sourceNotesPath) : null;
+  if (sourceNotesBytes) assert.equal(digest(sourceNotesBytes), sourceManifest.releaseNotes.sha256);
 
   const fixtureParent = join(root, '.tools/signing-integration-fixtures');
   mkdirSync(fixtureParent, { recursive: true });
@@ -55,6 +63,7 @@ if (process.env.MOE_SIGNING_INTEGRATION !== '1' || process.versions.bun) {
     try {
       assert.equal(fileDigest(sourceApk), sourceApkDigest, 'The delivery APK must remain unchanged.');
       assert.deepEqual(readFileSync(sourceManifestPath), sourceManifestBytes, 'The delivery manifest must remain unchanged.');
+      if (sourceNotesPath) assert.deepEqual(readFileSync(sourceNotesPath), sourceNotesBytes, 'The builder release-notes sidecar must remain byte-identical.');
     } finally {
       removeOwnedFixture(fixtureParent, fixture);
     }
@@ -112,16 +121,20 @@ if (process.env.MOE_SIGNING_INTEGRATION !== '1' || process.versions.bun) {
     MOE_KEY_PASSWORD: password, MOE_KEY_ALIAS: 'fixture-signer', MOE_CERT_SHA256: certificateSha256,
   };
 
-  const versionRecordContent = '# Host signing fixture\n\nArtificial fixture only. No device acceptance or release claim.\n';
-  const defaultNotes = {
+  const fixtureVersionRecord = '# Host signing fixture\n\nArtificial fixture only. No device acceptance or release claim.\n';
+  const defaultNotes = sourceNotes ?? {
     schemaVersion: 1, version: sourceManifest.version,
     changes: ['Exercise the real Android signing orchestration with an ephemeral TEST certificate.'],
     knownIssues: [],
     supportedDevices: ['Host fixture only; no device installation is performed.'],
     validation: ['Synthetic release-note input for integration assertions, not an acceptance statement.'],
     versionRecord: 'docs/todo-moe/docs/versions/v0.1.0.md',
-    versionRecordContent, versionRecordSha256: digest(Buffer.from(versionRecordContent, 'utf8')),
+    versionRecordContent: fixtureVersionRecord, versionRecordSha256: digest(Buffer.from(fixtureVersionRecord, 'utf8')),
   };
+  const versionRecordContent = defaultNotes.versionRecordContent;
+  t.diagnostic(sourceNotesBytes
+    ? `Using the original builder sidecar, SHA-256 ${digest(sourceNotesBytes)}.`
+    : 'Historical artifact has no notes sidecar; using artificial host-only notes.');
 
   function prepareCase(name, { changeManifest, changeNotes, changeApk } = {}) {
     const caseRoot = join(fixture, name);
@@ -133,7 +146,8 @@ if (process.env.MOE_SIGNING_INTEGRATION !== '1' || process.versions.bun) {
     const notes = structuredClone(defaultNotes);
     changeNotes?.(notes);
     const notesPath = join(input, 'release-notes-input.json');
-    writeJson(notesPath, notes);
+    if (sourceNotesBytes && !changeNotes) writeFileSync(notesPath, sourceNotesBytes);
+    else writeJson(notesPath, notes);
     const manifest = structuredClone(sourceManifest);
     manifest.releaseNotes = { file: 'release-notes-input.json', sha256: fileDigest(notesPath) };
     if (changeApk) {
