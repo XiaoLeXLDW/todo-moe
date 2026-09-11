@@ -1,0 +1,4 @@
+{
+  "platforms": ["android"],
+  "android": { "modules": ["io.github.xiaolexldw.todomoe.keyboard.MoeKeyboardInsetsModule"] }
+}

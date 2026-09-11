@@ -28,6 +28,7 @@ import { FocusStarIcon } from '../FocusStarIcon';
 import { MarkdownInlineText } from '../markdown-text';
 import { styles } from './swipeable-task-item.styles';
 import { CompactText } from '@/components/compact-text';
+import { MoeCheckButton } from '../../moe/MoeCheckButton';
 
 interface SwipeableTaskItemContentProps {
     accessibilityActions: { label: string; name: string }[];
@@ -60,6 +61,8 @@ interface SwipeableTaskItemContentProps {
     onLongPress: () => void;
     onOpenStatusMenu: () => void;
     onPress: () => void;
+    onComplete?: () => void;
+    completionPending?: boolean;
     onProjectPress?: (projectId: string) => void;
     onTagPress?: (tag: string) => void;
     onToggleChecklist: () => void;
@@ -109,6 +112,8 @@ export function SwipeableTaskItemContent({
     onLongPress,
     onOpenStatusMenu,
     onPress,
+    onComplete,
+    completionPending = false,
     onProjectPress,
     onTagPress,
     onToggleChecklist,
@@ -532,12 +537,18 @@ export function SwipeableTaskItemContent({
                     {isMultiSelected && <Text style={styles.selectionIndicatorText}>✓</Text>}
                 </View>
             )}
+            {!selectionMode && onComplete && task.status !== 'reference' && task.status !== 'archived' && !isTaskCancelled(task) ? (
+                <MoeCheckButton checked={task.status === 'done' || completionPending} disabled={interactionDisabled || completionPending}
+                    label={task.status === 'done' ? tFallback(t, 'archived.restoreToInbox', 'Restore to Inbox') : tFallback(t, 'common.done', 'Done')}
+                    onPress={onComplete} tc={tc} />
+            ) : null}
             <View style={styles.taskContent}>
                 <View style={styles.titleRow}>
                     <Text
                         style={[
                             styles.taskTitle,
                             { color: tc.text, writingDirection: textDirection, textAlign },
+                            (task.status === 'done' || completionPending) && { textDecorationLine: 'line-through', opacity: 0.65 },
                             canShowFocusToggle && styles.taskTitleFlex,
                         ]}
                         numberOfLines={2}

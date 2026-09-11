@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { Alert, Pressable, Text, TouchableOpacity, View } from 'react-native';
 import { tFallback, type Project } from '@mindwtr/core';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/moe/haptics';
 import { Copy, Trash2, AlertTriangle } from 'lucide-react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 

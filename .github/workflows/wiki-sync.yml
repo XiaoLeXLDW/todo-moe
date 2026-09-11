@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   update-wiki:
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

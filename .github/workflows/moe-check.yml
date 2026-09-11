@@ -1,0 +1,48 @@
+name: Todo Moe checks and Dev APK
+on:
+  pull_request:
+  push:
+    # Development branches build through their PR; avoid duplicate APK queues.
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      source_sha:
+        required: true
+        type: string
+permissions:
+  contents: read
+env:
+  TZ: UTC
+concurrency:
+  group: moe-check-${{ inputs.source_sha || github.ref }}
+  cancel-in-progress: true
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: ${{ inputs.source_sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: '22'
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck:core && bun run typecheck:mobile
+      - run: bun run lint:core && bun run lint:mobile
+      - run: bun run --filter @mindwtr/core test && bun run --filter mobile test
+      - run: bun test scripts/moe
+      - run: node --test scripts/moe/verify-query-string.test.cjs
+      - run: node scripts/moe/guard-upstream-workflows.mjs
+      - run: bun run schema:check
+  dev-apk:
+    needs: check
+    uses: ./.github/workflows/moe-build-android.yml
+    with:
+      source_sha: ${{ inputs.source_sha || github.sha }}
+      channel: development

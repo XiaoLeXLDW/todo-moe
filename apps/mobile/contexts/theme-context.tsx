@@ -2,7 +2,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { workspaceSessionStorage as AsyncStorage } from '@/lib/workspace-session-storage';
 import { useColorScheme as useSystemColorScheme } from 'react-native';
 import type { AppTheme } from '@mindwtr/core';
-import { resolveThemeColorScheme, themeDescriptor, useTaskStore } from '@mindwtr/core';
+import { themeDescriptor, useTaskStore } from '@mindwtr/core';
+import { useMoePreferences } from '../moe/preferences';
+import { resolveMoeTheme } from '../moe/themes';
 import type { ThemePresetName } from '../constants/theme-presets';
 import { logError } from '../lib/app-log';
 import { markStartupPhase, measureStartupPhase } from '../lib/startup-profiler';
@@ -30,6 +32,7 @@ export const ThemeContext = createContext<ThemeContextType | undefined>(undefine
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const systemColorScheme = useSystemColorScheme() ?? 'light';
+    const moePreferences = useMoePreferences();
     const [themeMode, setThemeModeState] = useState<ThemeMode>('system');
     const [themeStyle, setThemeStyleState] = useState<ThemeStyle>('default');
     const [isReady, setIsReady] = useState(false);
@@ -48,7 +51,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const themePreset: ThemePreset = themeDescriptor(themeMode)?.statusPreset ?? 'default';
 
     // Determine actual color scheme based on mode and system
-    const colorScheme: ColorScheme = resolveThemeColorScheme(themeMode, systemColorScheme);
+    const colorScheme: ColorScheme = resolveMoeTheme(moePreferences, systemColorScheme === 'dark').isDark ? 'dark' : 'light';
     const isDark = colorScheme === 'dark';
 
     useEffect(() => {

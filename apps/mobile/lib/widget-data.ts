@@ -1,3 +1,5 @@
+import { appDeepLink } from './app-identity';
+import { brandMobileText } from '../moe/brand-text';
 import {
     applyFilter,
     computeTodayFocusTasks,
@@ -60,8 +62,8 @@ export const SHORTCUTS_SNAPSHOT_ITEM_CAP = 50;
 export const SHORTCUTS_SNAPSHOT_PROJECT_CAP = 50;
 export const IOS_WIDGET_KIND = 'MindwtrTasksWidget';
 export const IOS_WIDGET_LOCK_KIND = 'MindwtrFocusLockWidget';
-export const WIDGET_FOCUS_URI = 'mindwtr:///focus';
-export const WIDGET_QUICK_CAPTURE_URI = 'mindwtr:///capture-quick?mode=text';
+export const WIDGET_FOCUS_URI = appDeepLink('/focus');
+export const WIDGET_QUICK_CAPTURE_URI = appDeepLink('/capture-quick?mode=text');
 type ConcreteThemePresetName = Exclude<ThemePresetName, 'default'>;
 
 export type WidgetSystemColorScheme = 'light' | 'dark' | null | undefined;
@@ -72,7 +74,7 @@ export interface WidgetTaskItem {
     statusLabel: string;
     dueLabel: string | null;
     dueEmphasis: boolean;
-    // Deep link that opens this task (the app routes mindwtr://open?task=<id>);
+    // Deep link using the installed build's scheme and open?task=<id> route;
     // the Android widget rows use it, iOS may ignore it.
     openUri: string;
     // Priority heat-ramp hex (core TASK_PRIORITY_COLORS); null when the task has
@@ -209,13 +211,13 @@ export function buildAndroidQuickCaptureLabels(language: Language, audioEnabled 
         placeholder: resolveI18nText(t, 'inbox.addPlaceholder', { fallback: 'Add task to inbox...' }),
         save: resolveI18nText(t, 'common.save', { fallback: 'Save' }),
         cancel: resolveI18nText(t, 'common.cancel', { fallback: 'Cancel' }),
-        added: resolveI18nText(t, 'obsidian.bringIntoMindwtrSuccess', { fallback: 'Task added to Mindwtr.' }),
+        added: brandMobileText('obsidian.bringIntoMindwtrSuccess', resolveI18nText(t, 'obsidian.bringIntoMindwtrSuccess', { fallback: 'Task added to Mindwtr.' })),
         audioEnabled,
         audioRecord: t('quickAdd.audioRecord'),
         audioStop: t('quickAdd.audioStop'),
         audioRecording: t('quickAdd.audioRecording'),
         audioReady: t('quickAdd.audioReady'),
-        audioSaved: t('quickAdd.audioQueued'),
+        audioSaved: brandMobileText('quickAdd.audioQueued', t('quickAdd.audioQueued')),
         audioError: t('quickAdd.audioErrorBody'),
         audioPermissionDenied: t('quickAdd.audioPermissionBody'),
     };
@@ -490,7 +492,7 @@ export function buildWidgetPayload(
             title: task.title,
             statusLabel: tr[`status.${task.status}`] || task.status,
             ...computeDueLabel(task.dueDate, tr, language, startOfToday, endOfToday),
-            openUri: `mindwtr://open?task=${encodeURIComponent(task.id)}`,
+            openUri: appDeepLink(`open?task=${encodeURIComponent(task.id)}`),
             priorityColor: prioritiesEnabled && task.priority ? TASK_PRIORITY_COLORS[task.priority] ?? null : null,
             contextLabel: project?.title ?? area?.name ?? null,
             identityColor: getTaskAccentColor(task, projectById, areaById) ?? null,

@@ -18,6 +18,16 @@ const {
   sendMobileImmediateNotification: vi.fn(async () => undefined),
 }));
 
+vi.mock('expo-constants', () => ({
+  default: {
+    expoConfig: {
+      scheme: 'todomoe-dev',
+      android: { package: 'io.github.xiaolexldw.todomoe.dev' },
+      extra: { todoMoe: { scheme: 'todomoe-dev', channel: 'development', packageName: 'io.github.xiaolexldw.todomoe.dev' } },
+    },
+  },
+}));
+
 vi.mock('@mindwtr/core', async () => {
   const actual = await vi.importActual<typeof import('@mindwtr/core')>('@mindwtr/core');
   return {
@@ -63,6 +73,20 @@ describe('useRootLayoutContextAutomation', () => {
     __resetContextAutomationDedupeForTests();
   });
 
+  it.each(['mindwtr', 'todomoe'])('ignores %s activation links belonging to another installation', async (scheme) => {
+    const returnToBackground = vi.fn();
+    mockStoreState.tasks = [{
+      id: 'task-other-channel', title: 'Call mom', status: 'next', tags: [], contexts: ['@parents'],
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    }];
+    await act(async () => {
+      create(<TestHarness incomingUrl={`${scheme}://contexts?token=%40parents&contextAction=activate`} returnToBackground={returnToBackground} />);
+      await Promise.resolve();
+    });
+    expect(sendMobileImmediateNotification).not.toHaveBeenCalled();
+    expect(returnToBackground).not.toHaveBeenCalled();
+  });
+
   it('notifies for context activation URLs without navigating the app shell', async () => {
     const returnToBackground = vi.fn();
     mockStoreState.tasks = [
@@ -89,7 +113,7 @@ describe('useRootLayoutContextAutomation', () => {
     await act(async () => {
       create(
         <TestHarness
-          incomingUrl="mindwtr://contexts?token=%40parents&contextAction=activate"
+          incomingUrl="todomoe-dev://contexts?token=%40parents&contextAction=activate"
           returnToBackground={returnToBackground}
         />
       );
@@ -113,7 +137,7 @@ describe('useRootLayoutContextAutomation', () => {
     await act(async () => {
       create(
         <TestHarness
-          incomingUrl="mindwtr:///context/deactivate/parents"
+          incomingUrl="todomoe-dev:///context/deactivate/parents"
           returnToBackground={returnToBackground}
         />
       );
@@ -140,7 +164,7 @@ describe('useRootLayoutContextAutomation', () => {
     await act(async () => {
       create(
         <TestHarness
-          incomingUrl="mindwtr://contexts?token=%40parents&contextAction=activate"
+          incomingUrl="todomoe-dev://contexts?token=%40parents&contextAction=activate"
           returnToBackground={returnToBackground}
         />
       );
@@ -167,14 +191,14 @@ describe('useRootLayoutContextAutomation', () => {
     await act(async () => {
       create(
         <TestHarness
-          incomingUrl="mindwtr://contexts?token=%40parents&contextAction=activate"
+          incomingUrl="todomoe-dev://contexts?token=%40parents&contextAction=activate"
           returnToBackground={returnToBackground}
         />
       );
       await Promise.resolve();
       create(
         <TestHarness
-          incomingUrl="mindwtr://contexts?token=%40parents&contextAction=activate"
+          incomingUrl="todomoe-dev://contexts?token=%40parents&contextAction=activate"
           returnToBackground={returnToBackground}
         />
       );
@@ -205,7 +229,7 @@ describe('useRootLayoutContextAutomation', () => {
     await act(async () => {
       create(
         <TestHarness
-          incomingUrl="mindwtr://contexts?token=%40family&contextAction=activate"
+          incomingUrl="todomoe-dev://contexts?token=%40family&contextAction=activate"
           returnToBackground={returnToBackground}
           resolveText={resolveText}
         />

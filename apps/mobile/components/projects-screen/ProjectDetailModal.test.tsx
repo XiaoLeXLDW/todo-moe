@@ -91,6 +91,10 @@ vi.mock('@/hooks/use-theme-tokens', () => ({
 vi.mock('../../contexts/language-context', () => ({
   useLanguage: () => ({ t: translate, language: 'en', setLanguage: () => {}, isReady: true }),
 }));
+vi.mock('@react-navigation/native', async () => {
+    const ReactModule = await import('react');
+    return { NavigationContext: ReactModule.createContext(undefined) };
+});
 
 // The modal reads its section/project writers straight off the store. The real
 // zustand hook cannot run here (mobile vitest resolves a second React copy), so

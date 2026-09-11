@@ -235,8 +235,14 @@ export const StorageAccessFramework = {
       try {
         const directory = await ModernDirectory.pickDirectoryAsync(initialUri);
         return { granted: true, directoryUri: directory.uri };
-      } catch {
-        return { granted: false };
+      } catch (error) {
+        // expo-file-system 19's PickerCancelledException derives this exact
+        // code. A broken ActivityResultLauncher is an error, not user intent.
+        if (error && typeof error === 'object' && 'code' in error && error.code === 'ERR_PICKER_CANCELLED') {
+          return { granted: false };
+        }
+        if (!LegacyFileSystem.StorageAccessFramework?.requestDirectoryPermissionsAsync) throw error;
+        return await LegacyFileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
       }
     }
     if (LegacyFileSystem.StorageAccessFramework?.requestDirectoryPermissionsAsync) {

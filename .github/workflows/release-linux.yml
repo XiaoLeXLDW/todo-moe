@@ -31,6 +31,7 @@ concurrency:
 
 jobs:
   linux:
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' }}
     runs-on: ubuntu-22.04
     name: Linux Build + Snap
     timeout-minutes: 90

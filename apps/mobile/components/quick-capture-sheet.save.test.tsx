@@ -272,6 +272,26 @@ const withPlatform = async (os: typeof Platform.OS, run: () => Promise<void>) =>
 };
 
 describe('QuickCaptureSheet save handling', () => {
+  it('does not subtract Activity keyboard frames from pickers in a native-resizing Android dialog', async () => {
+    const listeners = new Map<string, ((event: unknown) => void)[]>();
+    vi.spyOn(Keyboard, 'addListener').mockImplementation(((name: string, listener: (event: unknown) => void) => {
+      listeners.set(name, [...(listeners.get(name) ?? []), listener]);
+      return { remove: vi.fn() };
+    }) as unknown as typeof Keyboard.addListener);
+    await withPlatform('android', async () => {
+      let tree!: ReturnType<typeof create>;
+      await act(async () => { tree = create(<QuickCaptureSheet visible openRequestId={1} initialValue="Capture" onClose={vi.fn()} />); });
+      act(() => {
+        listeners.get('keyboardDidShow')?.forEach((listener) => listener({ endCoordinates: { screenY: 520, height: 320 } }));
+      });
+      const overlay = tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetPickers' && node.props.pickerLayer === 'overlay')[0];
+      expect(overlay.props.overlayKeyboardInset).toBe(0);
+      const body = tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetBody')[0];
+      expect(body.props.androidKeyboardInset ?? 0).toBe(0);
+      act(() => tree.unmount());
+    });
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();

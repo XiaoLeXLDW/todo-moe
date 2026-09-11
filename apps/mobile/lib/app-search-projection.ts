@@ -1,14 +1,15 @@
+import { appDeepLink } from './app-identity';
 import type { Area, Project, Task } from '@mindwtr/core';
 import { isTaskVisible } from '@mindwtr/core';
 
 /**
- * Pure projection logic for the Android AppSearch secondary index (#1017).
+ * Projection logic for the Android AppSearch secondary index (#1017).
  *
  * AppSearch is a disposable read-only mirror of the local database: it must
  * never carry more than a minimal, non-sensitive slice of an entity (title
  * plus status/due/project-area context), and it must be trivial to rebuild
- * from scratch. Keeping this file free of native/store imports makes the
- * mapping and diffing rules unit-testable without a device.
+ * from scratch. Only the build's configured URI scheme is consulted; the
+ * mapping and diffing rules do not read or modify the task store.
  */
 
 export type AppSearchDocKind = 'task' | 'project' | 'area';
@@ -22,7 +23,7 @@ export type AppSearchDoc = {
     dueDate?: string;
     /** The owning project or area id, when the entity has one. */
     parentId?: string;
-    /** mindwtr:// URL opened when the system-search result is tapped. */
+    /** This installation's URL opened when the system-search result is tapped. */
     deepLink: string;
 };
 
@@ -57,7 +58,7 @@ export function buildTaskDoc(task: Task): AppSearchDoc | null {
         status: task.status,
         ...(task.dueDate ? { dueDate: task.dueDate } : {}),
         ...(task.projectId ? { parentId: task.projectId } : task.areaId ? { parentId: task.areaId } : {}),
-        deepLink: `mindwtr://open?task=${encodeURIComponent(task.id)}`,
+        deepLink: appDeepLink(`open?task=${encodeURIComponent(task.id)}`),
     };
 }
 
@@ -69,7 +70,7 @@ export function buildProjectDoc(project: Project): AppSearchDoc | null {
         title: project.title,
         status: project.status,
         ...(project.areaId ? { parentId: project.areaId } : {}),
-        deepLink: `mindwtr://open?project=${encodeURIComponent(project.id)}`,
+        deepLink: appDeepLink(`open?project=${encodeURIComponent(project.id)}`),
     };
 }
 
@@ -79,7 +80,7 @@ export function buildAreaDoc(area: Area): AppSearchDoc | null {
         id: appSearchDocId('area', area.id),
         kind: 'area',
         title: area.name,
-        deepLink: `mindwtr://open?area=${encodeURIComponent(area.id)}`,
+        deepLink: appDeepLink(`open?area=${encodeURIComponent(area.id)}`),
     };
 }
 

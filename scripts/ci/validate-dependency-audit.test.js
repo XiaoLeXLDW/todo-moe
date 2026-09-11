@@ -2,11 +2,13 @@ import { expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 
 import { validateMobileAuditReport } from "./validate-mobile-npm-audit.js";
 
 const rootRequire = createRequire(import.meta.url);
+const rootDirectory = dirname(rootRequire.resolve("../../package.json"));
+const readWorkflow = () => readFileSync(".github/workflows/dependency-audit.yml", "utf8").replace(/\r\n/g, "\n");
 
 const IMAGE_SIZE_ADVISORIES = ["GHSA-5p2g-fcmc-qvqq", "GHSA-w3rx-r6r6-pgpr"];
 
@@ -31,7 +33,7 @@ const TRACKED_NPM_LOCKFILES = execFileSync(
 ).trim().split("\n").filter(Boolean).sort();
 
 test("Bun audit exceptions stay limited to Metro's unpatched build dependency", () => {
-  const workflow = readFileSync(".github/workflows/dependency-audit.yml", "utf8");
+  const workflow = readWorkflow();
   const lockfile = readFileSync("bun.lock", "utf8");
 
   for (const advisory of IMAGE_SIZE_ADVISORIES) {
@@ -50,7 +52,7 @@ test("Bun audit exceptions stay limited to Metro's unpatched build dependency", 
   );
 });
 
-test("mobile query parsing keeps a patched CommonJS-compatible resolution", () => {
+test("mobile query parsing keeps the pinned decoder and idempotent postinstall repair for every real consumer", () => {
   const rootManifest = JSON.parse(readFileSync("package.json", "utf8"));
   const mobileManifest = JSON.parse(readFileSync("apps/mobile/package.json", "utf8"));
   const mobileLock = JSON.parse(readFileSync("apps/mobile/package-lock.json", "utf8"));
@@ -64,8 +66,14 @@ test("mobile query parsing keeps a patched CommonJS-compatible resolution", () =
   expect(rootManifest.dependencies["query-string"]).toBe("^9.3.1");
   expect(rootManifest.overrides["decode-uri-component"]).toBe("0.5.0");
   expect(rootManifest.resolutions["decode-uri-component"]).toBe("0.5.0");
-  expect(rootManifest.patchedDependencies["query-string@7.1.3"]).toBe(
-    "patches/query-string@7.1.3.patch",
+  // Bun 1.3.5 on Windows can race the same patched-package rename across
+  // consumers. The equivalent repair now runs after linking; registering both
+  // mechanisms would reintroduce that failure instead of adding protection.
+  expect(rootManifest.patchedDependencies?.["query-string@7.1.3"]).toBeUndefined();
+  expect(mobileManifest.patchedDependencies?.["query-string@7.1.3"]).toBeUndefined();
+  expect(bunLock).not.toMatch(/^\s*"query-string@7\.1\.3"\s*:/m);
+  expect(rootManifest.scripts.postinstall).toBe(
+    "node apps/mobile/scripts/patch_query_string_cjs.js",
   );
   expect(mobileManifest.dependencies["decode-uri-component"]).toBe("0.5.0");
   expect(mobileManifest.dependencies["query-string"]).toBe("7.1.3");
@@ -103,7 +111,7 @@ test("mobile query parsing keeps a patched CommonJS-compatible resolution", () =
     '["query-string@9.3.1"',
   ]));
 
-  const { hasCompatibleImport, patchQueryString } = rootRequire(
+  const { hasCompatibleImport, patchAllQueryStringConsumers } = rootRequire(
     "../../apps/mobile/scripts/patch_query_string_cjs.js",
   );
   const compatibleImport = [
@@ -112,21 +120,65 @@ test("mobile query parsing keeps a patched CommonJS-compatible resolution", () =
   ];
   expect(hasCompatibleImport(compatibleImport.join("\n"))).toBe(true);
   expect(hasCompatibleImport(compatibleImport.join("\r\n"))).toBe(true);
-  expect(() => patchQueryString()).not.toThrow();
+  expect(hasCompatibleImport("const decodeComponent = require('decode-uri-component');")).toBe(false);
 
-  const navigationRequire = createRequire(
-    rootRequire.resolve("@react-navigation/core/package.json"),
+  const compatibilityScript = readFileSync(
+    "apps/mobile/scripts/patch_query_string_cjs.js", "utf8",
   );
-  const queryString = navigationRequire("query-string");
-  expect(typeof queryString.parse).toBe("function");
-  expect(queryString.parse("screen=Inbox%20Today&tag=next")).toEqual({
-    screen: "Inbox Today",
-    tag: "next",
+  expect(compatibilityScript).toMatch(
+    /if\s*\(require\.main\s*===\s*module\)\s*\{\s*patchAllQueryStringConsumers\(\);\s*\}/,
+  );
+
+  // Resolve the four callers independently of the repair's own directory list.
+  // Hoisting may share files, but no caller (including native's nested core)
+  // may silently fall back to an unpatched or wrong-version parser.
+  const mobilePackage = rootRequire.resolve("../../apps/mobile/package.json");
+  const mobileRequire = createRequire(mobilePackage);
+  const nativeRequire = createRequire(mobileRequire.resolve("@react-navigation/native/package.json"));
+  const consumerPackages = [
+    mobilePackage,
+    mobileRequire.resolve("@react-navigation/core/package.json"),
+    nativeRequire.resolve("@react-navigation/core/package.json"),
+    mobileRequire.resolve("expo-router/package.json"),
+  ];
+  const queryEntries = consumerPackages.map((consumerPackage) => {
+    const entry = createRequire(consumerPackage).resolve("query-string");
+    const queryMetadata = JSON.parse(readFileSync(join(dirname(entry), "package.json"), "utf8"));
+    const decoder = createRequire(entry).resolve("decode-uri-component");
+    const decoderMetadata = JSON.parse(readFileSync(join(dirname(decoder), "package.json"), "utf8"));
+    expect(queryMetadata.version).toBe("7.1.3");
+    expect(decoderMetadata.version).toBe("0.5.0");
+    expect(decoderMetadata.type).toBe("module");
+    // Assert the installed repair before invoking it: the test must not heal a
+    // missing postinstall and then report that installation was already safe.
+    expect(hasCompatibleImport(readFileSync(entry, "utf8"))).toBe(true);
+    return entry;
   });
+  const before = new Map(queryEntries.map((entry) => [entry, readFileSync(entry, "utf8")]));
+  expect(new Set(patchAllQueryStringConsumers())).toEqual(new Set(consumerPackages.map(dirname)));
+
+  // Execute both actual lifecycle entrypoints with Node, not Bun's more
+  // permissive require(ESM), and prove repeated runs leave every copy unchanged.
+  execFileSync("node", ["apps/mobile/scripts/patch_query_string_cjs.js"], { cwd: rootDirectory });
+  execFileSync("node", ["scripts/patch_query_string_cjs.js"], { cwd: dirname(mobilePackage) });
+  for (const [entry, source] of before) expect(readFileSync(entry, "utf8")).toBe(source);
+  const decoded = execFileSync("node", ["--input-type=commonjs", "-e", `
+    const assert = require('node:assert/strict');
+    const entries = process.argv.slice(1);
+    for (const entry of entries) {
+      const queryString = require(entry);
+      assert.equal(typeof queryString.parse, 'function');
+      assert.deepEqual({ ...queryString.parse('screen=Inbox%20Today&tag=next&title=%E6%94%B6%E4%BB%B6%E7%AE%B1&plus=a%2Bb') }, {
+        screen: 'Inbox Today', tag: 'next', title: '收件箱', plus: 'a+b',
+      });
+    }
+    process.stdout.write(JSON.stringify({ checked: entries.length }));
+  `, ...queryEntries], { cwd: rootDirectory, encoding: "utf8" });
+  expect(JSON.parse(decoded)).toEqual({ checked: 4 });
 });
 
 test("dependency changes run the audit before merge", () => {
-  const workflow = readFileSync(".github/workflows/dependency-audit.yml", "utf8");
+  const workflow = readWorkflow();
   const pullRequestBlock = workflow.match(/\n  pull_request:\n    paths:\n((?:      - .+\n)+)/)?.[1];
 
   expect(pullRequestBlock).toBeDefined();
@@ -142,7 +194,7 @@ test("dependency changes run the audit before merge", () => {
 });
 
 test("every tracked npm package lock triggers and runs its own audit", () => {
-  const workflow = readFileSync(".github/workflows/dependency-audit.yml", "utf8");
+  const workflow = readWorkflow();
   const pullRequestBlock = workflow.match(/\n  pull_request:\n    paths:\n((?:      - .+\n)+)/)?.[1] ?? "";
   const pullRequestPaths = pullRequestBlock
     .trim()

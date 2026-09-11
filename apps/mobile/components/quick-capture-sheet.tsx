@@ -54,7 +54,7 @@ import { useThemeColors } from '@/hooks/use-theme-colors';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { useToast } from '@/contexts/toast-context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAndroidKeyboardInset, useKeyboardInset } from '../lib/use-android-keyboard-inset';
+import { useKeyboardInset } from '../lib/use-android-keyboard-inset';
 import { logError, logWarn } from '../lib/app-log';
 import { showInvalidDateCommandToast } from '@/lib/quick-add-toast';
 import { createMobileRecoverySnapshot } from '../lib/recovery-snapshot';
@@ -70,6 +70,9 @@ import { QuickCaptureSheetBody } from './quick-capture-sheet/QuickCaptureSheetBo
 import { QuickCaptureSheetPickers } from './quick-capture-sheet/QuickCaptureSheetPickers';
 import { useQuickCaptureAudio } from './use-quick-capture-audio';
 import { useAndroidQuickCaptureExpand } from './quick-capture-sheet/useAndroidQuickCaptureExpand';
+import { useReducedMotion } from '../hooks/use-reduced-motion';
+import { animateMoeListMutation } from '../moe/motion';
+import { moeHaptic } from '../moe/haptics';
 
 const PRIORITY_OPTIONS: TaskPriority[] = ['low', 'medium', 'high', 'urgent'];
 const ANDROID_OPTIONS_EXPAND_FALLBACK_MS = 500;
@@ -218,6 +221,7 @@ export function QuickCaptureSheet({
   );
 
   const [value, setValue] = useState('');
+  const reducedMotion = useReducedMotion();
   const [saving, setSaving] = useState(false);
   // Refreshed by resetDraftState — which runs on open AND after each capture in
   // an "Add another" burst, so a context/tag/person created by one capture is
@@ -252,10 +256,10 @@ export function QuickCaptureSheet({
   const [showPriorityPicker, setShowPriorityPicker] = useState(false);
   const [optionsExpanded, setOptionsExpanded] = useState(false);
   const [androidKeyboardAvoidingEnabled, setAndroidKeyboardAvoidingEnabled] = useState(true);
-  const androidKeyboardInset = useAndroidKeyboardInset(visible);
   // The picker overlays render outside the KeyboardAvoidingView, so iOS needs
-  // the measured inset too — only the sheet body is keyboard-avoided (#891).
-  const overlayKeyboardInset = useKeyboardInset(visible);
+  // the measured inset too (#891). Android's shared Dialog viewport excludes its
+  // native IME overlap; subtracting Activity keyboard coordinates would double-lift it.
+  const overlayKeyboardInset = useKeyboardInset(visible && Platform.OS === 'ios');
   const [addAnother, setAddAnother] = useState(false);
   const [focusNewTask, setFocusNewTask] = useState(false);
   const projectsRef = useRef(projects);
@@ -708,7 +712,7 @@ export function QuickCaptureSheet({
     const request = buildCaptureRequestForInput(inputValue, inputValue.trim());
     const result = await executeCaptureTransaction(
       request.input,
-      { addProject, addTask },
+      { addProject, addTask: (title, props) => { animateMoeListMutation(reducedMotion); return addTask(title, props); } },
       request.options,
     );
     if (!result.success && result.reason === 'invalid-date-command') {
@@ -716,11 +720,12 @@ export function QuickCaptureSheet({
       return null;
     }
     if (!result.success) return null;
+    moeHaptic();
     return {
       createdTaskId: result.createdTaskId ?? null,
       props: result.props,
     };
-  }, [addProject, addTask, buildCaptureRequestForInput, showToast, t]);
+  }, [addProject, addTask, buildCaptureRequestForInput, reducedMotion, showToast, t]);
 
   const createBulkTasks = useCallback(async (lines: string[]) => {
     const session = activeSubmissionSessionRef.current;
@@ -1161,9 +1166,9 @@ export function QuickCaptureSheet({
           void handleSave({ openAfterSave: true });
         }}
         insetsBottom={insets.bottom}
+        insetsTop={insets.top}
         inputRef={inputRef}
         keyboardAvoidingEnabled={androidKeyboardAvoidingEnabled}
-        androidKeyboardInset={androidKeyboardInset}
         noteValue={noteValue}
         onNoteChange={setNoteValue}
         onOpenAreaPicker={() => setShowAreaPicker(true)}

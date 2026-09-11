@@ -14,6 +14,18 @@ function isMetroBlocked(filePath: string): boolean {
 }
 
 describe('metro config', () => {
+  it('blocks route tests and private caches with actual Windows as well as POSIX separators', () => {
+    const patterns = metroConfig.resolver.blockList as RegExp[];
+    for (const filename of [
+      'F:\\project\\apps\\mobile\\app\\global-search.test.tsx',
+      'F:\\project\\apps\\mobile\\app\\(drawer)\\done.test.tsx',
+      '/project/apps/mobile/app/global-search.test.tsx',
+      'F:\\project\\.tools\\sdk\\cache.js',
+      'F:\\project\\.secrets\\private.json',
+    ]) expect(patterns.some((pattern) => pattern.test(filename))).toBe(true);
+    expect(patterns.some((pattern) => pattern.test('F:\\project\\apps\\mobile\\app\\global-search.tsx'))).toBe(false);
+  });
+
   it('isolates optional profiling transforms from ordinary release transforms', () => {
     const flags = ['EXPO_PUBLIC_CAPTURE_PROFILING', 'EXPO_PUBLIC_STARTUP_PROFILING'];
     const previous = flags.map((flag) => process.env[flag]);

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { getTranslations } from '@mindwtr/core';
 
 const POMODORO_ALARM_STORAGE_KEY = 'mindwtr:local:pomodoro-alarm:v1';
 
@@ -271,7 +272,7 @@ describe('notification-service-local', () => {
 
     expect(mockEnsureReminderNotificationChannel).toHaveBeenCalledWith(
       'mindwtr_reminders_v2',
-      'Mindwtr reminders'
+      'Todo Moe reminders'
     );
   });
 
@@ -283,7 +284,7 @@ describe('notification-service-local', () => {
 
     expect(mockEnsureReminderNotificationChannel).toHaveBeenCalledWith(
       'mindwtr_reminders_v2',
-      'Mindwtr reminders'
+      'Todo Moe reminders'
     );
   });
 
@@ -759,6 +760,18 @@ describe('notification-service-local', () => {
         title: 'Weekly review',
       })
     );
+  });
+
+  it('brands a scheduled digest before React or the UI language context is mounted', async () => {
+    vi.mocked(getTranslations).mockResolvedValueOnce({
+      'digest.morningTitle': 'Morning',
+      'digest.morningBody': 'Open Mindwtr to plan your day.',
+    });
+    mockStoreState.settings = { notificationsEnabled: true, dailyDigestMorningEnabled: true, dailyDigestMorningTime: '09:00' };
+    await startLocalMobileNotifications();
+    expect(mockAlarmScheduleAlarm).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'Open Todo Moe to plan your day.', title: 'Morning',
+    }));
   });
 
   it('reschedules current task reminders when startup is requested while already running', async () => {

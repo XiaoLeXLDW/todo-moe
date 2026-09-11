@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { dirname, join, resolve, sep } from 'path';
 import { spawnSync } from 'child_process';
 
 // This script is a CLI entry point (top-level code runs the whole check suite
@@ -15,6 +15,7 @@ const BUN_BIN = Bun.which('bun') || process.execPath;
 
 const originalSchema = readFileSync(SCHEMA_PATH, 'utf8');
 const originalDesktopRustStorage = readFileSync(DESKTOP_RUST_STORAGE_PATH, 'utf8');
+const normalizedDesktopRustStorage = originalDesktopRustStorage.replace(/\r\n/g, '\n');
 type ProductionRecord = { deployed: string[]; pendingProduction: string[] };
 type ProductionSchema = { records: Record<string, ProductionRecord> };
 
@@ -44,6 +45,42 @@ const runCheckWithDesktopRustStorage = (source: string) => {
         return runCheck();
     } finally {
         writeFileSync(DESKTOP_RUST_STORAGE_PATH, originalDesktopRustStorage);
+    }
+};
+
+// Exercise the real CLI/read boundary without rewriting the working checkout.
+// Native harness files are copied too so the fixture also works on macOS CI.
+const runCheckWithLineEndings = (newline: '\n' | '\r\n', removeTaskMode = false) => {
+    const fixtureRoot = resolve(REPO_ROOT, 'build/schema-parity-fixtures');
+    mkdirSync(fixtureRoot, { recursive: true });
+    const fixture = mkdtempSync(join(fixtureRoot, 'source-'));
+    const paths = [
+        'packages/core/src/types.ts',
+        'packages/core/src/sqlite-schema.ts',
+        'apps/desktop/src-tauri/src/storage.rs',
+        'apps/mobile/modules/cloudkit-sync/ios/CloudKitRecordMapper.swift',
+        'apps/desktop/src-tauri/src/macos_cloudkit_bridge.m',
+        'apps/mcp-server/src/queries.ts',
+        'packages/core/src/task-sync-schema.fixture.json',
+        'scripts/swift-task-mapper-fixture-check.swift',
+        'scripts/objc-task-mapper-fixture-check.m',
+    ];
+    try {
+        for (const path of paths) {
+            let source = readFileSync(join(REPO_ROOT, path), 'utf8').replace(/\r\n/g, '\n');
+            if (removeTaskMode && path === 'packages/core/src/types.ts') {
+                const changed = source.replace(/^ *taskMode\?: TaskMode;[^\n]*\n/m, '');
+                expect(changed).not.toBe(source);
+                source = changed;
+            }
+            const target = join(fixture, path);
+            mkdirSync(dirname(target), { recursive: true });
+            writeFileSync(target, source.replace(/\n/g, newline));
+        }
+        return spawnSync(BUN_BIN, ['run', SCRIPT_PATH], { cwd: fixture, encoding: 'utf8' });
+    } finally {
+        if (!fixture.startsWith(fixtureRoot + sep)) throw new Error('Unexpected schema fixture cleanup target.');
+        rmSync(fixture, { recursive: true, force: true });
     }
 };
 
@@ -121,13 +158,31 @@ describe('CloudKit production schema gate', () => {
     });
 });
 
+describe('source checkout line endings', () => {
+    test('LF and CRLF checkouts parse commented Task fields and native schemas identically', () => {
+        for (const newline of ['\n', '\r\n'] as const) {
+            const result = runCheckWithLineEndings(newline);
+            expect(result.stderr).not.toContain('core Task interface');
+            expect(result.status).toBe(0);
+            expect(result.stdout).toContain('Synced field parity check passed.');
+        }
+    });
+
+    test('CRLF parsing still rejects an actually missing Task field', () => {
+        const result = runCheckWithLineEndings('\r\n', true);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('missing: taskMode\n');
+        expect(result.stderr).not.toContain('startTime expected optional, got missing');
+    });
+});
+
 describe('desktop Rust FTS parity', () => {
     test('fails when per-connection SQLite busy timeout configuration drifts', () => {
-        const source = originalDesktopRustStorage.replace(
+        const source = normalizedDesktopRustStorage.replace(
             'busy_timeout(Duration::from_millis(SQLITE_BUSY_TIMEOUT_MS))',
             'busy_timeout(Duration::from_millis(1))',
         );
-        expect(source).not.toBe(originalDesktopRustStorage);
+        expect(source).not.toBe(normalizedDesktopRustStorage);
 
         const result = runCheckWithDesktopRustStorage(source);
 
@@ -136,11 +191,11 @@ describe('desktop Rust FTS parity', () => {
     });
 
     test('fails when a task FTS schema omits a core column', () => {
-        const source = originalDesktopRustStorage.replace(
+        const source = normalizedDesktopRustStorage.replace(
             "  assignedTo,\n  content=''",
             "  content=''",
         );
-        expect(source).not.toBe(originalDesktopRustStorage);
+        expect(source).not.toBe(normalizedDesktopRustStorage);
 
         const result = runCheckWithDesktopRustStorage(source);
 
@@ -150,11 +205,11 @@ describe('desktop Rust FTS parity', () => {
     });
 
     test('fails when a task FTS trigger omits a core value mapping', () => {
-        const source = originalDesktopRustStorage.replace(
+        const source = normalizedDesktopRustStorage.replace(
             "coalesce(new.location, '')",
             "''",
         );
-        expect(source).not.toBe(originalDesktopRustStorage);
+        expect(source).not.toBe(normalizedDesktopRustStorage);
 
         const result = runCheckWithDesktopRustStorage(source);
 

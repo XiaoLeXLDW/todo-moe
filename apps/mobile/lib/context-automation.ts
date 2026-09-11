@@ -1,3 +1,4 @@
+import { getAppIdentity } from './app-identity';
 import {
   isTaskInActiveProject,
   matchesHierarchicalToken,
@@ -9,8 +10,8 @@ import {
   type Task,
 } from '@mindwtr/core';
 
-export const ANDROID_CONTEXT_ACTIVATE_ACTION = 'tech.dongdongbh.mindwtr.action.ACTIVATE_CONTEXT';
-export const ANDROID_CONTEXT_DEACTIVATE_ACTION = 'tech.dongdongbh.mindwtr.action.DEACTIVATE_CONTEXT';
+export const ANDROID_CONTEXT_ACTIVATE_ACTION = `${getAppIdentity().packageName}.action.ACTIVATE_CONTEXT`;
+export const ANDROID_CONTEXT_DEACTIVATE_ACTION = `${getAppIdentity().packageName}.action.DEACTIVATE_CONTEXT`;
 export const CONTEXT_AUTOMATION_NOTIFICATION_KIND = 'context-automation';
 
 export type ContextAutomationAction = 'activate' | 'deactivate';
@@ -92,7 +93,7 @@ export function parseContextAutomationUrl(rawUrl: string): ContextAutomationPayl
   } catch {
     return null;
   }
-  if ((parsed.protocol || '').toLowerCase() !== 'mindwtr:') return null;
+  if ((parsed.protocol || '').toLowerCase() !== `${getAppIdentity().scheme}:`) return null;
 
   const segments = normalizeRouteSegments(parsed);
   const route = String(segments[0] ?? '').toLowerCase();

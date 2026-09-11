@@ -1,3 +1,4 @@
+import { assertStoredDevelopmentSyncTarget } from './dev-sync-guard';
 // The phase-3-facing sync-encryption API for mobile (#1056 phase 2). Every function
 // dispatches on the configured backend and then delegates to core's transition
 // orchestration (`packages/core/src/sync-encryption.ts`) with a mobile port — the
@@ -794,6 +795,7 @@ type BackendTarget =
     | { kind: 'unsupported' };
 
 const resolveTransitionTarget = async (appData: AppData | null): Promise<BackendTarget> => {
+    await assertStoredDevelopmentSyncTarget(true);
     const backend = (await AsyncStorage.getItem(SYNC_BACKEND_KEY))?.trim();
     // No durable backend yet (a typed-but-unproven config persists nothing until its
     // activation probe passes). Enable/disable stay available as local-only key

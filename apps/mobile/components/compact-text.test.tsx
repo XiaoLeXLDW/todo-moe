@@ -13,7 +13,7 @@ const flattenStyle = (style: unknown): Record<string, unknown> => {
 };
 
 const mobileRoot = () => (
-  process.cwd().endsWith('apps/mobile') ? process.cwd() : resolve(process.cwd(), 'apps/mobile')
+  process.cwd().replaceAll('\\', '/').endsWith('apps/mobile') ? process.cwd() : resolve(process.cwd(), 'apps/mobile')
 );
 
 const sourceFiles = (dir: string): string[] => {

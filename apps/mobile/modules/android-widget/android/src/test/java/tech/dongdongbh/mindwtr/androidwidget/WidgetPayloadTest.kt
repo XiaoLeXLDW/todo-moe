@@ -9,6 +9,27 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WidgetPayloadTest {
+  @Test
+  fun coldCaptureLabelsUseTheActualDevApplicationNameWithoutRewritingTaskTitles() {
+    val payload = WidgetPayload.parse("""{"items":[{"id":"a","title":"Review Mindwtr source"}]}""", "todomoe-dev", "Todo Moe Dev")!!
+    assertEquals("Task added to Todo Moe Dev.", payload.quickCapture.added)
+    assertEquals("Saved. Audio will be transcribed when you open Todo Moe Dev.", payload.quickCapture.audioSaved)
+    assertEquals("Review Mindwtr source", payload.items[0].title)
+    assertEquals("Task added to Todo Moe.", WidgetPayload.defaultForApp("Todo Moe").quickCapture.added)
+  }
+
+  @Test
+  fun devPayloadAcceptsOnlyItsOwnSchemeAndUsesDevFallback() {
+    val json = """{"focusUri":"todomoe:///focus","items":[{"title":"Task","openUri":"todomoe-dev://open?task=a"},{"title":"Official","openUri":"mindwtr://open?task=b"},{"title":"Stable","openUri":"todomoe://open?task=c"}]}"""
+    val payload = WidgetPayload.parse(json, "todomoe-dev")!!
+    assertEquals("todomoe-dev:///focus", payload.focusUri)
+    assertEquals("todomoe-dev://open?task=a", payload.items[0].openUri)
+    assertNull(payload.items[1].openUri)
+    assertNull(payload.items[2].openUri)
+    assertEquals("todomoe-dev", WidgetPayload.schemeForPackage("io.github.xiaolexldw.todomoe.dev"))
+    assertEquals("todomoe", WidgetPayload.schemeForPackage("io.github.xiaolexldw.todomoe"))
+  }
+
   private val sample = """
     {
       "headerTitle": "Today's Focus",
@@ -17,14 +38,14 @@ class WidgetPayloadTest {
       "inboxLabel": "Inbox",
       "inboxCount": 3,
       "items": [
-        {"id": "a", "title": "Call the bank", "statusLabel": "Next", "dueLabel": "Today", "dueEmphasis": true, "openUri": "mindwtr://open?task=a", "description": "Ask about the fee", "contexts": ["@calls", "  "], "tags": ["#money"], "startLabel": "Today 09:00", "priorityLabel": "High"},
+        {"id": "a", "title": "Call the bank", "statusLabel": "Next", "dueLabel": "Today", "dueEmphasis": true, "openUri": "todomoe://open?task=a", "description": "Ask about the fee", "contexts": ["@calls", "  "], "tags": ["#money"], "startLabel": "Today 09:00", "priorityLabel": "High"},
         {"id": "b", "title": "Write report", "statusLabel": "Next", "dueLabel": null, "dueEmphasis": false, "openUri": "https://evil.example"},
         {"id": "c", "title": "   ", "statusLabel": "Next", "dueLabel": null, "dueEmphasis": false}
       ],
       "sections": [
-        {"key": "focus", "title": "Today's Focus", "detail": "Sat Sep 6", "items": [{"id": "a", "title": "Call the bank", "dueLabel": "Today", "dueEmphasis": true, "dueTone": "today", "openUri": "mindwtr://open?task=a", "priorityColor": "#dc2626", "contextLabel": "Finance", "identityColor": "#8b5cf6"}]},
+        {"key": "focus", "title": "Today's Focus", "detail": "Sat Sep 6", "items": [{"id": "a", "title": "Call the bank", "dueLabel": "Today", "dueEmphasis": true, "dueTone": "today", "openUri": "todomoe://open?task=a", "priorityColor": "#dc2626", "contextLabel": "Finance", "identityColor": "#8b5cf6"}]},
         {"key": "next", "title": "Next actions", "items": []},
-        {"key": "upcoming", "title": "Upcoming", "items": [{"id": "b", "title": "Write report", "dueLabel": null, "dueEmphasis": false, "openUri": "mindwtr://open?task=b", "priorityColor": null, "contextLabel": null}]}
+        {"key": "upcoming", "title": "Upcoming", "items": [{"id": "b", "title": "Write report", "dueLabel": null, "dueEmphasis": false, "openUri": "todomoe://open?task=b", "priorityColor": null, "contextLabel": null}]}
       ],
       "lists": {
         "focus": {"title": "Focus", "dateLabel": "Saturday, Sep 6", "sections": [{"key": "focus", "title": "Today's Focus", "items": [{"id": "a", "title": "Call the bank"}]}], "items": [{"id": "a", "title": "Call the bank"}]},
@@ -34,7 +55,7 @@ class WidgetPayloadTest {
       "listTitles": {"focus": "Focus", "inbox": "Inbox", "next": "Next Actions", "waiting": "Waiting For", "someday": "Someday/Maybe", "savedFilters": "Saved filters"},
       "savedFilters": [{"id": "f1", "name": "Errands"}, {"id": "", "name": "Nameless"}],
       "emptyMessage": "All clear",
-      "focusUri": "mindwtr:///focus",
+      "focusUri": "todomoe:///focus",
       "themeMode": "dark",
       "palette": {"background": "#111827", "card": "#1F2937", "text": "#F9FAFB", "mutedText": "#CBD5E1", "accent": "#2563EB", "onAccent": "#FFFFFF", "border": "#374151", "warning": "#F59E0B", "headerWash": "#2563EB2E"},
       "taskPeek": {"complete": "Complete", "open": "Open", "start": "Start", "due": "Due date", "priority": "Priority"},
@@ -58,7 +79,7 @@ class WidgetPayloadTest {
     assertEquals("Today", payload.items[0].dueLabel)
     assertTrue(payload.items[0].dueEmphasis)
     assertNull(payload.items[1].dueLabel)
-    assertEquals("mindwtr://open?task=a", payload.items[0].openUri)
+    assertEquals("todomoe://open?task=a", payload.items[0].openUri)
     assertNull(payload.items[0].priorityColor)
     assertEquals(2, payload.sections.size)
     assertEquals("Today's Focus", payload.sections[0].title)

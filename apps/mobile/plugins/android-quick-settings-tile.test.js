@@ -69,4 +69,11 @@ describe('android-quick-settings-tile', () => {
     expect(buildTileIconXml()).toContain('<vector');
     expect(buildTileIconXml()).toContain('android:fillColor="#FFFFFFFF"');
   });
+
+  it('uses the installed application label in the tile description, including Dev builds', () => {
+    expect(buildTileStringsXml()).toContain('Open %1$s quick capture');
+    expect(buildTileStringsXml()).not.toContain('Mindwtr');
+    expect(buildCaptureTileServiceSource('io.github.xiaolexldw.todomoe.dev'))
+      .toContain('getString(R.string.quick_settings_capture_tile_description, packageManager.getApplicationLabel(applicationInfo))');
+  });
 });

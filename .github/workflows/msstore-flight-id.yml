@@ -13,6 +13,7 @@ permissions: {}
 
 jobs:
   lookup:
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

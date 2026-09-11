@@ -39,6 +39,7 @@ class WidgetConfigureActivity : AppCompatActivity() {
     }
     dropdown = intent?.getBooleanExtra(EXTRA_DROPDOWN, false) == true
     setContentView(R.layout.mindwtr_widget_configure)
+    findViewById<TextView>(R.id.mindwtr_widget_configure_title).text = packageManager.getApplicationLabel(applicationInfo)
     if (dropdown) {
       window.setGravity(android.view.Gravity.TOP)
       window.attributes = window.attributes.apply { y = dp(56) }

@@ -89,6 +89,7 @@ jobs:
   # Stable releases validate the immutable tag, every committed version manifest,
   # and the CloudKit Production ledger before any platform build can start.
   validate:
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' }}
     runs-on: ubuntu-latest
     name: Validate Stable Release
     timeout-minutes: 10
@@ -222,7 +223,7 @@ jobs:
 
   linux:
     needs: [validate, android-version-code]
-    if: ${{ always() && (github.event_name != 'workflow_dispatch' || inputs.run_linux) && needs.validate.result == 'success' && (needs['android-version-code'].result == 'success' || (github.event_name == 'workflow_dispatch' && !inputs.run_android && !inputs.run_android_foss)) }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && (github.event_name != 'workflow_dispatch' || inputs.run_linux) && needs.validate.result == 'success' && (needs['android-version-code'].result == 'success' || (github.event_name == 'workflow_dispatch' && !inputs.run_android && !inputs.run_android_foss))) }}
     uses: ./.github/workflows/release-linux.yml
     with:
       tag: ${{ needs.validate.outputs.tag }}
@@ -230,7 +231,7 @@ jobs:
 
   macos:
     needs: [validate, android-version-code]
-    if: ${{ always() && (github.event_name != 'workflow_dispatch' || inputs.run_macos) && needs.validate.result == 'success' && (needs['android-version-code'].result == 'success' || (github.event_name == 'workflow_dispatch' && !inputs.run_android && !inputs.run_android_foss)) }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && (github.event_name != 'workflow_dispatch' || inputs.run_macos) && needs.validate.result == 'success' && (needs['android-version-code'].result == 'success' || (github.event_name == 'workflow_dispatch' && !inputs.run_android && !inputs.run_android_foss))) }}
     uses: ./.github/workflows/release-macos.yml
     with:
       tag: ${{ needs.validate.outputs.tag }}
@@ -238,7 +239,7 @@ jobs:
 
   windows:
     needs: [validate, android-version-code]
-    if: ${{ always() && (github.event_name != 'workflow_dispatch' || inputs.run_windows) && needs.validate.result == 'success' && (needs['android-version-code'].result == 'success' || (github.event_name == 'workflow_dispatch' && !inputs.run_android && !inputs.run_android_foss)) }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && (github.event_name != 'workflow_dispatch' || inputs.run_windows) && needs.validate.result == 'success' && (needs['android-version-code'].result == 'success' || (github.event_name == 'workflow_dispatch' && !inputs.run_android && !inputs.run_android_foss))) }}
     uses: ./.github/workflows/release-windows.yml
     permissions:
       contents: read
@@ -251,7 +252,7 @@ jobs:
 
   android-version-code:
     needs: validate
-    if: ${{ always() && (github.event_name != 'workflow_dispatch' || inputs.run_android || inputs.run_android_foss) && needs.validate.result == 'success' }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && (github.event_name != 'workflow_dispatch' || inputs.run_android || inputs.run_android_foss) && needs.validate.result == 'success') }}
     runs-on: ubuntu-latest
     name: Android VersionCode Preflight
     timeout-minutes: 10
@@ -331,7 +332,7 @@ jobs:
 
   android:
     needs: [validate, android-version-code]
-    if: ${{ always() && (github.event_name != 'workflow_dispatch' || inputs.run_android) && needs.validate.result == 'success' && needs['android-version-code'].result == 'success' }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && (github.event_name != 'workflow_dispatch' || inputs.run_android) && needs.validate.result == 'success' && needs['android-version-code'].result == 'success') }}
     permissions:
       actions: read
       contents: read
@@ -344,7 +345,7 @@ jobs:
 
   android-foss:
     needs: [validate, android-version-code]
-    if: ${{ always() && (github.event_name != 'workflow_dispatch' || inputs.run_android_foss) && needs.validate.result == 'success' && needs['android-version-code'].result == 'success' }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && (github.event_name != 'workflow_dispatch' || inputs.run_android_foss) && needs.validate.result == 'success' && needs['android-version-code'].result == 'success') }}
     uses: ./.github/workflows/release-android-foss.yml
     with:
       tag: ${{ needs.validate.outputs.tag }}
@@ -353,7 +354,7 @@ jobs:
 
   ios-appstore:
     needs: [validate, android-version-code]
-    if: ${{ always() && (github.event_name != 'workflow_dispatch' || inputs.run_ios_appstore) && needs.validate.result == 'success' && (needs['android-version-code'].result == 'success' || (github.event_name == 'workflow_dispatch' && !inputs.run_android && !inputs.run_android_foss)) }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && (github.event_name != 'workflow_dispatch' || inputs.run_ios_appstore) && needs.validate.result == 'success' && (needs['android-version-code'].result == 'success' || (github.event_name == 'workflow_dispatch' && !inputs.run_android && !inputs.run_android_foss))) }}
     uses: ./.github/workflows/release-ios-appstore.yml
     with:
       tag: ${{ needs.validate.outputs.tag }}
@@ -368,7 +369,7 @@ jobs:
 
   macos-appstore:
     needs: [validate, android-version-code]
-    if: ${{ always() && (github.event_name != 'workflow_dispatch' || inputs.run_macos_appstore) && needs.validate.result == 'success' && (needs['android-version-code'].result == 'success' || (github.event_name == 'workflow_dispatch' && !inputs.run_android && !inputs.run_android_foss)) }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && (github.event_name != 'workflow_dispatch' || inputs.run_macos_appstore) && needs.validate.result == 'success' && (needs['android-version-code'].result == 'success' || (github.event_name == 'workflow_dispatch' && !inputs.run_android && !inputs.run_android_foss))) }}
     uses: ./.github/workflows/release-macos-appstore.yml
     with:
       tag: ${{ needs.validate.outputs.tag }}
@@ -379,7 +380,7 @@ jobs:
     secrets: inherit
 
   release:
-    if: ${{ github.event_name != 'workflow_dispatch' || (inputs.run_linux && inputs.run_macos && inputs.run_windows && inputs.run_android && inputs.run_android_foss) }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (github.event_name != 'workflow_dispatch' || (inputs.run_linux && inputs.run_macos && inputs.run_windows && inputs.run_android && inputs.run_android_foss)) }}
     needs: [validate, linux, macos, windows, android, android-foss]
     runs-on: ubuntu-latest
     name: Create Release
@@ -531,7 +532,7 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
-    if: ${{ always() && needs.validate.result == 'success' && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') && ((startsWith(github.ref, 'refs/tags/') && github.event_name == 'push' && needs.release.result == 'success') || (github.event_name == 'workflow_dispatch' && inputs.run_update_packages && (needs.release.result == 'success' || needs.release.result == 'skipped'))) }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && needs.validate.result == 'success' && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') && ((startsWith(github.ref, 'refs/tags/') && github.event_name == 'push' && needs.release.result == 'success') || (github.event_name == 'workflow_dispatch' && inputs.run_update_packages && (needs.release.result == 'success' || needs.release.result == 'skipped')))) }}
     steps:
       - name: Checkout release repo
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -780,7 +781,7 @@ jobs:
   update-flathub:
     needs: [validate, release]
     name: Update Flathub
-    if: ${{ always() && needs.validate.result == 'success' && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') && ((startsWith(github.ref, 'refs/tags/') && github.event_name == 'push' && needs.release.result == 'success' && !contains(github.ref_name, '-')) || (github.event_name == 'workflow_dispatch' && inputs.run_update_flathub && (needs.release.result == 'success' || needs.release.result == 'skipped') && !contains(inputs.tag, '-'))) }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && needs.validate.result == 'success' && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') && ((startsWith(github.ref, 'refs/tags/') && github.event_name == 'push' && needs.release.result == 'success' && !contains(github.ref_name, '-')) || (github.event_name == 'workflow_dispatch' && inputs.run_update_flathub && (needs.release.result == 'success' || needs.release.result == 'skipped') && !contains(inputs.tag, '-')))) }}
     uses: ./.github/workflows/update-flathub.yml
     with:
       tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
@@ -789,7 +790,7 @@ jobs:
   update-flathub-beta:
     needs: [validate, release]
     name: Update Flathub Beta
-    if: ${{ always() && needs.validate.result == 'success' && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') && ((startsWith(github.ref, 'refs/tags/') && github.event_name == 'push' && needs.release.result == 'success' && !contains(github.ref_name, '-')) || (github.event_name == 'workflow_dispatch' && inputs.run_update_flathub && (needs.release.result == 'success' || needs.release.result == 'skipped') && !contains(inputs.tag, '-'))) }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && needs.validate.result == 'success' && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') && ((startsWith(github.ref, 'refs/tags/') && github.event_name == 'push' && needs.release.result == 'success' && !contains(github.ref_name, '-')) || (github.event_name == 'workflow_dispatch' && inputs.run_update_flathub && (needs.release.result == 'success' || needs.release.result == 'skipped') && !contains(inputs.tag, '-')))) }}
     uses: ./.github/workflows/update-flathub.yml
     with:
       tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
@@ -798,7 +799,7 @@ jobs:
 
   update-linux-repos:
     needs: [validate, release]
-    if: ${{ always() && needs.validate.result == 'success' && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') && ((startsWith(github.ref, 'refs/tags/') && github.event_name == 'push' && needs.release.result == 'success') || (github.event_name == 'workflow_dispatch' && inputs.run_update_linux_repos && (needs.release.result == 'success' || needs.release.result == 'skipped'))) }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && needs.validate.result == 'success' && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') && ((startsWith(github.ref, 'refs/tags/') && github.event_name == 'push' && needs.release.result == 'success') || (github.event_name == 'workflow_dispatch' && inputs.run_update_linux_repos && (needs.release.result == 'success' || needs.release.result == 'skipped')))) }}
     permissions:
       contents: write
     uses: ./.github/workflows/publish-repo.yml
@@ -810,7 +811,7 @@ jobs:
   # users pick stable back up after a test cycle without switching packages.
   update-aur-beta-bin:
     needs: [validate, release]
-    if: ${{ always() && needs.validate.result == 'success' && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') && ((startsWith(github.ref, 'refs/tags/') && github.event_name == 'push' && needs.release.result == 'success') || (github.event_name == 'workflow_dispatch' && inputs.run_update_aur && (needs.release.result == 'success' || needs.release.result == 'skipped'))) }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && needs.validate.result == 'success' && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') && ((startsWith(github.ref, 'refs/tags/') && github.event_name == 'push' && needs.release.result == 'success') || (github.event_name == 'workflow_dispatch' && inputs.run_update_aur && (needs.release.result == 'success' || needs.release.result == 'skipped')))) }}
     name: Update AUR Beta
     uses: ./.github/workflows/update-aur-beta.yml
     with:
@@ -823,7 +824,7 @@ jobs:
   # would race otherwise.
   update-linux-repos-beta:
     needs: [validate, release, update-linux-repos]
-    if: ${{ always() && needs.validate.result == 'success' && needs.update-linux-repos.result == 'success' && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && needs.validate.result == 'success' && needs.update-linux-repos.result == 'success' && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-')) }}
     permissions:
       contents: write
     uses: ./.github/workflows/publish-repo.yml
@@ -839,7 +840,7 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
-    if: ${{ always() && needs.validate.result == 'success' && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') && ((startsWith(github.ref, 'refs/tags/') && github.event_name == 'push' && needs.release.result == 'success' && !contains(github.ref, '-')) || (github.event_name == 'workflow_dispatch' && inputs.run_publish_chocolatey && (needs.release.result == 'success' || needs.release.result == 'skipped'))) && vars.CHOCOLATEY_PUBLISH_ENABLED == 'true' }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && needs.validate.result == 'success' && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') && ((startsWith(github.ref, 'refs/tags/') && github.event_name == 'push' && needs.release.result == 'success' && !contains(github.ref, '-')) || (github.event_name == 'workflow_dispatch' && inputs.run_publish_chocolatey && (needs.release.result == 'success' || needs.release.result == 'skipped'))) && vars.CHOCOLATEY_PUBLISH_ENABLED == 'true') }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -963,7 +964,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-    if: ${{ always() && needs.validate.result == 'success' && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') && ((startsWith(github.ref, 'refs/tags/') && github.event_name == 'push' && needs.release.result == 'success') || (github.event_name == 'workflow_dispatch' && inputs.run_update_aur && (needs.release.result == 'success' || needs.release.result == 'skipped'))) }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && needs.validate.result == 'success' && !contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-') && ((startsWith(github.ref, 'refs/tags/') && github.event_name == 'push' && needs.release.result == 'success') || (github.event_name == 'workflow_dispatch' && inputs.run_update_aur && (needs.release.result == 'success' || needs.release.result == 'skipped')))) }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0

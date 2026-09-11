@@ -1,3 +1,9 @@
+# Todo Moe
+
+Personal Android fork of Mindwtr. Development branch: Todo Moe Dev with independent identity, everyday lists, motion and experimental native glass.
+
+开发与验收状态见 [Todo Moe 台账](docs/todo-moe/IMPLEMENTATION.md)。当前为开发候选，实机、同步与稳定发行验收独立记录。上游介绍和许可保留如下。
+
 <div align="center">
 
 <a href="https://mindwtr.app"><img src="apps/mobile/assets/images/icon.png" width="120" alt="Mindwtr Logo"></a>

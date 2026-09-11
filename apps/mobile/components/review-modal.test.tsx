@@ -7,6 +7,13 @@ import { CompactText } from './compact-text';
 import { ReviewModal } from './review-modal';
 import { styles } from './review-modal.styles';
 
+// ToastViewport reads the owning route context. This component harness has no
+// navigator; keep the real toast code without importing RN's Flow-only runtime.
+vi.mock('@react-navigation/native', async () => {
+    const ReactModule = await import('react');
+    return { NavigationContext: ReactModule.createContext(undefined) };
+});
+
 const { mockStorageGetItem, mockStorageRemoveItem, mockStorageSetItem } = vi.hoisted(() => ({
     mockStorageGetItem: vi.fn(),
     mockStorageRemoveItem: vi.fn(),

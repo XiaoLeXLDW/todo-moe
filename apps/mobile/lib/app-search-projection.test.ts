@@ -57,7 +57,7 @@ describe('app-search-projection', () => {
                 status: 'next',
                 dueDate: '2026-08-12',
                 parentId: 'p1',
-                deepLink: 'mindwtr://open?task=t1',
+                deepLink: 'todomoe://open?task=t1',
             });
         });
 

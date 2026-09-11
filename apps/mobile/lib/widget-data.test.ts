@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AppData } from '@mindwtr/core';
-import { buildShortcutsSnapshot, buildWidgetPayload, resolveWidgetLanguage, SHORTCUTS_SNAPSHOT_ITEM_CAP, SHORTCUTS_SNAPSHOT_PROJECT_CAP, WIDGET_PEEK_DESCRIPTION_MAX, WIDGET_PEEK_TOKEN_MAX } from './widget-data';
+import { loadTranslations, type AppData } from '@mindwtr/core';
+import { buildAndroidQuickCaptureLabels, buildShortcutsSnapshot, buildWidgetPayload, resolveWidgetLanguage, SHORTCUTS_SNAPSHOT_ITEM_CAP, SHORTCUTS_SNAPSHOT_PROJECT_CAP, WIDGET_PEEK_DESCRIPTION_MAX, WIDGET_PEEK_TOKEN_MAX } from './widget-data';
 
 const baseData: AppData = {
     tasks: [],
@@ -42,6 +42,17 @@ const buildDueItem = (dueDate: string, language = 'en') => {
 };
 
 describe('widget-data', () => {
+    it('brands the native capture labels independently of the mounted UI language context', async () => {
+        await loadTranslations('en');
+        await loadTranslations('zh');
+        const english = buildAndroidQuickCaptureLabels('en');
+        const chinese = buildAndroidQuickCaptureLabels('zh');
+        expect(english.added).toBe('Task added to Todo Moe.');
+        expect(english.audioSaved).toContain('open Todo Moe');
+        expect(chinese.added).toBe('任务已添加到 Todo Moe。');
+        expect(chinese.audioSaved).toContain('打开 Todo Moe');
+    });
+
     it('resolves widget language with fallback', () => {
         expect(resolveWidgetLanguage('zh', undefined)).toBe('zh');
         expect(resolveWidgetLanguage('unknown', undefined)).toBe('en');
@@ -66,7 +77,7 @@ describe('widget-data', () => {
         expect(payload.items).toHaveLength(3);
         expect(payload.items.map((item) => item.title)).toEqual(['Focused 1', 'Focused 2', 'Focused 3']);
         // Widget rows open the task itself (Android row tap, #1173 seam).
-        expect(payload.items.map((item) => item.openUri)).toEqual(['mindwtr://open?task=1', 'mindwtr://open?task=2', 'mindwtr://open?task=3']);
+        expect(payload.items.map((item) => item.openUri)).toEqual(['todomoe://open?task=1', 'todomoe://open?task=2', 'todomoe://open?task=3']);
         expect(payload.inboxCount).toBe(1);
         expect(payload.subtitle).toBe('Inbox: 1 · +1 More');
     });

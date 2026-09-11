@@ -32,7 +32,7 @@ env:
 
 jobs:
   publish:
-    if: ${{ !startsWith(github.ref, 'refs/tags/') || !contains(github.ref_name, '-') }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (!startsWith(github.ref, 'refs/tags/') || !contains(github.ref_name, '-')) }}
     name: Publish MCP package and registry metadata
     runs-on: ubuntu-latest
     timeout-minutes: 25

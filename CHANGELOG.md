@@ -1,5 +1,12 @@
 # Changelog
 
+## Todo Moe development
+
+- [0.1.0-dev candidate record](docs/todo-moe/docs/versions/0.1.0-dev-2026-09-11.md): independent Android identity, everyday navigation and lists, motion/themes, experimental native glass, and controlled build/update workflows. Development candidate; device and stable-release acceptance are recorded separately.
+- [Current implementation and verification](docs/todo-moe/IMPLEMENTATION.md).
+
+## Upstream release index
+
 Canonical release notes live in [docs/release-notes/](docs/release-notes/README.md).
 
 This file intentionally stays as a short index so it does not drift from the per-release notes.

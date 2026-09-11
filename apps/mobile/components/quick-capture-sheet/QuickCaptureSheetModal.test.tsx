@@ -7,6 +7,11 @@ import { ToastViewport } from '@/contexts/toast-context';
 import { QuickCaptureSheetBody } from './QuickCaptureSheetBody';
 import { QuickCaptureSheetPickers } from './QuickCaptureSheetPickers';
 
+vi.mock('@/modules/moe-keyboard-insets', () => ({
+  hasNativeKeyboardInsets: true,
+  DialogKeyboardInsetsProbe: (props: Record<string, unknown>) => React.createElement('DialogKeyboardInsetsProbe', props),
+}));
+
 vi.mock('@react-native-community/datetimepicker', () => ({
   default: (props: Record<string, unknown>) => React.createElement('DateTimePicker', props),
 }));
@@ -321,11 +326,11 @@ describe('Quick capture modal composition', () => {
     );
     expect(backdrop.props.accessibilityElementsHidden).toBe(true);
     expect(backdrop.props.importantForAccessibility).toBe('no-hide-descendants');
-    expect(modal.props.statusBarTranslucent).toBe(true);
+    expect(modal.props.statusBarTranslucent).toBe(false);
     expect(modal.props.accessibilityViewIsModal).toBe(true);
   });
 
-  it('lifts the Android sheet by the measured keyboard inset instead of resizing', () => {
+  it('uses its own Dialog IME frame under enforced edge-to-edge and does not double-count resize', () => {
     let tree!: ReturnType<typeof create>;
     const originalPlatformOs = Platform.OS;
 
@@ -347,6 +352,7 @@ describe('Quick capture modal composition', () => {
             insetsBottom={0}
             inputRef={{ current: null }}
             androidKeyboardInset={280}
+            insetsTop={97 / 2.75}
             noteValue=""
             onNoteChange={vi.fn()}
             onOpenAreaPicker={vi.fn()}
@@ -366,7 +372,7 @@ describe('Quick capture modal composition', () => {
             onToggleAddAnother={vi.fn()}
             onToggleRecording={vi.fn()}
             onValueChange={vi.fn()}
-            optionsExpanded={false}
+            optionsExpanded
             prioritiesEnabled
             priorityLabel="Priority"
             projectLabel="Project"
@@ -387,8 +393,48 @@ describe('Quick capture modal composition', () => {
     }
 
     const kav = tree.root.findByType(KeyboardAvoidingView);
+    const modal = tree.root.findByType(Modal);
     expect(kav.props.behavior).toBeUndefined();
-    expect(flattenStyle(kav.props.style).paddingBottom).toBe(280);
+    // A native Modal has its own window. Retaining the Activity's keyboard
+    // padding inside the measured Dialog viewport would subtract the IME twice.
+    expect({
+      fitsNavigationBar: modal.props.navigationBarTranslucent === false,
+      fitsStatusBar: modal.props.statusBarTranslucent === false,
+      manualKeyboardInset: flattenStyle(kav.props.style).paddingBottom ?? 0,
+      jsKeyboardAvoidance: kav.props.enabled,
+    }).toEqual({ fitsNavigationBar: true, fitsStatusBar: true, manualKeyboardInset: 0, jsKeyboardAvoidance: false });
+    const probe = tree.root.findAll((node) => String(node.type) === 'DialogKeyboardInsetsProbe')[0];
+    expect(probe).toBeDefined();
+    const frame = { imeVisible: true, imeBottomPx: 1009, keyboardTopPx: 1511, windowTopPx: 0,
+      windowHeightPx: 2520, hostTopPx: 0, hostHeightPx: 2520, density: 2.75, source: 'dialog-insets-frame' };
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
+    try {
+      act(() => { probe.props.onInsetsChange({ nativeEvent: frame }); });
+      const viewport = () => tree.root.findAllByType(View).find((node) => node.props.testID === 'quick-capture-visible-viewport')!;
+      const topMargin = flattenStyle(viewport().props.style).marginTop ?? 0;
+      expect(topMargin * frame.density).toBeCloseTo(97);
+      const options = tree.root.findAllByType(ScrollView).find((node) => node.props.testID === 'quick-capture-scroll')!;
+      expect(flattenStyle(options.props.style).flexShrink).toBe(1);
+      expect(flattenStyle(options.props.contentContainerStyle).flexGrow).toBe(0);
+      const margin = flattenStyle(viewport().props.style).marginBottom;
+      expect(margin).toBeCloseTo(1009 / 2.75);
+      expect(2487 - margin * frame.density).toBeLessThanOrEqual(frame.keyboardTopPx);
+      // The probe must retain the full window frame, outside the reduced viewport.
+      let ancestor = probe.parent;
+      while (ancestor) { expect(ancestor.props.testID).not.toBe('quick-capture-visible-viewport'); ancestor = ancestor.parent; }
+      act(() => { probe.props.onInsetsChange({ nativeEvent: { ...frame, hostHeightPx: 1511 } }); });
+      expect(flattenStyle(viewport().props.style).marginBottom).toBe(0);
+      act(() => { probe.props.onInsetsChange({ nativeEvent: { ...frame, imeVisible: false } }); });
+      expect(flattenStyle(viewport().props.style).marginBottom).toBe(0);
+      const bodyProps = tree.root.findByType(QuickCaptureSheetBody).props as React.ComponentProps<typeof QuickCaptureSheetBody>;
+      Object.defineProperty(Platform, 'OS', { configurable: true, value: 'ios' });
+      act(() => tree.update(<QuickCaptureSheetBody {...bodyProps} />));
+      expect(flattenStyle(viewport().props.style).marginTop ?? 0).toBe(0);
+      expect(tree.root.findByType(KeyboardAvoidingView).props.behavior).toBe('padding');
+    } finally {
+      Object.defineProperty(Platform, 'OS', { configurable: true, value: originalPlatformOs });
+      act(() => tree.unmount());
+    }
   });
 
   it('lifts the picker overlay above the keyboard by the measured inset', () => {

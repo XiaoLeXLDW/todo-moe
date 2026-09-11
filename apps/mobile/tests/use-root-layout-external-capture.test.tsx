@@ -114,7 +114,7 @@ describe('useRootLayoutExternalCapture', () => {
   });
 
   it.each([true, false])('returns from shortcut confirmation without a blank capture route (initial=%s)', (initial) => {
-    const url = 'mindwtr:///capture?title=Call%20dentist&note=Tomorrow&tags=phone&project=Home';
+    const url = 'todomoe:///capture?title=Call%20dentist&note=Tomorrow&tags=phone&project=Home';
     const stack: unknown[] = [redirectSystemPath({ path: url, initial })];
     router.canGoBack.mockReturnValue(true);
     router.push.mockImplementation((route) => { stack.push(route); });
@@ -456,7 +456,7 @@ describe('useRootLayoutExternalCapture', () => {
     act(() => {
       create(
         <TestHarness
-          incomingUrl="mindwtr:///capture?title=Call%20dentist&note=Tomorrow&tags=phone&project=Home"
+          incomingUrl="todomoe:///capture?title=Call%20dentist&note=Tomorrow&tags=phone&project=Home"
           router={router}
           showToast={showToast}
         />
@@ -479,11 +479,11 @@ describe('useRootLayoutExternalCapture', () => {
   });
 
   it('opens the capture sheet again when the same shortcut link is delivered a second time', () => {
-    // An Action Button shortcut that opens a fixed mindwtr://capture link
+    // An Action Button shortcut that opens a fixed todomoe://capture link
     // worked once per app session: the second delivery carried the same
     // string and was treated as already handled (in-app report, iOS 26).
     let tree!: ReturnType<typeof create>;
-    const url = 'mindwtr:///capture?title=Call%20dentist';
+    const url = 'todomoe:///capture?title=Call%20dentist';
 
     act(() => {
       tree = create(<TestHarness incomingUrl={url} incomingUrlKey={1} router={router} showToast={showToast} />);
@@ -497,7 +497,7 @@ describe('useRootLayoutExternalCapture', () => {
 
   it('does not reopen the capture sheet on a re-render that carries no new delivery', () => {
     let tree!: ReturnType<typeof create>;
-    const url = 'mindwtr:///capture?title=Call%20dentist';
+    const url = 'todomoe:///capture?title=Call%20dentist';
 
     act(() => {
       tree = create(<TestHarness incomingUrl={url} incomingUrlKey={1} router={router} showToast={showToast} />);
@@ -515,7 +515,7 @@ describe('useRootLayoutExternalCapture', () => {
     act(() => {
       tree = create(
         <TestHarness
-          incomingUrl="mindwtr:///capture?title=Call%20dentist&requestId=first"
+          incomingUrl="todomoe:///capture?title=Call%20dentist&requestId=first"
           incomingUrlKey={1}
           router={router}
           showToast={showToast}
@@ -526,7 +526,7 @@ describe('useRootLayoutExternalCapture', () => {
     act(() => {
       tree.update(
         <TestHarness
-          incomingUrl="mindwtr:///capture?title=Call%20dentist&requestId=second"
+          incomingUrl="todomoe:///capture?title=Call%20dentist&requestId=second"
           incomingUrlKey={2}
           router={router}
           showToast={showToast}
@@ -553,7 +553,7 @@ describe('useRootLayoutExternalCapture', () => {
     act(() => {
       create(
         <TestHarness
-          incomingUrl="mindwtr:///capture-quick?mode=text"
+          incomingUrl="todomoe:///capture-quick?mode=text"
           router={router}
           showToast={showToast}
         />
@@ -569,7 +569,7 @@ describe('useRootLayoutExternalCapture', () => {
     act(() => {
       create(
         <TestHarness
-          incomingUrl="mindwtr:///open-feature?feature=focus"
+          incomingUrl="todomoe:///open-feature?feature=focus"
           router={router}
           showToast={showToast}
         />
@@ -593,7 +593,7 @@ describe('useRootLayoutExternalCapture', () => {
     act(() => {
       create(
         <TestHarness
-          incomingUrl="mindwtr://open?task=task-1"
+          incomingUrl="todomoe://open?task=task-1"
           router={router}
           showToast={showToast}
         />
@@ -613,7 +613,7 @@ describe('useRootLayoutExternalCapture', () => {
     act(() => {
       create(
         <TestHarness
-          incomingUrl="mindwtr:///open?project=proj-1"
+          incomingUrl="todomoe:///open?project=proj-1"
           router={router}
           showToast={showToast}
         />
@@ -632,7 +632,7 @@ describe('useRootLayoutExternalCapture', () => {
     act(() => {
       create(
         <TestHarness
-          incomingUrl="mindwtr://open?area=area-1"
+          incomingUrl="todomoe://open?area=area-1"
           router={router}
           showToast={showToast}
         />
@@ -648,7 +648,7 @@ describe('useRootLayoutExternalCapture', () => {
     act(() => {
       create(
         <TestHarness
-          incomingUrl="mindwtr://open?task=task-unknown"
+          incomingUrl="todomoe://open?task=task-unknown"
           router={router}
           showToast={showToast}
         />
@@ -660,7 +660,7 @@ describe('useRootLayoutExternalCapture', () => {
     act(() => {
       create(
         <TestHarness
-          incomingUrl="mindwtr://open?task=task-deleted"
+          incomingUrl="todomoe://open?task=task-deleted"
           router={router}
           showToast={showToast}
         />
@@ -673,7 +673,7 @@ describe('useRootLayoutExternalCapture', () => {
     act(() => {
       create(
         <TestHarness
-          incomingUrl="mindwtr://open?bogus=1"
+          incomingUrl="todomoe://open?bogus=1"
           router={router}
           showToast={showToast}
         />

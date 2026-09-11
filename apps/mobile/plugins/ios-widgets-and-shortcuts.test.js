@@ -13,13 +13,16 @@ const {
   ensureSourceFileInTarget,
 } = plugin.__testables;
 
+// Git may check Swift sources out as CRLF on Windows. Normalize only newlines;
+// retain the exact availability guards and ordered source assertions below.
+const readSwiftSource = (sourceDir, fileName) => (
+  fs.readFileSync(path.join(sourceDir, fileName), 'utf8').replace(/\r\n/g, '\n')
+);
+
 describe('ios-widgets-and-shortcuts', () => {
   it('ships App Intents sources for Siri Inbox capture and v1 Shortcuts actions', () => {
     const sourceDir = path.resolve(__dirname, '..', APP_INTENTS_FOLDER);
-    const source = fs.readFileSync(
-      path.join(sourceDir, 'MindwtrSiriCaptureIntents.swift'),
-      'utf8'
-    );
+    const source = readSwiftSource(sourceDir, 'MindwtrSiriCaptureIntents.swift');
 
     expect(collectSwiftFiles(sourceDir)).toContain('MindwtrSiriCaptureIntents.swift');
     expect(source).toContain('struct MindwtrSiriCaptureIntent: AppIntent');
@@ -48,10 +51,7 @@ describe('ios-widgets-and-shortcuts', () => {
 
   it('ships a background capture intent that only writes the pending-captures queue', () => {
     const sourceDir = path.resolve(__dirname, '..', APP_INTENTS_FOLDER);
-    const source = fs.readFileSync(
-      path.join(sourceDir, 'MindwtrSiriCaptureIntents.swift'),
-      'utf8'
-    );
+    const source = readSwiftSource(sourceDir, 'MindwtrSiriCaptureIntents.swift');
 
     expect(source).toContain('struct MindwtrBackgroundCaptureIntent: AppIntent');
     expect(source).toContain('"pending-captures"');
@@ -70,10 +70,7 @@ describe('ios-widgets-and-shortcuts', () => {
 
   it('renames the background capture intent to "Add to Mindwtr" with due/start date params (#980 stage 1)', () => {
     const sourceDir = path.resolve(__dirname, '..', APP_INTENTS_FOLDER);
-    const source = fs.readFileSync(
-      path.join(sourceDir, 'MindwtrSiriCaptureIntents.swift'),
-      'utf8'
-    );
+    const source = readSwiftSource(sourceDir, 'MindwtrSiriCaptureIntents.swift');
     const backgroundIntent = source.slice(
       source.indexOf('struct MindwtrBackgroundCaptureIntent'),
       source.indexOf('// MARK: - Shortcuts snapshot')
@@ -96,10 +93,7 @@ describe('ios-widgets-and-shortcuts', () => {
 
   it('ships a background, read-only Get Mindwtr Tasks intent over the shortcuts snapshot (#980 stage 2)', () => {
     const sourceDir = path.resolve(__dirname, '..', APP_INTENTS_FOLDER);
-    const source = fs.readFileSync(
-      path.join(sourceDir, 'MindwtrSiriCaptureIntents.swift'),
-      'utf8'
-    );
+    const source = readSwiftSource(sourceDir, 'MindwtrSiriCaptureIntents.swift');
 
     expect(source).toContain('struct MindwtrGetTasksIntent: AppIntent');
     expect(source).toContain('enum MindwtrGetTasksList: String, AppEnum');
@@ -126,10 +120,7 @@ describe('ios-widgets-and-shortcuts', () => {
 
   it('ships a Task entity (iOS 16+) with IndexedEntity Spotlight indexing guarded to iOS 18+ (#980 stage 3)', () => {
     const sourceDir = path.resolve(__dirname, '..', APP_INTENTS_FOLDER);
-    const source = fs.readFileSync(
-      path.join(sourceDir, 'MindwtrSiriCaptureIntents.swift'),
-      'utf8'
-    );
+    const source = readSwiftSource(sourceDir, 'MindwtrSiriCaptureIntents.swift');
 
     expect(source).toContain('@available(iOS 16.0, *)\nstruct MindwtrTaskEntity: AppEntity');
     expect(source).toContain('static var defaultQuery = MindwtrTaskEntityQuery()');

@@ -33,6 +33,7 @@ concurrency:
 
 jobs:
   update-aur-beta:
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' }}
     runs-on: ubuntu-latest
     name: Update mindwtr-beta-bin
     timeout-minutes: 45

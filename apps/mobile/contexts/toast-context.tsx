@@ -11,6 +11,7 @@ import {
     type PanResponderGestureState,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { NavigationContext } from '@react-navigation/native';
 
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { logError } from '@/lib/app-log';
@@ -44,7 +45,7 @@ type ToastRenderState = {
     showToast: (options: ToastOptions) => void;
     dismissToast: () => void;
     topViewportId: number | null;
-    registerViewport: (id: number) => void;
+    registerViewport: (id: number, active: boolean) => void;
     unregisterViewport: (id: number) => void;
     bottomOffset: number;
     setBottomOffset: (offset: number) => void;
@@ -89,7 +90,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const [bottomOffset, setBottomOffset] = useState(0);
     // Native <Modal> windows cover the root overlay, so modal content mounts a
     // ToastViewport and the toast renders in the topmost registered one (#834).
-    const [viewportStack, setViewportStack] = useState<number[]>([]);
+    const [viewportStack, setViewportStack] = useState<{ id: number; active: boolean }[]>([]);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const queueAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const opacity = useRef(new Animated.Value(0)).current;
@@ -240,15 +241,22 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         dismissToast,
     }), [dismissToast, showToast]);
 
-    const registerViewport = useCallback((id: number) => {
-        setViewportStack((current) => [...current.filter((entry) => entry !== id), id]);
+    const registerViewport = useCallback((id: number, active: boolean) => {
+        setViewportStack((current) => {
+            const existing = current.find((entry) => entry.id === id);
+            if (!existing) return [...current, { id, active }];
+            if (existing.active === active) return current;
+            // Refocusing an older retained route must not move it above a
+            // newer native modal. Preserve mount order while toggling activity.
+            return current.map((entry) => entry.id === id ? { id, active } : entry);
+        });
     }, []);
 
     const unregisterViewport = useCallback((id: number) => {
-        setViewportStack((current) => current.filter((entry) => entry !== id));
+        setViewportStack((current) => current.filter((entry) => entry.id !== id));
     }, []);
 
-    const topViewportId = viewportStack.length > 0 ? viewportStack[viewportStack.length - 1] : null;
+    const topViewportId = viewportStack.reduce<number | null>((top, entry) => entry.active ? entry.id : top, null);
 
     const renderState = useMemo<ToastRenderState>(() => ({
         toast,
@@ -363,9 +371,10 @@ function ToastOverlay({ respectBottomOffset = false }: { respectBottomOffset?: b
 
 // Mount inside a native <Modal>'s content so toasts fired while the modal is
 // open render above it instead of behind the modal window. The most recently
-// opened modal wins; the root overlay takes over when no viewport is mounted.
+// opened active modal wins; the root overlay takes over when none is active.
 export function ToastViewport() {
     const renderState = useContext(ToastRenderContext);
+    const navigation = useContext(NavigationContext);
     const idRef = useRef<number | null>(null);
     if (idRef.current === null) {
         idRef.current = nextViewportId++;
@@ -374,11 +383,23 @@ export function ToastViewport() {
     const registerViewport = renderState?.registerViewport;
     const unregisterViewport = renderState?.unregisterViewport;
 
+    // A navigation helper can change identity while this modal remains mounted.
+    // Remove its priority slot only on unmount, not when rebinding listeners.
+    useEffect(() => () => unregisterViewport?.(id), [id, unregisterViewport]);
+
     useEffect(() => {
-        if (!registerViewport || !unregisterViewport) return undefined;
-        registerViewport(id);
-        return () => unregisterViewport(id);
-    }, [id, registerViewport, unregisterViewport]);
+        if (!registerViewport) return undefined;
+        registerViewport(id, navigation?.isFocused() ?? true);
+        // Native-stack retains (and can freeze) blurred route trees. Subscribe
+        // directly so blur releases ownership even without a viewport rerender.
+        // Global native modals outside a screen's NavigationContext stay active.
+        const unsubscribeFocus = navigation?.addListener('focus', () => registerViewport(id, true));
+        const unsubscribeBlur = navigation?.addListener('blur', () => registerViewport(id, false));
+        return () => {
+            unsubscribeFocus?.();
+            unsubscribeBlur?.();
+        };
+    }, [id, navigation, registerViewport]);
 
     if (!renderState || renderState.topViewportId !== id) return null;
     return <ToastOverlay />;

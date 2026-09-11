@@ -1,0 +1,132 @@
+name: Todo Moe publish existing signed candidate
+on:
+  workflow_dispatch:
+    inputs:
+      approved_sha:
+        description: Full approved source SHA recorded in the signed manifest
+        required: true
+        type: string
+      version_code:
+        description: Existing signed candidate versionCode
+        required: true
+        type: string
+      signed_run_id:
+        description: Completed controlled stable release run containing the successful sign job
+        required: true
+        type: string
+      publish:
+        description: Request protected publication after read-only preview (false only prepares review)
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: moe-stable-release
+  cancel-in-progress: false
+jobs:
+  prepare:
+    if: github.repository == 'XiaoLeXLDW/todo-moe' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      review_artifact_id: ${{ steps.review.outputs.artifact-id }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MOE_APPROVED_SHA: ${{ inputs.approved_sha }}
+      MOE_VERSION_CODE: ${{ inputs.version_code }}
+      MOE_SIGNED_RUN_ID: ${{ inputs.signed_run_id }}
+      PUBLISH: ${{ inputs.publish }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: ${{ github.sha }}
+          path: workflow
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: '22'
+      - name: Validate original signing run before downloading its artifact
+        id: origin
+        run: |
+          mkdir -p review
+          node workflow/scripts/moe/validate-signed-run.mjs review/provenance.json
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: ${{ inputs.approved_sha }}
+          path: approved-source
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          artifact-ids: ${{ steps.origin.outputs.artifact_id }}
+          run-id: ${{ steps.origin.outputs.signed_run_id }}
+          repository: XiaoLeXLDW/todo-moe
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: review/signed
+      - name: Verify approved source, signed bytes and remote state without publication writes
+        working-directory: approved-source
+        run: node ../workflow/scripts/moe/publish-release.mjs ../review/signed --preview > ../review/review-plan.json
+      - name: Show publication plan for protected-environment review
+        run: |
+          echo '### Existing signed candidate publication plan' >> "$GITHUB_STEP_SUMMARY"
+          echo 'The exact four signed files and provenance are in this run review artifact.' >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat review/review-plan.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        id: review
+        with:
+          name: todo-moe-publish-review-${{ github.run_attempt }}
+          path: |
+            review/provenance.json
+            review/review-plan.json
+            review/signed/*.apk
+            review/signed/SHA256SUMS
+            review/signed/release-manifest.json
+            review/signed/RELEASE-NOTES.md
+          if-no-files-found: error
+  publish:
+    needs: prepare
+    if: inputs.publish && github.repository == 'XiaoLeXLDW/todo-moe' && github.ref == 'refs/heads/main'
+    environment: todo-moe-publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      # Execute only current main workflow code; the approved checkout and all
+      # downloaded artifacts are data. No build, dependencies or signing secrets.
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: ${{ github.sha }}
+          path: workflow
+          persist-credentials: false
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: ${{ inputs.approved_sha }}
+          path: approved-source
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          artifact-ids: ${{ needs.prepare.outputs.review_artifact_id }}
+          merge-multiple: true
+          path: reviewed
+      - name: Revalidate the same reviewed artifact and publish through the remote integrity gate
+        working-directory: approved-source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MOE_APPROVED_SHA: ${{ inputs.approved_sha }}
+          MOE_VERSION_CODE: ${{ inputs.version_code }}
+          MOE_SIGNED_RUN_ID: ${{ inputs.signed_run_id }}
+          PUBLISH: ${{ inputs.publish }}
+        run: node ../workflow/scripts/moe/publish-release.mjs ../reviewed/signed --review-plan ../reviewed/review-plan.json

@@ -16,7 +16,7 @@ const ICON_FILE_NAME = 'ic_quick_settings_capture.xml';
 const buildTileStringsXml = () => `<?xml version="1.0" encoding="utf-8"?>
 <resources>
   <string name="quick_settings_capture_tile_label" translatable="false">Capture</string>
-  <string name="quick_settings_capture_tile_description" translatable="false">Open Mindwtr quick capture</string>
+  <string name="quick_settings_capture_tile_description" translatable="false">Open %1$s quick capture</string>
 </resources>
 `;
 
@@ -66,7 +66,7 @@ class CaptureTileService : TileService() {
   private fun updateTileState() {
     qsTile?.apply {
       label = getString(R.string.quick_settings_capture_tile_label)
-      contentDescription = getString(R.string.quick_settings_capture_tile_description)
+      contentDescription = getString(R.string.quick_settings_capture_tile_description, packageManager.getApplicationLabel(applicationInfo))
       state = Tile.STATE_ACTIVE
       updateTile()
     }

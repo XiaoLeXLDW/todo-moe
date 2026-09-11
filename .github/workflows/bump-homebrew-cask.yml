@@ -17,6 +17,7 @@ concurrency:
 
 jobs:
   bump-official-cask:
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' }}
     runs-on: macos-latest
     name: Bump Official Homebrew Cask
     timeout-minutes: 30

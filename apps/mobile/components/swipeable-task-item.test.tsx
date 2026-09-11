@@ -4,6 +4,8 @@ import renderer from 'react-test-renderer';
 import { Alert } from 'react-native';
 
 import { SwipeableTaskItem, readTaskRowRenderCount, type TaskRowActions } from './swipeable-task-item';
+import { MoeCheckButton } from '../moe/MoeCheckButton';
+import { subscribeListCompleted } from '../moe/completion';
 
 const { addTask, updateTask, restoreTask, undoTaskCompletion, showToast, getChecklistProgress, getTaskAgeLabel, getTaskStaleness, safeFormatDate, safeParseDate, storeState } = vi.hoisted(() => ({
   addTask: vi.fn(),
@@ -149,6 +151,7 @@ vi.mock('react-native-gesture-handler', () => ({
 
 vi.mock('expo-haptics', () => ({
   ImpactFeedbackStyle: {
+    Light: 'light',
     Medium: 'medium',
   },
   NotificationFeedbackType: {
@@ -299,6 +302,41 @@ describe('SwipeableTaskItem', () => {
       flex: 1,
       minWidth: 0,
     }));
+  });
+
+  it('submits completion immediately, rejects duplicate taps, and preserves retry after a failed write', async () => {
+    let finish!: (result: unknown) => void;
+    const onStatusChange = vi.fn(() => new Promise((resolve) => { finish = resolve; }));
+    const task = { id: 'moe-rapid', title: '立即完成', projectId: 'moe-list', status: 'next', createdAt: '2026-01-01', updatedAt: '2026-01-01' };
+    storeState._allTasks = [task];
+    storeState._allProjects = [{ id: 'moe-list', title: '清单', status: 'active' }];
+    const celebration = vi.fn();
+    const unsubscribe = subscribeListCompleted(celebration);
+    let tree!: renderer.ReactTestRenderer;
+    await renderer.act(async () => {
+      tree = renderer.create(<SwipeableTaskItem task={task as any} isDark={false}
+        tc={{ taskItemBg: '#fff', border: '#aaa', text: '#111', secondaryText: '#555', tint: '#345', success: '#173', onTint: '#fff' } as any}
+        onPress={vi.fn()} onStatusChange={onStatusChange} onDelete={vi.fn()} />);
+    });
+    const press = () => tree.root.findByType(MoeCheckButton).props.onPress();
+    renderer.act(() => { press(); press(); });
+    expect(onStatusChange).toHaveBeenCalledExactlyOnceWith('done');
+    expect(tree.root.findByType(MoeCheckButton).props.disabled).toBe(true);
+    expect(celebration).not.toHaveBeenCalled();
+    await renderer.act(async () => { finish({ success: false, error: 'disk full' }); });
+    expect(tree.root.findByType(MoeCheckButton).props.checked).toBe(false);
+    expect(tree.root.findByType(MoeCheckButton).props.disabled).toBe(false);
+    expect(showToast).toHaveBeenCalledWith(expect.objectContaining({ tone: 'error', message: 'disk full' }));
+    renderer.act(() => { press(); });
+    expect(onStatusChange).toHaveBeenCalledTimes(2);
+    await renderer.act(async () => {
+      storeState._allTasks = [{ ...task, status: 'done' }];
+      finish({ success: true });
+    });
+    expect(celebration).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledWith(expect.objectContaining({ actionLabel: 'Undo' }));
+    unsubscribe();
+    renderer.act(() => tree.unmount());
   });
 
   it('requires a deliberate horizontal drag before opening swipe actions', () => {
@@ -507,7 +545,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
     });
 
     expect(onDelete).toHaveBeenCalledTimes(1);
-    expect(hapticsMocks.notificationAsync).toHaveBeenCalledWith('warning');
+    expect(hapticsMocks.impactAsync).toHaveBeenCalledWith('light');
     expect(showToast).toHaveBeenCalledWith(expect.objectContaining({
       message: 'Task deleted',
       actionLabel: 'Undo',
@@ -1346,7 +1384,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
     });
 
     expect(onStatusChange).toHaveBeenCalledWith('next');
-    expect(hapticsMocks.notificationAsync).toHaveBeenCalledWith('success');
+    expect(hapticsMocks.impactAsync).toHaveBeenCalledWith('light');
   });
 
   it('uses localized status, due-date, and action-menu accessibility copy', () => {
@@ -1564,7 +1602,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
       doneAction.props.onLongPress();
     });
 
-    expect(hapticsMocks.impactAsync).toHaveBeenCalledWith('medium');
+    expect(hapticsMocks.impactAsync).toHaveBeenCalledWith('light');
     expect(doneAction.props.accessibilityHint).toBe('Long-press to complete with a different time');
 
     const picker = tree.root.findByType('CompletedAtPicker' as any);

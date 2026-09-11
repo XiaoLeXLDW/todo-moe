@@ -4,7 +4,7 @@ import { authorizeDropbox } from './dropbox-oauth';
 
 const mocks = vi.hoisted(() => ({
     exchangeCodeAsync: vi.fn(),
-    makeRedirectUri: vi.fn(() => 'mindwtr://redirect'),
+    makeRedirectUri: vi.fn(() => 'todomoe://redirect'),
     maybeCompleteAuthSession: vi.fn(),
     promptAsync: vi.fn(),
     saveDropboxTokens: vi.fn(),
@@ -58,5 +58,6 @@ describe('authorizeDropbox', () => {
             expiresAt: 15_400_000,
         });
         expect(mocks.saveDropboxTokens).not.toHaveBeenCalled();
+        expect(mocks.makeRedirectUri).toHaveBeenCalledWith({ scheme: 'todomoe', path: 'redirect', native: 'todomoe://redirect' });
     });
 });

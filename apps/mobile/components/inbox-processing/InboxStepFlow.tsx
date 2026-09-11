@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/moe/haptics';
 import {
   BookOpen,
   CheckCircle2,

@@ -59,14 +59,21 @@ config.watchFolders = Array.from(new Set([...defaultWatchFolders, workspaceRoot]
 
 // 1.1 CRITICAL: Exclude build output directories that cause Metro to crash
 config.resolver.blockList = [
-    /apps\/desktop\/src-tauri\/target\/.*/,
-    /apps\/mobile\/app\/.*\.(?:test|spec)\.[jt]sx?$/,
-    /(^|\/)\.worktrees\/.*/,
-    /\.git\/.*/,
-    /node_modules\/.*\/\.git\/.*/,
+    // Todo Moe keeps portable SDKs and build caches inside the workspace.
+    // They are never application sources; watching transient Gradle/Bun files
+    // wastes memory and can race files being moved while native builds run.
+    /(^|[\\/])\.tools[\\/].*/,
+    /(^|[\\/])\.secrets[\\/].*/,
+    /(^|[\\/])evidence[\\/].*/,
+    /(^|[\\/])build[\\/]moe[^\\/]*[\\/].*/,
+    /apps[\\/]desktop[\\/]src-tauri[\\/]target[\\/].*/,
+    /apps[\\/]mobile[\\/]app[\\/].*\.(?:test|spec)\.[jt]sx?$/,
+    /(^|[\\/])\.worktrees[\\/].*/,
+    /\.git[\\/].*/,
+    /node_modules[\\/].*[\\/]\.git[\\/].*/,
     // vitest coverage output is rewritten while suites run; Metro's file
     // watcher crashes on the vanishing sub-dirs (ENOENT in FallbackWatcher).
-    /(^|\/)coverage\/.*/,
+    /(^|[\\/])coverage[\\/].*/,
 ];
 
 // 2. Let Metro know where to resolve packages and in what order

@@ -27,7 +27,7 @@
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:singleLine="true"
-                android:text="Mindwtr"
+                android:text="Today"
                 android:textColor="@color/mindwtr_widget_text"
                 android:textSize="13sp"
                 android:textStyle="bold" />

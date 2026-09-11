@@ -1,0 +1,126 @@
+name: Todo Moe controlled stable release
+on:
+  workflow_dispatch:
+    inputs:
+      approved_sha:
+        description: Full 40-character commit SHA already accepted and merged to main
+        required: true
+        type: string
+      version_code:
+        description: New integer greater than every prior stable draft or release
+        required: true
+        type: string
+      publish:
+        description: Publish after protected environment approval (otherwise draft)
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: moe-stable-release
+  cancel-in-progress: false
+jobs:
+  preflight:
+    if: github.repository == 'XiaoLeXLDW/todo-moe' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.plan.outputs.tag }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: ${{ inputs.approved_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: '22'
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MOE_APPROVED_SHA: ${{ inputs.approved_sha }}
+          MOE_VERSION_CODE: ${{ inputs.version_code }}
+        run: node scripts/moe/release-policy.mjs
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: release-plan
+          path: build/moe/release-plan.json
+  checks:
+    needs: preflight
+    uses: ./.github/workflows/moe-check.yml
+    with:
+      source_sha: ${{ inputs.approved_sha }}
+  unsigned:
+    needs: checks
+    uses: ./.github/workflows/moe-build-android.yml
+    with:
+      source_sha: ${{ inputs.approved_sha }}
+      channel: stable
+      version_code: ${{ inputs.version_code }}
+  sign:
+    needs: unsigned
+    environment: todo-moe-signing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      # Signing code comes from the trusted workflow main commit. No dependency
+      # installation, project build, or artifact-provided executable runs here.
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android signing tools
+        env:
+          ANDROID_SDK_PACKAGES: build-tools;36.0.0
+        run: bash scripts/ci/setup-android-sdk.sh
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: ${{ needs.unsigned.outputs.artifact }}
+          path: unsigned
+      - name: Sign and validate the approved artifact
+        env:
+          MOE_APPROVED_SHA: ${{ inputs.approved_sha }}
+          MOE_VERSION_CODE: ${{ inputs.version_code }}
+          MOE_KEYSTORE_BASE64: ${{ secrets.MOE_KEYSTORE_BASE64 }}
+          MOE_KEYSTORE_PASSWORD: ${{ secrets.MOE_KEYSTORE_PASSWORD }}
+          MOE_KEY_ALIAS: ${{ secrets.MOE_KEY_ALIAS }}
+          MOE_KEY_PASSWORD: ${{ secrets.MOE_KEY_PASSWORD }}
+          MOE_CERT_SHA256: ${{ vars.MOE_CERT_SHA256 }}
+        run: node scripts/moe/sign-android.mjs unsigned signed
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: todo-moe-signed-stable
+          path: signed/*
+          if-no-files-found: error
+  release:
+    needs: [preflight, sign]
+    environment: todo-moe-publish
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: ${{ inputs.approved_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: todo-moe-signed-stable
+          path: signed
+      - name: Verify and resume exact-artifact release publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.preflight.outputs.tag }}
+          APPROVED_SHA: ${{ inputs.approved_sha }}
+          MOE_APPROVED_SHA: ${{ inputs.approved_sha }}
+          MOE_VERSION_CODE: ${{ inputs.version_code }}
+          PUBLISH: ${{ inputs.publish }}
+        run: node scripts/moe/publish-release.mjs signed

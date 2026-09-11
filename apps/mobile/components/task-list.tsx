@@ -92,6 +92,7 @@ import { DONE_TASK_LIST_SORT_OPTIONS, TASK_LIST_SORT_OPTIONS } from '@mindwtr/co
 import { resolveTaskListSortBy } from '@/lib/task-list-sort';
 import { DONE_LIST_GROUP_OPTIONS } from '@/lib/view-state/done-list-view-state';
 import { useCollapsedTaskGroups } from '@/lib/view-state/task-group-collapse-state';
+import { useMoeTabInset } from '@/moe/tab-insets';
 
 const PROJECT_REORDER_ITEM_HEIGHT = 80;
 const PROJECT_REORDER_ANIMATION_CONFIG = {
@@ -314,13 +315,15 @@ function TaskListComponent({
 
   // Dynamic colors based on theme
   const themeColors = useThemeColors();
+  const moeTabInset = useMoeTabInset();
 
   const listContentStyle = useMemo(() => {
-    if (!contentPaddingBottom || contentPaddingBottom <= 0) {
+    const padding = contentPaddingBottom ?? moeTabInset;
+    if (padding <= 0) {
       return styles.listContent;
     }
-    return [styles.listContent, { paddingBottom: 12 + contentPaddingBottom }];
-  }, [contentPaddingBottom]);
+    return [styles.listContent, { paddingBottom: 12 + padding }];
+  }, [contentPaddingBottom, moeTabInset]);
   const emptyMessage = emptyText || t('list.noTasks');
 
   const tasksById = useMemo(() => {

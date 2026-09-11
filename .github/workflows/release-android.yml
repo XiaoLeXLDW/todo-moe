@@ -90,6 +90,7 @@ concurrency:
 
 jobs:
   preflight:
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' }}
     runs-on: ubuntu-latest
     name: Android Release Preflight
     timeout-minutes: 10
@@ -228,6 +229,7 @@ jobs:
           echo "Profileable internal versionCode: $internal_version_code"
 
   build-aab:
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' }}
     needs: preflight
     runs-on: ubuntu-latest
     name: Android AAB Build
@@ -312,7 +314,7 @@ jobs:
           retention-days: ${{ inputs.retention_days }}
 
   build-internal-test-aab:
-    if: ${{ needs.preflight.outputs.internal_profileable == 'true' }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (needs.preflight.outputs.internal_profileable == 'true') }}
     needs: preflight
     runs-on: ubuntu-latest
     name: Android Internal Profileable AAB Build
@@ -394,7 +396,7 @@ jobs:
           retention-days: ${{ inputs.retention_days }}
 
   build-apk:
-    if: ${{ !inputs.internal_test_release }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (!inputs.internal_test_release) }}
     needs: preflight
     runs-on: ubuntu-latest
     name: Android APK Build
@@ -491,7 +493,7 @@ jobs:
           retention-days: 28
 
   publish:
-    if: ${{ always() && needs.preflight.result == 'success' && needs.build-aab.result == 'success' && ((needs.preflight.outputs.normal_play_track != 'none' && !inputs.internal_test_release && needs.build-apk.result == 'success' && (needs.preflight.outputs.normal_play_track != 'production' || (startsWith(github.ref, 'refs/tags/') && github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-')))) || (needs.preflight.outputs.internal_profileable == 'true' && needs['build-internal-test-aab'].result == 'success')) }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && needs.preflight.result == 'success' && needs.build-aab.result == 'success' && ((needs.preflight.outputs.normal_play_track != 'none' && !inputs.internal_test_release && needs.build-apk.result == 'success' && (needs.preflight.outputs.normal_play_track != 'production' || (startsWith(github.ref, 'refs/tags/') && github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-')))) || (needs.preflight.outputs.internal_profileable == 'true' && needs['build-internal-test-aab'].result == 'success'))) }}
     needs: [preflight, build-aab, build-internal-test-aab, build-apk]
     runs-on: ubuntu-latest
     name: Android Publish

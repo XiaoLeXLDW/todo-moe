@@ -1,6 +1,9 @@
 import React from 'react';
+import { Alert } from 'react-native';
+import Constants from 'expo-constants';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+vi.mock('expo-constants', () => ({ default: { expoConfig: {} } }));
 
 import {
     CLOUD_PROVIDER_KEY,
@@ -91,6 +94,9 @@ vi.mock('@/lib/secure-config', () => ({
 // barrel itself stays mocked: loading it here would drag in LOCALES and the
 // settings-search tables at module-load time.
 vi.mock('@mindwtr/core', async () => ({
+    computeStableValueFingerprint: (await vi.importActual<typeof import('../../../../packages/core/src/sync-helpers')>(
+        '../../../../packages/core/src/sync-helpers',
+    )).computeStableValueFingerprint,
     ...(await vi.importActual<typeof import('../../../../packages/core/src/sync-configuration-transaction')>(
         '../../../../packages/core/src/sync-configuration-transaction',
     )),
@@ -372,6 +378,31 @@ afterEach(() => {
 });
 
 describe('useSyncSettingsTransportActions', () => {
+    it('cancels Dev setup before the WebDAV compatibility probe can write or activate it', async () => {
+        const config = Constants.expoConfig!;
+        const original = config.android;
+        config.android = { package: 'io.github.xiaolexldw.todomoe.dev' };
+        const alert = vi.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+            buttons?.find((button) => button.style === 'cancel')?.onPress?.();
+        });
+        try {
+            await renderHarness();
+            await act(async () => {
+                await latestHookResult?.handleSaveWebDavSettings({
+                    allowInsecureHttp: false,
+                    url: 'https://isolated.example/dev-cancel/', username: 'tester', password: 'fake-password',
+                });
+            });
+            expect(alert).toHaveBeenCalledTimes(1);
+            expect(mocked.probeWebdavSyncCompatibility).not.toHaveBeenCalled();
+            expect(mocked.performMobileSync).not.toHaveBeenCalled();
+            expect(mocked.setSecureConfigValue).not.toHaveBeenCalled();
+        } finally {
+            config.android = original;
+            alert.mockRestore();
+        }
+    });
+
     it('loads persisted transport state inside the hook and coerces unsupported CloudKit state', async () => {
         seedStorage([
             [SYNC_PATH_KEY, 'file:///sync-folder/data.json'],

@@ -1,3 +1,4 @@
+import { appDeepLink, getAppIdentity } from './app-identity';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import type { DropboxAuthTokens } from './dropbox-auth';
@@ -14,7 +15,7 @@ const ACCESS_SCOPES = [
 ];
 
 const DEFAULT_ACCESS_TOKEN_LIFETIME_SECONDS = 4 * 60 * 60;
-const DROPBOX_NATIVE_REDIRECT_URI = 'mindwtr://redirect';
+
 
 const ensureDropboxClientId = (clientId: string): string => {
     const trimmed = clientId.trim();
@@ -25,9 +26,9 @@ const ensureDropboxClientId = (clientId: string): string => {
 };
 
 export const getDropboxRedirectUri = (): string => AuthSession.makeRedirectUri({
-    scheme: 'mindwtr',
+    scheme: getAppIdentity().scheme,
     path: 'redirect',
-    native: DROPBOX_NATIVE_REDIRECT_URI,
+    native: appDeepLink('redirect'),
 });
 
 export async function authorizeDropbox(clientId: string): Promise<DropboxAuthTokens> {

@@ -1,3 +1,4 @@
+import { getAppIdentity, TODO_MOE_RELEASES_API, TODO_MOE_RELEASES_URL, TODO_MOE_ISSUES_URL, TODO_MOE_REPOSITORY } from '@/lib/app-identity';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Constants from 'expo-constants';
@@ -25,7 +26,10 @@ import { useSettingsLocalization, useSettingsScrollContent } from './settings.ho
 import { SettingsTopBar } from './settings.shell';
 import { styles } from './settings.styles';
 
-const appIconSource = require('../../assets/images/icon.png');
+const appIconSource = require('../../moe/brand/icon.png');
+const GITHUB_ISSUES_URL = TODO_MOE_ISSUES_URL;
+const GITHUB_RELEASES_API = TODO_MOE_RELEASES_API;
+const GITHUB_RELEASES_URL = TODO_MOE_RELEASES_URL;
 
 const parseExtraBool = (value: unknown): boolean =>
     value === true || value === 1 || value === '1' || value === 'true';
@@ -45,7 +49,11 @@ export function AboutSettingsScreen({
     const currentVersion = Constants.expoConfig?.version || '0.0.0';
     const displayVersion = resolveMobileAnalyticsVersion(currentVersion, extraConfig?.analyticsReleaseVersion);
     const feedbackEndpointUrl = String(extraConfig?.feedbackEndpointUrl ?? '').trim();
-    const appName = Constants.expoConfig?.name || Application.applicationName || 'Mindwtr';
+    const appName = Constants.expoConfig?.name || Application.applicationName || 'Todo Moe';
+    const buildInfo = Constants.expoConfig?.extra?.todoMoe as {
+        channel?: string; versionCode?: number; sourceSha?: string; dirty?: boolean;
+        upstreamVersion?: string; upstreamSha?: string; artworkStatus?: string;
+    } | undefined;
     const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
     const [feedbackOpen, setFeedbackOpen] = useState(false);
     const [androidInstallerSource, setAndroidInstallerSource] = useState<'play-store' | 'sideload' | 'unknown'>(
@@ -80,10 +88,7 @@ export function AboutSettingsScreen({
     }, [isFossBuild]);
 
     const openLink = (url: string) => Linking.openURL(url);
-    const GITHUB_ISSUES_URL = 'https://github.com/dongdongbh/Mindwtr/issues/new/choose';
-    const GITHUB_RELEASES_API = 'https://api.github.com/repos/dongdongbh/Mindwtr/releases/latest';
-    const GITHUB_RELEASES_URL = 'https://github.com/dongdongbh/Mindwtr/releases/latest';
-    const ANDROID_PACKAGE_NAME = Constants.expoConfig?.android?.package || Application.applicationId || 'tech.dongdongbh.mindwtr';
+    const ANDROID_PACKAGE_NAME = getAppIdentity().packageName;
     const PLAY_STORE_URL = `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE_NAME}`;
     const PLAY_STORE_MARKET_URL = `market://details?id=${ANDROID_PACKAGE_NAME}`;
     const APP_STORE_BUNDLE_ID = Constants.expoConfig?.ios?.bundleIdentifier || Application.applicationId || 'tech.dongdongbh.mindwtr';
@@ -408,6 +413,19 @@ export function AboutSettingsScreen({
                             v{displayVersion}
                         </Text>
                     </View>
+                    <View style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}>
+                        <Text selectable style={[styles.settingValue, { color: tc.secondaryText, flex: 1 }]}>
+                            {`Todo Moe · ${getAppIdentity().channel} · build ${buildInfo?.versionCode ?? 'unknown'}\n${getAppIdentity().packageName}\nFork: ${buildInfo?.sourceSha ?? 'unknown'}${buildInfo?.dirty ? ' (含未提交改动)' : ''}\nMindwtr: ${buildInfo?.upstreamVersion ?? 'unknown'} · ${buildInfo?.upstreamSha ?? 'unknown'}\n图标：${buildInfo?.artworkStatus ?? '临时开发图标；家族素材待提供'}`}
+                        </Text>
+                    </View>
+                    <TouchableOpacity
+                        accessibilityRole="link"
+                        style={styles.settingRow}
+                        onPress={() => openLink(`${TODO_MOE_REPOSITORY}/releases`)}
+                    >
+                        <Text style={[styles.settingLabel, { color: tc.text }]}>Todo Moe 下载与更新</Text>
+                        <Text style={styles.linkText}>GitHub Releases</Text>
+                    </TouchableOpacity>
                     {!isFossBuild && (
                         <TouchableOpacity
                             style={styles.settingRow}
@@ -442,7 +460,7 @@ export function AboutSettingsScreen({
                         style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}
                         onPress={() => openLink('https://mindwtr.app')}
                     >
-                        <Text style={[styles.settingLabel, { color: tc.text }]}>{t('settings.officialWebsite')}</Text>
+                        <Text style={[styles.settingLabel, { color: tc.text }]}>上游 Mindwtr 网站</Text>
                         <Text style={styles.linkText}>Mindwtr</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -456,14 +474,14 @@ export function AboutSettingsScreen({
                         style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}
                         onPress={() => openLink('https://mindwtr.app/privacy')}
                     >
-                        <Text style={[styles.settingLabel, { color: tc.text }]}>{t('settings.privacy')}</Text>
+                        <Text style={[styles.settingLabel, { color: tc.text }]}>上游 Mindwtr 隐私说明</Text>
                         <Text style={styles.linkText}>{t('settings.privacy')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}
                         onPress={() => openLink('https://mindwtr.app/donate?src=app_about')}
                     >
-                        <Text style={[styles.settingLabel, { color: tc.text }]}>{t('settings.sponsorProject')}</Text>
+                        <Text style={[styles.settingLabel, { color: tc.text }]}>支持上游 Mindwtr</Text>
                         <Text style={styles.linkText}>{tr('settings.donateLinkValue')}</Text>
                     </TouchableOpacity>
                     <View style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}>
@@ -477,9 +495,7 @@ export function AboutSettingsScreen({
                 isConfigured={Boolean(feedbackEndpointUrl)}
                 tr={tr}
                 onClose={() => setFeedbackOpen(false)}
-                onOpenGitHub={(category) => openLink(category === 'other'
-                    ? 'https://github.com/dongdongbh/Mindwtr/discussions/new'
-                    : GITHUB_ISSUES_URL)}
+                onOpenGitHub={() => openLink(GITHUB_ISSUES_URL)}
                 onSubmit={handleSubmitFeedback}
             />
         </SafeAreaView>

@@ -18,7 +18,7 @@ import {
   UIManager,
 } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/moe/haptics';
 import { useLocalSearchParams } from 'expo-router';
 import { BookmarkPlus, ChevronsDown, ChevronsUp, Folder, GripVertical, List, SlidersHorizontal, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

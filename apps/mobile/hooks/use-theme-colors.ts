@@ -1,5 +1,5 @@
-import { resolveThemeTokens, type ThemeColors, FALLBACK_THEME_COLORS } from './use-theme-tokens';
-import { useTheme, type ThemeContextType } from '../contexts/theme-context';
+import { resolveThemeTokens, useThemeTokens, type ThemeColors, FALLBACK_THEME_COLORS } from './use-theme-tokens';
+import { type ThemeContextType } from '../contexts/theme-context';
 
 // Re-export the generic color shape from its source-of-truth module so existing
 // import sites (`import { ThemeColors, useThemeColors } from './use-theme-colors'`)
@@ -16,5 +16,5 @@ export function resolveThemeColors(
 }
 
 export function useThemeColors() {
-  return resolveThemeColors(useTheme());
+  return useThemeTokens().colors;
 }

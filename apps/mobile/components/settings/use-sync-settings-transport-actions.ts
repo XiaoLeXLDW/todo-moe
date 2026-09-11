@@ -18,6 +18,7 @@ import {
 } from '@mindwtr/core';
 
 import { logInfo } from '@/lib/app-log';
+import { assertDevelopmentSyncTarget } from '@/lib/dev-sync-guard';
 import { pickAndParseSyncFolder } from '@/lib/storage-file';
 import { getCloudKitAccountStatus } from '@/lib/cloudkit-sync';
 import { authorizeDropbox, getDropboxRedirectUri } from '@/lib/dropbox-oauth';
@@ -214,6 +215,10 @@ export function useSyncSettingsTransportActions({
 
     const runDropboxConnectionTest = useCallback(async () => {
         const stagedCredentials = stagedDropboxCredentialsRef.current;
+        await assertDevelopmentSyncTarget({
+            backend: 'cloud', provider: 'dropbox',
+            credential: (stagedCredentials?.tokens ?? await getStoredDropboxTokens())?.refreshToken,
+        }, true);
         let accessToken: string;
         if (stagedCredentials) {
             const resolution = await getValidDropboxAccessTokenForTokens(
@@ -944,6 +949,13 @@ export function useSyncSettingsTransportActions({
                     && provenCloudProviderRef.current !== 'cloudkit'
             );
             if (needsActivationProbe) {
+                await assertDevelopmentSyncTarget({
+                    backend: configOverride.backend,
+                    location: configOverride.webdav?.url ?? configOverride.cloud?.url ?? configOverride.syncPath,
+                    account: configOverride.webdav?.username,
+                    credential: configOverride.webdav?.password ?? configOverride.cloud?.token ?? configOverride.dropbox?.tokens.refreshToken,
+                    provider: configOverride.cloudProvider,
+                }, true);
                 if (configOverride.backend === 'webdav' && configOverride.webdav) {
                     const compatibility = await probeWebdavCompatibilityForCurrentEncryptionPosture(
                         normalizeWebdavUrl(configOverride.webdav.url),
@@ -1303,6 +1315,13 @@ export function useSyncSettingsTransportActions({
             username: webdavUsername,
         };
         try {
+            await assertDevelopmentSyncTarget({
+                backend,
+                location: backend === 'webdav' ? effectiveWebdav.url : effectiveCloud.url,
+                account: backend === 'webdav' ? effectiveWebdav.username : undefined,
+                credential: backend === 'webdav' ? effectiveWebdav.password : effectiveCloud.token,
+                provider: backend === 'cloud' ? effectiveCloudProvider : undefined,
+            }, true);
             if (backend === 'webdav') {
                 const trimmedWebDavUrl = effectiveWebdav.url.trim();
                 if (!validateSyncHttpUrl(trimmedWebDavUrl, effectiveWebdav.allowInsecureHttp, 'WebDAV')) {
