@@ -24,6 +24,9 @@ Stable构建在原生编译前从固定源码SHA的Git普通blob读取JSON和Mar
 
 ## 已执行的验证与边界
 
+- 完整工程测试116项通过、1项显式宿主签名测试默认跳过、0失败，2685次断言；随后单独执行了真实签名测试，不把跳过算通过。
+- 干净提交`5fb560d6f2f2bc3a5b0af65a4491f18df5ad27d6`实际Stable无签名构建4m44通过。APK为41,986,980字节，SHA-256 `beb0dd84f855b8a5ee9ccf37635572a18e0833b66a5bb157c9421270c5ec0a26`；包名/版本/嵌入配置、无签名块、16KiB zipalign及32个ELF库对齐通过。详见[本次版本记录](docs/versions/0.1.0-stable-vc1-release-flow-2026-09-12.md)。
+- 本次builder实际生成说明输入，SHA-256 `4367fe346d2fcc4f22b6d34fc03fd8771c6f392ee34f0c761ffc746a24f03d6e`。宿主签名测试直接使用该原始文件，15个场景通过（Node含父测试16 pass，14.27秒）；原APK、manifest和说明输入字节未变，临时测试证书已清理。日志为`evidence/development/signing-integration-builder-notes-5fb560d6.log`。
 - 发布资料7项测试通过：固定Git源、未提交/symlink拒绝、必填资料、嵌套记录哈希、篡改和大小限制。
 - 签名宿主测试使用一次性RSA测试证书；15个实际场景通过（Node汇总16 pass含父测试）。包含证书、真实APK包名/版本、资料和哈希拒绝；正式私钥未使用，临时证书和APK副本已清理。
 - fake-gh覆盖上传中断、精确补传、缺失/损坏资产、成功响应却未公开、重复调用、版本递增门禁，以及默认草稿到新入口公开。它不等于真实GitHub发布验证。

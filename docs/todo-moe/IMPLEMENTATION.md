@@ -4,7 +4,7 @@
 
 更新：2026-09-12。当前本地Dev候选为vc7：运行源码`e6a797d50df8b9294fe3260585f71e151b69b8dc`，APK SHA-256 `03fbb33441de9dd7cca835a2a3e5f558d1f580e7274838ee1111df25fd93568f`，42,005,624字节，已同Dev证书正常覆盖安装。About显示build7/source e6a797d5，两处静态文案及1914×2160内屏More键盘/顶部已实测通过；vc6→vc7完整导出结构一致（含数组顺序、全部元数据和settings），10条active/12条总tasks，原始字节因JSON对象key顺序不同而不相同。 本轮按用户决定local-only，任务同步暂不启用。vc6已有家族图标、启动画面、浅色/系统深色及外屏证据；完整折叠切换压力、无障碍/系统入口矩阵、7天日用与正式签名发布仍未完成，v1.0未放行。 详见[vc7记录](docs/versions/0.1.0-dev-vc7-2026-09-12.md)和[真机记录](DEVICE-VALIDATION-20260911.md)。
 
-开发分支已推送并创建[草稿PR #1](https://github.com/XiaoLeXLDW/todo-moe/pull/1)，未合并、未创建Release。e6a797d5自有check（含全量core/mobile）和Mobile/Core/Quality/E2E/Audit/Native等已成功；常规CI（含Desktop Rust）、Dependency Audit与Native均已全部成功；e6 CI APK仍在构建。历史50fa606的首个CI APK使用4GiB堆构建19m43成功、Widget46秒通过，已下载核验；9ee08ff的2GiB R8 OOM失败保留，不能把旧成功或check成功写成e6 CI APK成功。后续结果以[CI记录](CI-VALIDATION-20260911.md)与PR为准。
+开发分支已推送并创建[草稿PR #1](https://github.com/XiaoLeXLDW/todo-moe/pull/1)，未合并、未创建Release。已回读确认ac473a7e对应的自有检查与Dev APK、常规CI、Native Platform CI和Dependency Audit四组全部成功；e6对应CI APK也已下载核验，详见[收尾记录](FOLLOWUP-20260912.md)。新的发布工程5fb560d6本机工程116项与真实签名15场景通过，实际Stable无签名构建通过；其远端检查须以新提交的PR Checks为准。历史9ee08ff的2GiB R8 OOM失败保留，后续通过不抹除旧失败。[发布流程实测](RELEASE-FLOW-20260912.md)区分本机、远端与未验收范围。
 
 vc2是历史首次交付：运行源码 `d06452a5ab011a6da450409e9709b135a399ca0d`，APK SHA-256 `1102ddd36a6092b52a5c2e3bd6dc930cf04ab055517f5e3310a2d6310977fdd9`。后续vc3—vc7为各自独立的代码构建，各自源码与APK身份单独记录，文档提交不能冒充旧APK源码。用户已提供 `XiaoLeXLDW/todo-moe` 并授权按方案开发；原规划文档中的“尚未开发/仓库未建立”属于历史背景。
 
