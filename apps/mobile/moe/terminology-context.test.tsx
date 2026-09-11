@@ -6,10 +6,11 @@ import { en } from '../../../packages/core/src/i18n/locales/en';
 import { LanguageProvider, useLanguage } from '../contexts/language-context';
 
 vi.mock('@mindwtr/core', () => ({
-  getSystemDefaultLanguage: () => 'zh-Hans',
-  loadStoredLanguage: async () => 'zh-Hans',
+  // The core catalog's runtime key is zh; zh-Hans is its source filename.
+  getSystemDefaultLanguage: () => 'zh',
+  loadStoredLanguage: async () => 'zh',
   saveStoredLanguage: async () => {},
-  loadTranslations: async (language: string) => language === 'zh-Hans' ? zhHans : en,
+  loadTranslations: async (language: string) => language === 'zh' ? zhHans : en,
 }));
 vi.mock('../lib/workspace-session-storage', () => ({ workspaceSessionStorage: {} }));
 vi.mock('expo-constants', () => ({ default: { expoConfig: { name: 'Todo Moe Dev' } } }));

@@ -61,7 +61,8 @@ const SECTION_KEYS = new Set([
 ]);
 
 export function adaptMobileEntityTerminology(key: string, template: string, language: string): string {
-  if (language !== 'zh-Hans' && language !== 'zh-Hant') return template;
+  // Core uses zh at runtime and zh-Hans as its locale source filename.
+  if (language !== 'zh' && language !== 'zh-Hans' && language !== 'zh-Hant') return template;
   const project = PROJECT_KEYS.has(key);
   const area = AREA_KEYS.has(key);
   const section = SECTION_KEYS.has(key);

@@ -1,6 +1,6 @@
 import React from 'react';
 import type { RefObject } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Switch, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { AtSign, CalendarDays, ChevronDown, ChevronUp, Clock, FileText, Flag, Folder, Layers, Mic, SlidersHorizontal, Square, X } from 'lucide-react-native';
 import { formatQuickAddHelp, tFallback, TASK_PRIORITY_COLORS, type TaskPriority } from '@mindwtr/core';
@@ -12,6 +12,9 @@ import { SandboxWorkspaceCue } from '@/components/sandbox-workspace-cue';
 import { QuickDateChips } from '../QuickDateChips';
 import { FocusStarIcon, FOCUS_STAR_COLOR } from '../FocusStarIcon';
 import { styles } from './quick-capture-sheet.styles';
+import { DialogKeyboardInsetsProbe, hasNativeKeyboardInsets, type DialogKeyboardFrame } from '@/modules/moe-keyboard-insets';
+import { getDialogKeyboardOverlap } from './dialog-keyboard-viewport';
+import { useAndroidKeyboardInset } from '@/lib/use-android-keyboard-inset';
 
 // Quick capture favors speed: show only the most-reached date presets inline.
 // Rarer choices (+3 days, next month) and clearing live behind the Custom picker / tapping the active chip.
@@ -59,7 +62,7 @@ interface QuickCaptureSheetBodyProps {
   insetsBottom: number;
   inputRef: RefObject<TextInput | null>;
   keyboardAvoidingEnabled?: boolean;
-  /** Legacy caller input; Android now uses its dialog window's native resize. */
+  /** Legacy caller input; Android now measures its own Dialog's WindowInsets. */
   androidKeyboardInset?: number;
   noteValue: string;
   onNoteChange: (value: string) => void;
@@ -166,6 +169,12 @@ export function QuickCaptureSheetBody({
   // The full token reference is long; fold it so the More panel stays compact
   // on a keyboard-shrunk sheet (#1120 follow-up). Resets per open on purpose.
   const [syntaxHelpVisible, setSyntaxHelpVisible] = React.useState(false);
+  const [dialogKeyboardFrame, setDialogKeyboardFrame] = React.useState<DialogKeyboardFrame | null>(null);
+  const legacyKeyboardInset = useAndroidKeyboardInset(visible && !hasNativeKeyboardInsets);
+  const androidKeyboardOverlap = Platform.OS === 'android'
+    ? hasNativeKeyboardInsets ? getDialogKeyboardOverlap(dialogKeyboardFrame) : legacyKeyboardInset
+    : 0;
+  React.useEffect(() => { if (!visible) setDialogKeyboardFrame(null); }, [visible]);
   const optionsToggleLabel = optionsExpanded ? t('taskEdit.hideOptions') : tFallback(t, 'common.more', 'More');
   const defaultProjectLabel = tFallback(t, 'taskEdit.projectLabel', 'Project');
   const focusDisabled = !focusNewTask && !canFocusNewTask;
@@ -180,10 +189,9 @@ export function QuickCaptureSheetBody({
   // Drop the trailing ellipsis here so the Custom chip is narrow enough to sit on the preset row;
   // the shared recurrence.custom string (used elsewhere) keeps its "…".
   const customDateLabel = t('recurrence.custom').replace(/[\s.…]+$/u, '');
-  // Android's RN Modal already sets ADJUST_RESIZE. Keep its own decor fitting
-  // system/IME insets instead of combining an edge-to-edge dialog with keyboard
-  // coordinates emitted by the separate Activity root. That combination left
-  // Save underneath the IME on Android 15. iOS retains its padding behavior.
+  // targetSdk 36 can enforce edge-to-edge even though RN requests ADJUST_RESIZE.
+  // The native probe reads this Dialog's actual IME overlap; the inner viewport
+  // then contains both body and pickers. iOS retains its padding behavior.
   const keyboardAvoidingBehavior = Platform.OS === 'ios' ? 'padding' : undefined;
 
   // "Add to today's focus" is a task property, not a title-entry control, so it lives
@@ -233,6 +241,12 @@ export function QuickCaptureSheetBody({
       onRequestClose={saving ? () => undefined : (handleRequestClose ?? handleClose)}
     >
       <View style={styles.modalRoot} accessibilityViewIsModal>
+        {Platform.OS === 'android' && hasNativeKeyboardInsets ? (
+          <DialogKeyboardInsetsProbe
+            style={StyleSheet.absoluteFillObject}
+            onInsetsChange={(event) => setDialogKeyboardFrame(event.nativeEvent)}
+          />
+        ) : null}
         <Pressable
           style={styles.backdrop}
           onPress={saving ? undefined : handleClose}
@@ -243,6 +257,7 @@ export function QuickCaptureSheetBody({
           accessibilityElementsHidden={contentAccessibilityHidden}
           importantForAccessibility={contentAccessibilityHidden ? 'no-hide-descendants' : 'auto'}
         />
+        <View testID="quick-capture-visible-viewport" style={[styles.modalRoot, { marginBottom: androidKeyboardOverlap }]}>
         <KeyboardAvoidingView
           behavior={keyboardAvoidingBehavior}
           enabled={Platform.OS !== 'android' && keyboardAvoidingEnabled}
@@ -653,14 +668,15 @@ export function QuickCaptureSheetBody({
           {/* Toasts fired from inside the sheet (e.g. the speech-not-configured notice)
               render behind the native modal window without a viewport here, so the user
               only saw them after closing the sheet (#886, #834). It sits inside the
-              keyboard-avoiding view on purpose: iOS pads it and Android resizes the
-              dialog window, so the toast lands above the keyboard. */}
+              keyboard-avoiding view on purpose: iOS pads it and the Android Dialog
+              viewport excludes its IME overlap, so the toast lands above it. */}
           <ToastViewport />
         </KeyboardAvoidingView>
         {children}
         {/* Audio/permission alerts fire while the sheet is up (#940); last child
             so the overlay covers the sheet and its own pickers. */}
         <ThemedAlertHost />
+        </View>
       </View>
     </Modal>
   );
