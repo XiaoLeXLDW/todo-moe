@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, copyFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensureFreshReleaseBundle } from './gradle-bundle.mjs';
+import { refreshAutolinkingCache, assertAutolinkingPackage, selectCurrentApkFiles } from './autolinking-helper.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const mobile = join(root, 'apps/mobile');
@@ -67,6 +68,7 @@ const appGradle = join(native, 'app/build.gradle');
 const configuredGradle = readFileSync(appGradle, 'utf8');
 const freshBundleGradle = ensureFreshReleaseBundle(configuredGradle);
 if (freshBundleGradle !== configuredGradle) writeFileSync(appGradle, freshBundleGradle);
+console.log('Autolinking refresh:', JSON.stringify(refreshAutolinkingCache(root, report)));
 run(process.platform === 'win32' ? join(native, 'gradlew.bat') : join(native, 'gradlew'), [':app:assembleRelease', '--no-daemon', `-PreactNativeArchitectures=${env.MINDWTR_ANDROID_ARCHS}`], native, false, env);
 const output = join(root, 'build/moe', `${channel}-${versionCode}-${sourceSha.slice(0, 12)}`);
 mkdirSync(output, { recursive: true });
@@ -76,8 +78,10 @@ if (run('git', ['rev-parse', 'HEAD'], root, true) !== sourceSha ||
     throw new Error('Git source state changed during the build; rebuild from a fixed checkout.');
 }
 const { verifyEmbeddedAppConfig } = await import('./apk-identity.mjs');
-const apks = readdirSync(join(native, 'app/build/outputs/apk/release')).filter((name) => name.endsWith('.apk'));
-if (!apks.length) throw new Error('Gradle produced no APK.');
+assertAutolinkingPackage(root, config.android.package);
+const apkDirectory = join(native, 'app/build/outputs/apk/release');
+const apks = selectCurrentApkFiles(JSON.parse(readFileSync(join(apkDirectory, 'output-metadata.json'), 'utf8')),
+    { packageName: config.android.package, versionCode, version: config.version });
 const artifacts = apks.map((name) => {
     const targetName = `todo-moe-${config.version}-${channel}-vc${versionCode}-${name}`;
     const target = join(output, targetName);
