@@ -29,6 +29,7 @@ import { MarkdownInlineText } from '../markdown-text';
 import { styles } from './swipeable-task-item.styles';
 import { CompactText } from '@/components/compact-text';
 import { MoeCheckButton } from '../../moe/MoeCheckButton';
+import { MoeCompletionTitle } from '../../moe/MoeCompletionRow';
 
 interface SwipeableTaskItemContentProps {
     accessibilityActions: { label: string; name: string }[];
@@ -544,17 +545,17 @@ export function SwipeableTaskItemContent({
             ) : null}
             <View style={styles.taskContent}>
                 <View style={styles.titleRow}>
-                    <Text
+                    <MoeCompletionTitle
+                        completed={task.status === 'done' || completionPending}
                         style={[
                             styles.taskTitle,
                             { color: tc.text, writingDirection: textDirection, textAlign },
-                            (task.status === 'done' || completionPending) && { textDecorationLine: 'line-through', opacity: 0.65 },
                             canShowFocusToggle && styles.taskTitleFlex,
                         ]}
                         numberOfLines={2}
                     >
                         {task.title}
-                    </Text>
+                    </MoeCompletionTitle>
                     {canShowFocusToggle && !selectionMode && (
                         <Pressable
                             onPress={(event) => {

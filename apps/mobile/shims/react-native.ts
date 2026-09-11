@@ -1,7 +1,10 @@
 import React from 'react';
 
-const createHostComponent = (name: string) => (props: any) =>
-  React.createElement(name, props, props.children);
+const createHostComponent = (name: string) => {
+  const HostComponent = (props: any) => React.createElement(name, props, props.children);
+  HostComponent.displayName = name;
+  return HostComponent;
+};
 
 const renderHostChild = (child: any, key: string) => {
   if (child == null || child === false) return null;
@@ -102,6 +105,7 @@ export const AccessibilityInfo = {
 
 export const Animated = {
   View: createHostComponent('Animated.View'),
+  Text,
   ScrollView: createHostComponent('Animated.ScrollView'),
   Value: class {
     _value: number;
@@ -111,6 +115,8 @@ export const Animated = {
     setValue(value: number) {
       this._value = value;
     }
+    stopAnimation(callback?: (value: number) => void) { callback?.(this._value); }
+    interpolate(config: any) { return { value: this, ...config }; }
   },
   event: () => () => {},
   timing: (value: any, config: any) => ({
@@ -118,6 +124,19 @@ export const Animated = {
       value?.setValue?.(config?.toValue ?? value?._value ?? 0);
       cb?.();
     },
+    stop: () => {},
+  }),
+  spring: (value: any, config: any) => ({
+    start: (cb?: () => void) => { value?.setValue?.(config?.toValue); cb?.(); },
+    stop: () => {},
+  }),
+  parallel: (animations: any[]) => ({
+    start: (cb?: () => void) => { animations.forEach(animation => animation.start()); cb?.(); },
+    stop: () => animations.forEach(animation => animation.stop?.()),
+  }),
+  sequence: (animations: any[]) => ({
+    start: (cb?: () => void) => { animations.forEach(animation => animation.start()); cb?.(); },
+    stop: () => animations.forEach(animation => animation.stop?.()),
   }),
 };
 

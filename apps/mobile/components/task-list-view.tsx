@@ -6,6 +6,8 @@ import { openContextsScreen, openProjectScreen } from '@/lib/task-meta-navigatio
 import type { ThemeColors } from '@/hooks/use-theme-colors';
 import { SwipeableTaskItem, type SwipeableTaskItemRowContext, type TaskRowActions } from './swipeable-task-item';
 import { TASK_LIST_WINDOWING_PROPS } from './task-list-windowing';
+import Animated from 'react-native-reanimated';
+import { useMoeCompletionListLayout } from '../moe/MoeCompletionRow';
 import { TaskListBulkBar } from './task-list/TaskListBulkBar';
 import { TaskListTagModal } from './task-list/TaskListTagModal';
 import type { useTaskListSelection } from './use-task-list-selection';
@@ -81,6 +83,7 @@ export function TaskListView({
   contentContainerStyle,
   listStyle,
 }: TaskListViewProps) {
+  const completionListLayout = useMoeCompletionListLayout();
   const {
     bulkActionLabel,
     bulkActionLoading,
@@ -199,7 +202,8 @@ export function TaskListView({
         />
       ) : null}
 
-      <FlatList
+      <Animated.FlatList
+        itemLayoutAnimation={completionListLayout}
         data={rows}
         renderItem={renderTask}
         keyExtractor={(item) => item.kind === 'heading' ? item.id : item.task.id}
