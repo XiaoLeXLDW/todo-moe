@@ -6,6 +6,8 @@ const { AndroidConfig } = require('@expo/config-plugins');
 const brand = require('../../apps/mobile/moe/brand/with-todo-moe.cjs');
 const shortcuts = require('../../apps/mobile/plugins/android-app-shortcuts');
 const context = require('../../apps/mobile/plugins/android-manifest-fixes');
+const widget = require('../../apps/mobile/plugins/android-widget');
+const { removeOtherChannelLegacyWidgetReceiver } = require('../../apps/mobile/moe/brand/manifest-intents.cjs');
 const share = require('../../node_modules/expo-share-intent/plugin/build/android/withAndroidIntentFilters').withAndroidIntentFilters;
 const generatedScheme = require('../../node_modules/expo-dev-client/plugin/build/withGeneratedAndroidScheme').setGeneratedAndroidScheme;
 const params = require('../../apps/mobile/app.json').expo.plugins.find((entry: any) => Array.isArray(entry) && entry[0] === 'expo-share-intent')[1];
@@ -138,4 +140,63 @@ test('removes only exact nodes/filters and preserves all attributes, unknown tag
     const once = readFileSync(f.file, 'utf8');
     expect(await finalize(f)).toEqual(result);
     expect(readFileSync(f.file, 'utf8')).toBe(once);
+});
+
+async function widgetCycle(f: Awaited<ReturnType<typeof fixture>>, development: boolean) {
+    const config = widget({ android: { package: `io.github.xiaolexldw.todomoe${development ? '.dev' : ''}` } });
+    const manifest = (await config.mods.android.manifest({ ...config,
+        modResults: await AndroidConfig.Manifest.readAndroidManifestAsync(f.file),
+        modRequest: { projectRoot: f.directory, platformProjectRoot: f.platform, platform: 'android', modName: 'manifest' },
+    })).modResults;
+    await AndroidConfig.Manifest.writeAndroidManifestAsync(f.file, manifest);
+    return finalize(f, development);
+}
+
+test('real widget plugin Dev -> Stable -> Dev retains only the current channel legacy receiver', async () => {
+    const f = await fixture();
+    const stableName = 'io.github.xiaolexldw.todomoe.widget.TasksWidget';
+    const devName = 'io.github.xiaolexldw.todomoe.dev.widget.TasksWidget';
+    for (const development of [true, false, true, true]) {
+        const result = await widgetCycle(f, development);
+        const names = result.manifest.application[0].receiver.map((entry: any) => entry.$['android:name']);
+        expect(names.filter((name: string) => name === stableName || name === devName)).toEqual([development ? devName : stableName]);
+        expect(names).toContain('tech.dongdongbh.mindwtr.androidwidget.TasksWidgetProvider');
+        expect(names).toContain('tech.dongdongbh.mindwtr.androidwidget.CompactWidgetProvider');
+        expect(names).toContain('tech.dongdongbh.mindwtr.androidwidget.QuickCaptureWidgetProvider');
+    }
+});
+
+test.each([true, false])('legacy receiver cleanup preserves current/relative/unrelated components (development=%s)', async (development) => {
+    const current = `io.github.xiaolexldw.todomoe${development ? '.dev' : ''}.widget.TasksWidget`;
+    const stale = `io.github.xiaolexldw.todomoe${development ? '' : '.dev'}.widget.TasksWidget`;
+    const kept = [current, '.widget.TasksWidget', 'TasksWidget', 'com.example.widget.TasksWidget',
+        'tech.dongdongbh.mindwtr.androidwidget.TasksWidgetProvider',
+        'tech.dongdongbh.mindwtr.widget.TasksWidget', `${stale}Extra`,
+        stale.replace('.widget.TasksWidget', '.widget.OtherWidget')].map((name) => ({
+        $: { 'android:name': name, 'android:exported': 'false' },
+        'meta-data': [{ $: { 'android:name': 'retained', 'android:value': 'unchanged' } }],
+    }));
+    const manifest: any = fresh();
+    manifest.manifest.application[0].receiver = [kept[0], { $: { 'android:name': stale } }, ...kept.slice(1)];
+    manifest.manifest.application[0].provider = [{ $: { 'android:name': stale, 'android:authorities': 'keep.provider' } }];
+    const f = await fixture(manifest);
+    const sourcePath = join(f.platform, 'app/src/main/java/TasksWidget.java');
+    mkdirSync(join(f.platform, 'app/src/main/java'), { recursive: true });
+    const source = `package ${stale.slice(0, stale.lastIndexOf('.'))};\nclass TasksWidget {}\n`;
+    writeFileSync(sourcePath, source);
+    const result = await finalize(f, development);
+    expect(result.manifest.application[0].receiver).toEqual(kept);
+    expect(result.manifest.application[0].provider).toEqual(manifest.manifest.application[0].provider);
+    expect(readFileSync(sourcePath, 'utf8')).toBe(source);
+    expect(await finalize(f, development)).toEqual(result);
+});
+
+test('unknown widget package cannot authorize removal from the manifest', () => {
+    const manifest: any = fresh();
+    manifest.manifest.application[0].receiver = [{ $: { 'android:name': 'io.github.xiaolexldw.todomoe.widget.TasksWidget' } }];
+    const before = structuredClone(manifest);
+    for (const packageName of ['com.example', 'io.github.xiaolexldw.todomoe.dev.extra', undefined]) {
+        expect(() => removeOtherChannelLegacyWidgetReceiver(manifest, packageName)).toThrow('refusing receiver cleanup');
+        expect(manifest).toEqual(before);
+    }
 });

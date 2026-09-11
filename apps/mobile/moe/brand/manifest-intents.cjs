@@ -47,4 +47,24 @@ function deduplicateManifestIntents(manifest) {
     return changed;
 }
 
-module.exports = { deduplicateManifestIntents };
+function removeOtherChannelLegacyWidgetReceiver(manifest, expectedPackage) {
+    const packages = ['io.github.xiaolexldw.todomoe', 'io.github.xiaolexldw.todomoe.dev'];
+    if (!packages.includes(expectedPackage)) throw new Error('Unknown Todo Moe widget package; refusing receiver cleanup.');
+    const otherPackage = packages.find((name) => name !== expectedPackage);
+    const obsoleteName = `${otherPackage}.widget.TasksWidget`;
+    let changed = false;
+    for (const application of manifest.manifest?.application ?? []) {
+        if (!Array.isArray(application.receiver)) continue;
+        // The upstream plugin leaves this fully qualified compatibility receiver
+        // after a channel switch. Only the other known Todo Moe channel is stale:
+        // relative names, module providers and all other components are retained.
+        const receivers = application.receiver.filter((entry) => entry?.$?.['android:name'] !== obsoleteName);
+        if (receivers.length !== application.receiver.length) {
+            application.receiver = receivers;
+            changed = true;
+        }
+    }
+    return changed;
+}
+
+module.exports = { deduplicateManifestIntents, removeOtherChannelLegacyWidgetReceiver };

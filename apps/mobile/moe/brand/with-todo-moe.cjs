@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { AndroidConfig, withFinalizedMod } = require('@expo/config-plugins');
-const { deduplicateManifestIntents } = require('./manifest-intents.cjs');
+const { deduplicateManifestIntents, removeOtherChannelLegacyWidgetReceiver } = require('./manifest-intents.cjs');
 
 function rewriteTree(root, scheme, packageName) {
     if (!fs.existsSync(root)) return;
@@ -38,7 +38,9 @@ module.exports = (config, { scheme }) => {
         const manifestPath = path.join(mod.modRequest.platformProjectRoot, 'app', 'src', 'main', 'AndroidManifest.xml');
         if (fs.existsSync(manifestPath)) {
             const manifest = await AndroidConfig.Manifest.readAndroidManifestAsync(manifestPath);
-            if (deduplicateManifestIntents(manifest)) {
+            const intentsChanged = deduplicateManifestIntents(manifest);
+            const widgetsChanged = removeOtherChannelLegacyWidgetReceiver(manifest, packageName);
+            if (intentsChanged || widgetsChanged) {
                 await AndroidConfig.Manifest.writeAndroidManifestAsync(manifestPath, manifest);
             }
         }
