@@ -1,11 +1,11 @@
 # 分版本开发与验收记录
 
-最新记录：[干净Dev vc10](0.1.0-dev-vc10-2026-09-12.md)与[Stable vc1无签名工程验证](0.1.0-stable-vc1-unsigned-2026-09-12.md)已构建核验，手机仍为vc7。[临时诊断vc8](0.1.0-diagnostic-vc8-2026-09-12.md)未安装且已替代，[诊断vc9](0.1.0-diagnostic-vc9-2026-09-12.md)待外屏解锁复测；诊断包与正式候选分开记录。最新验收边界见[收尾记录](../../FOLLOWUP-20260912.md)，下文保留vc7及此前阶段快照。
+最新工程记录：[Stable vc1 发布资料链验证](0.1.0-stable-vc1-release-flow-2026-09-12.md)。源码`5fb560d6`的干净无签名构建4m44通过，直接消费builder说明输入的15个真实临时证书签名场景通过（Node含父测试16 pass）；未使用正式私钥、未安装Stable或发布Release。此前`89fcedb9`的[干净Dev vc10](0.1.0-dev-vc10-2026-09-12.md)与[旧Stable vc1无签名样本](0.1.0-stable-vc1-unsigned-2026-09-12.md)分别保留，vc10已构建、未安装。手机仍为已测限定路径的vc7；[诊断vc9](0.1.0-diagnostic-vc9-2026-09-12.md)未安装，[临时诊断vc8](0.1.0-diagnostic-vc8-2026-09-12.md)未安装且已替代。证据范围见[收尾记录](../../FOLLOWUP-20260912.md)与[发布流程记录](../../RELEASE-FLOW-20260912.md)。
 
-> 最新整合：vc7已构建、覆盖安装并实测两处文案、About及内屏More；vc6→vc7全结构相同、非字节相同。首个50fa CI APK已成功并下载核验；e6自有check含全量core/mobile已成功，常规CI含Desktop Rust已全成功、e6 CI APK构建中。草稿PR#1未合并/Release，见[vc7记录](0.1.0-dev-vc7-2026-09-12.md)和[设备记录](../../DEVICE-VALIDATION-20260911.md)。
+> 历史快照（vc7初期）：vc7已覆盖安装并测过文案、About及内屏More；当时e6 CI APK尚在构建。该构建后来已成功并下载核验，实际合并构建SHA为`39e380895067822ca6fd7b0acc6f5c7b4f573abd`，与e6的Git tree相同；见[成功运行](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34620579432)和[收尾记录](../../FOLLOWUP-20260912.md)。历史排队状态不再代表当前结果。
 
 
-**更新：2026-09-12。当前为0.1.0-dev/vc7，已安装并完成上述限定验收，v1.0未放行。** 用户明确本轮local-only、暂不启用任务同步。vc6品牌与内屏证据保留历史；各测试包源码、产物和实际失败分别记录。
+**更新：2026-09-12。当前手机为vc7；最新干净Dev构建为vc10，未安装；v1.0未放行。** 本次Git/远端回读基准为`5a36c0b1b7b4091cbff6c839676dff1fa26e6a8a`：上一提交`ac473a7e`四组CI已回读为success，该基准提交的自有check、Native Platform CI与Dependency Audit已success，普通CI和自有Dev APK仍in_progress，不能判为全通过，见[详细回读](../../VALIDATION.md)。用户明确本轮local-only，不要求为验收启用任务同步。
 
 v0.1.0～v1.0.0 原本用于划分工程与验收里程碑，不能理解为已有五个发行版本。各阶段文档保留历史计划与验收标准，并在顶部和执行表标明当前真实状态。需求来源仍可追溯到[聊天归档](../sources/chatgpt-推荐待办应用-2026-09-11.md)。
 
@@ -16,10 +16,12 @@ v0.1.0～v1.0.0 原本用于划分工程与验收里程碑，不能理解为已�
 | v0.1.0 | [构建与品牌基线](v0.1.0.md) | 固定 fork SHA、独立身份、真实构建元数据、Windows/CI 入口 | 正式身份/原版实机对比/完整系统能力；云端隔离在后续启用同步时再验 |
 | v0.2.0 | [Android 玻璃验证](v0.2.0.md) | 原创原生模块、RN 接入、实验页与回退逻辑 | 已观察动态背景及vc3限定lab近似预算；旋转/能力降级/完整性能矩阵未齐 |
 | v0.3.0 | [日常清单与动画](v0.3.0.md) | 日用三页、独立新增、原实体映射、主题/触感/完成反馈与庆祝 | vc5常用操作与More顶部/键盘已验；vc6限定品牌UI已验；完整无障碍/体验矩阵未齐 |
-| v0.4.0 | [上游与发布闭环](v0.4.0.md) | 稳定发现、保留历史合并、检查/Dev 构建、受控签名发行脚本 | PR及CI已运行；首个CI APK和R8修复已验证，正式签名/Release/Obtainium未完成 |
+| v0.4.0 | [上游与发布闭环](v0.4.0.md) | 稳定发现、保留历史合并、固定Git发布资料、真实临时证书签名与草稿恢复入口 | PR/CI及no-update发现分支已有证据；正式签名/真实Release/Obtainium未完成 |
 | v1.0.0 | [日用稳定验收](v1.0.0.md) | 保留必要验收矩阵，明确未放行 | 当前范围前置项、正式升级与日用观察；本轮local-only不要求启用同步 |
 
-代码已实现不等于阶段验收完成。远端core3869通过/8跳过；本地历史core3867与新增宿主恢复2项分列。vc5基线本地mobile274文件/2713项通过、tsc退出0、lint 0 errors/77 warnings；vc7新增30项定向真实provider回归及mobile tsc通过。e6远端自有check含全量core/mobile已成功，其他Mobile/Core/Quality/E2E/Audit/Native等已成功，常规CI含Desktop Rust已全成功、CI APK构建中。9ee08ff的2GiB R8 OOM为历史失败，50fa606首个4GiB CI APK已成功并下载核验，不能据此提前判定e6 APK。
+代码已实现不等于阶段验收完成。远端core3869通过/8跳过、本地历史3867与新增宿主恢复2项分列；vc5的mobile2713项是历史基线。目录选择器生产修复已有274文件/2720项移动回归，发布流程工程套件116 pass/1默认skip；这项重签名测试随后独立通过，不能把skip本身算作通过。9ee08ff的2GiB R8 OOM、50fa606首个4GiB CI APK与e6对应CI APK均保留各自来源，不混用不同提交证据。详细结果见[验证记录](../../VALIDATION.md)。
+
+2026-09-11T18:54:49.881Z的实际上游发现读取稳定tag `v1.2.8`、SHA `9f94211faecc2d1463403b7458069391f5c9d99c`；该提交已在上述HEAD祖先中，结果为`no-update`，没有创建更新分支、PR或自动化。[发现与祖先关系复核记录](../../UPSTREAM-VALIDATION-20260912.md)只证明本次发现分支，不代表真实更新合并或发行闭环完成。
 
 ## 实际候选记录
 
@@ -30,7 +32,10 @@ v0.1.0～v1.0.0 原本用于划分工程与验收里程碑，不能理解为已�
 | [vc4历史测试包](0.1.0-dev-vc4-2026-09-11.md) | 0.1.0 / development / vc4 | 907ce368bb8b1933a973a7a79a1f78b231915bb8 | 39,608,835字节；完整SHA见独立记录 | 键盘底部/Toast通过；More顶部仍遮挡 |
 | [vc5已验候选](0.1.0-dev-vc5-2026-09-11.md) | 0.1.0 / development / vc5 | aacdaedfb754b1354094fe1fd2edbaed9b14b4bb | 已构建安装；完整SHA见设备记录 | 基本/More键盘顶部已验，vc4→5数据字节一致 |
 | [vc6历史候选](0.1.0-dev-vc6-2026-09-11.md) | 0.1.0 / development / vc6 | 70366ddb4973cd7cc4cf39815e178b4cc033513c | 42,005,360字节；SHA-256 8ea2302a824866e248a249c6a360d8bfa2bbc7e53c03702652d57cdb6fbef01b | 已正常覆盖安装，About/启动画面/家族配色已验；升级数据全结构一致但非字节一致；未Release |
-| [vc7当前候选](0.1.0-dev-vc7-2026-09-12.md) | 0.1.0 / development / vc7 | e6a797d50df8b9294fe3260585f71e151b69b8dc | 42,005,624字节；完整SHA与源码ZIP见独立记录 | 已覆盖安装；文案/About/内屏More通过，升级全结构一致、非字节一致；未Release |
+| [vc7当前已安装包](0.1.0-dev-vc7-2026-09-12.md) | 0.1.0 / development / vc7 | e6a797d50df8b9294fe3260585f71e151b69b8dc | 42,005,624字节；完整SHA与源码ZIP见独立记录 | 已覆盖安装；文案/About/内屏More限定路径通过，升级全结构一致、非字节一致；未Release |
+| [vc10干净Dev候选](0.1.0-dev-vc10-2026-09-12.md) | 0.1.0 / development / vc10 | 89fcedb9e91b54dc05e0cc24d720a84a5043f86d | 42,007,288字节；完整SHA见独立记录 | 已构建核验，未安装；新导出兼容修复待切屏复测 |
+| [旧Stable无签名样本](0.1.0-stable-vc1-unsigned-2026-09-12.md) | 0.1.0 / stable / vc1 | 89fcedb9e91b54dc05e0cc24d720a84a5043f86d | 41,986,364字节；完整SHA见独立记录 | 历史工程样本，未安装或正式签名 |
+| [Stable发布资料链样本](0.1.0-stable-vc1-release-flow-2026-09-12.md) | 0.1.0 / stable / vc1 | 5fb560d6f2f2bc3a5b0af65a4491f18df5ad27d6 | 41,986,980字节；完整SHA见独立记录 | 干净无签名构建及builder说明→临时证书签名验证通过；未正式发行 |
 
 这里的 `0.1.0-dev` 是候选记录名称，不伪称 APK manifest 已输出带 `-dev` 的 versionName。上游 version 1.3.0、固定 fork main SHA 和自有版本分别记录；固定快照不是稳定 Release tag。
 
@@ -41,10 +46,10 @@ v0.1.0～v1.0.0 原本用于划分工程与验收里程碑，不能理解为已�
 | 自有版本 | moe/brand/config.json 的版本独立于上游；当前 0.1.0，后续变更由版本记录说明 |
 | Dev | 包名 io.github.xiaolexldw.todomoe.dev、scheme todomoe-dev；默认渠道；CI 在仓库统一串行构建中以 2026 UTC epoch 秒差分配编号 |
 | Stable | 显式 APP_VARIANT=stable、干净准确 SHA、手动版本代码；必须高于既有 tag/草稿/发行占用值；独立受控签名 |
-| 追溯 | About与APK内manifest使用构建时真实源码SHA/dirty；vc2至vc7各自使用其构建源码，不把其他CI或文档提交冒充APK来源。较早失败和中间包日志保留原身份，不混作最终证据 |
+| 追溯 | About与APK内manifest使用构建时真实源码SHA/dirty；各Dev及Stable工程样本分别记录，不把其他CI或文档提交冒充APK来源。较早失败和中间包日志保留原身份，不混作最终证据 |
 | 升级与回退 | 每个固定身份继续递增版本代码；不以卸载清数据绕过失败；回退源码不代表数据库可回退 |
 
-完整规则与操作入口见 [Android 交付说明](../../ANDROID-DELIVERY.md)。本轮已推送开发分支并建立草稿PR#1，常规CI和自有检查已运行；首个50fa CI APK已成功，但不能把e6自有check成功或本地vc7成功等同e6 CI APK成功。PR未合并，未创建正式Release或完成Obtainium/正式签名闭环。
+完整规则与操作入口见[Android交付说明](../../ANDROID-DELIVERY.md)和[发布流程记录](../../RELEASE-FLOW-20260912.md)。开发分支与PR#1检查已经运行，e6对应CI APK已有独立成功证据；5a36c0b1自有check/Native/Audit已成功，普通CI及Dev APK仍在进行。临时证书宿主验证不等于正式身份签名，未创建正式Release或完成Obtainium/手机更新闭环。
 
 ## 如何继续记录
 
@@ -54,6 +59,6 @@ v0.1.0～v1.0.0 原本用于划分工程与验收里程碑，不能理解为已�
 4. 更新[开发台账](../06-开发台账.md)与[CHANGELOG](../../CHANGELOG.md)，保留失败记录和本地日志未提交的边界。
 5. 只有必要设备、数据、升级和日用证据齐全后，才更新 v1.0.0 放行结论。
 
-下一步：对照vc7独立记录继续完整系统矩阵和日用观察；当前CI APK构建结果另行登记，正式发布仍未放行。
+下一步：按收尾记录完成新目录选择器的受控切屏复测，并独立回读5a36c0b1的CI结果；完整系统矩阵、正式发布与7天日用仍未放行。
 
 2026-09-12：vc6品牌/启动画面及内屏新增证据保留；vc7现已构建安装，文案/About/内屏More通过，升级全结构一致但非字节一致。首次展开后的分享导出观察原因未定，不写作vc7已修复。完整切换压力、无障碍/系统入口、7天日用与正式发布仍未放行。

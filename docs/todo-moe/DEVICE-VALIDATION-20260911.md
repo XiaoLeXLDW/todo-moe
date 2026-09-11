@@ -108,3 +108,11 @@ About已显示新家族猫图、build6及source70366（103-vc6-about）。[家�
 16:27:09 UTC在vc7本包完成[内屏More复测](../../evidence/development/device-20260911-153f8f46/126-vc7-inner-more.png)：保存底1064px小于IME顶1119px，标题顶133px大于当前状态栏底100px。[关闭空草稿后的首页](../../evidence/development/device-20260911-153f8f46/127-vc7-delivery-home.png)仍有10条active，未额外新增任务。
 
 升级前`vc6-before-vc7-export.json` SHA-256为`58a3cfb5fe22814cb80a6509e1bd109eb74b3eb294a216681895cf0b3e16a551`；升级后`vc7-data-export.json`为`60ab90f1f2eb2e59aa78fc1e14f984eb8ed5b8f090524ad508a909ce84c8d538`。全结构严格相同，含数组顺序、全部元数据和settings，10条active/12条总tasks、1project/2sections/1area；仅JSON对象key序列化顺序导致字节不同。[判定JSON](../../evidence/development/device-20260911-153f8f46/vc6-vc7-upgrade-verdict.json)明确fullStructureEqual=true、exactBytes=false。以上均为人工Dev数据与限定设备路径，不放行完整矩阵、7天日用或正式签名发布。
+
+## 2026-09-12 vc7系统入口只读核对
+
+02:59北京时间再次读取已安装vc7的包管理器状态。POST_NOTIFICATIONS运行权限为granted=true，POST_NOTIFICATION AppOp为allow；未修改权限或系统设置。`cmd package resolve-activity --brief -a android.intent.action.VIEW -d todomoe-dev://moe-glass-lab`解析到本Dev包MainActivity，此命令没有启动界面。
+
+包管理器已登记TasksWidgetProvider、CompactWidgetProvider、QuickCaptureWidgetProvider及本包.widget.TasksWidget四个Widget组件，也能看到AlarmBootReceiver的启动广播。这里只证明安装后的注册和权限状态，不能证明通知实际到达、Widget渲染/操作或深链目标页正确。完整系统矩阵仍待解锁操作。
+
+精简证据为`evidence/development/device-20260911-153f8f46/vc7-system-entry-readonly.json`；原始包查询只保留在本地。另从安装状态发现重复intent-filter，随后对当前生成Manifest的检查命令明确RED：分享SEND/SEND_MULTIPLE各18份完全相同，ContextAutomationReceiver两组过滤器各17份。这是增量prebuild的独立生成问题，未把它认定为此前导出异常的原因。

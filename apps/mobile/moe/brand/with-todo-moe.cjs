@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { withFinalizedMod } = require('@expo/config-plugins');
+const { AndroidConfig, withFinalizedMod } = require('@expo/config-plugins');
+const { deduplicateManifestIntents } = require('./manifest-intents.cjs');
 
 function rewriteTree(root, scheme, packageName) {
     if (!fs.existsSync(root)) return;
@@ -31,6 +32,16 @@ module.exports = (config, { scheme }) => {
     // registration order. Finalized is required for generated identity changes.
     return withFinalizedMod(config, ['android', async (mod) => {
         rewriteTree(path.join(mod.modRequest.platformProjectRoot, 'app', 'src'), scheme, packageName);
+        // Upstream plugins append share filters or look for the pre-brand
+        // identity. Repeated prebuilds therefore recreate equivalent entries.
+        // Normalize only exact duplicates after all identity rewrites finished.
+        const manifestPath = path.join(mod.modRequest.platformProjectRoot, 'app', 'src', 'main', 'AndroidManifest.xml');
+        if (fs.existsSync(manifestPath)) {
+            const manifest = await AndroidConfig.Manifest.readAndroidManifestAsync(manifestPath);
+            if (deduplicateManifestIntents(manifest)) {
+                await AndroidConfig.Manifest.writeAndroidManifestAsync(manifestPath, manifest);
+            }
+        }
         // Upstream patches this dependency's notification click path at prebuild.
         try {
             const moduleRoot = path.dirname(require.resolve('react-native-alarm-notification/package.json', { paths: [mod.modRequest.projectRoot] }));

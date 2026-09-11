@@ -1,25 +1,37 @@
-# 2026-09-11 本地验证
+# 验证记录：提交、产物与设备场景分别判定
 
-2026-09-12追加：当前生产修复完整移动端274文件/2720测试、工程35项和TypeScript通过；Stable无签名与Dev vc10往返构建成功，实际APK已核验并确认vc10不含诊断标记。手机仍为vc7，最新导出兼容修复的切屏实测待解锁。详见[收尾记录](FOLLOWUP-20260912.md)，旧结果按下文各版本保留。
+## 2026-09-12 当前证据
 
-当前本地Dev候选为vc7：运行源码`e6a797d50df8b9294fe3260585f71e151b69b8dc`，APK SHA-256 `03fbb33441de9dd7cca835a2a3e5f558d1f580e7274838ee1111df25fd93568f`，42,005,624字节，已同Dev证书正常覆盖安装。About显示build7/source e6a797d5，两处静态文案及1914×2160内屏More键盘/顶部已实测通过；vc6→vc7完整导出结构一致（含数组顺序、全部元数据和settings），10条active/12条总tasks，原始字节因JSON对象key顺序不同而不相同。 本轮按用户决定local-only，任务同步暂不启用。vc6已有家族图标、启动画面、浅色/系统深色及外屏证据；完整折叠切换压力、无障碍/系统入口矩阵、7天日用与正式签名发布仍未完成，v1.0未放行。 各APK与CI提交身份分别追溯，见[vc7记录](docs/versions/0.1.0-dev-vc7-2026-09-12.md)。
+手机仍运行vc7，已测范围是下述指定界面、数据与内屏More路径；最新干净Dev vc10（源码`89fcedb9e91b54dc05e0cc24d720a84a5043f86d`）已构建核验、未安装，Diag9未安装。目录选择器兼容修复已有274文件/2720项移动回归及对应TypeScript证据，尚待受控切屏实测。详见[收尾记录](FOLLOWUP-20260912.md)。
+
+发布工程源码`5fb560d6f2f2bc3a5b0af65a4491f18df5ad27d6`的Stable无签名构建4m44通过；实际包信息、嵌入配置、无签名状态、16KiB zipalign及32个ELF库对齐已核验。签名宿主测试直接使用该builder的原始说明输入，15个场景通过（Node含父测试16 pass）；原APK、manifest与说明输入字节未变，临时测试密钥和签名副本已清理。工程套件为116 pass/1默认skip，后者已独立运行，不能将默认跳过记为通过。见[本次版本记录](docs/versions/0.1.0-stable-vc1-release-flow-2026-09-12.md)与[发布流程记录](RELEASE-FLOW-20260912.md)。这不是正式签名或真实发行验收。
+
+e6对应CI APK已成功并下载核验：实际合并构建SHA `39e380895067822ca6fd7b0acc6f5c7b4f573abd`，versionCode21918145，与e6源码Git tree相同，见[运行34620579432](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34620579432)。本次[PR检查回读](https://github.com/XiaoLeXLDW/todo-moe/pull/1/checks)中，`ac473a7e`四组CI为success；新HEAD/origin `5a36c0b1b7b4091cbff6c839676dff1fa26e6a8a`的[自有check job](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34635724876/job/103382996921)已success，实际检查源码为PR合并SHA `d02c44e768f4af6c66b6a4133216c3039d1ce9ec`，已复核与5a同树 `bc2e1004384b6eee1531fd06301b089977249d1d`。该job日志为core3869 pass/8 skip、mobile274文件/2720 pass、工程116 pass/1默认skip。[Dev APK job](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34635724876/job/103384867791)仍in_progress；[Native Platform CI](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34635724495)与[Dependency Audit](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34635724532)已completed/success，[普通CI](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34635724515)仍in_progress。不能将check成功写成该APK或全部CI完成。
+
+只读上游发现于`2026-09-11T18:54:49.881Z`返回稳定tag `v1.2.8`、SHA `9f94211faecc2d1463403b7458069391f5c9d99c`；该SHA已在上述HEAD祖先中，结果为`no-update`。没有创建更新分支、PR或自动化；[本地发现日志](../../evidence/development/upstream-discovery-20260912.log)中的branch字段是预定分支名，不代表分支已创建。此结果只验证发现/已包含分支，不验证实际新版本合并或发布；完整说明见[上游发现复核](UPSTREAM-VALIDATION-20260912.md)。
+
+当前已安装包vc7：运行源码`e6a797d50df8b9294fe3260585f71e151b69b8dc`，APK SHA-256 `03fbb33441de9dd7cca835a2a3e5f558d1f580e7274838ee1111df25fd93568f`，42,005,624字节，已同Dev证书正常覆盖安装。About显示build7/source e6a797d5，两处静态文案及1914×2160内屏More键盘/顶部已实测通过；vc6→vc7完整导出结构一致（含数组顺序、全部元数据和settings），10条active/12条总tasks，原始字节因JSON对象key顺序不同而不相同。本轮按用户决定local-only，不要求启用任务同步。vc6已有家族图标、启动画面、浅色/系统深色及外屏证据；完整折叠切换压力、无障碍/系统入口矩阵、7天日用与正式签名发布仍未完成，v1.0未放行。各APK与CI提交身份分别追溯，见[vc7记录](docs/versions/0.1.0-dev-vc7-2026-09-12.md)。
+
+以下表格和各节保留分阶段证据，不将历史计数汇总成新提交全套通过。
 
 | 检查 | 结果 | 本地证据 |
 |---|---|---|
 | core 全量 | 本地历史202文件/3867通过、8跳过；新增宿主2项单列；远端core3869通过/8跳过 | `core-tests-utc-node22.log`；[CI记录](CI-VALIDATION-20260911.md) |
-| mobile 最终全量 | Node22 + UTC、四worker：274文件/2713测试全部通过，254.43秒；原失败和定向复测保留 | `mobile-tests-vc5-final-workers4.log` |
+| mobile vc5历史全量 | Node22 + UTC、四worker：274文件/2713测试全部通过，254.43秒；原失败和定向复测保留 | `mobile-tests-vc5-final-workers4.log` |
+| mobile目录选择器生产修复 | 274文件/2720测试通过，266.80秒；对应干净Dev vc10已构建但未安装 | `mobile-tests-picker-fix-full.log`；[收尾记录](FOLLOWUP-20260912.md) |
 | core/mobile TypeScript | 均退出0；移动端已对最新修复重跑 | `typecheck-core.log`、`mobile-typecheck-vc5-final.log` |
-| mobile 最新lint | 退出0，0 errors、77 warnings；历史首交付为78 warnings，不改写旧日志 | `mobile-lint-vc5-final.log`；历史 `lint-mobile-final.log` |
+| mobile vc5 lint（历史） | 退出0，0 errors、77 warnings；历史首交付为78 warnings，不改写旧日志 | `mobile-lint-vc5-final.log`；历史 `lint-mobile-final.log` |
 | 任务字段/存储映射检查 | schema parity通过；13用例通过，含LF/CRLF正例和实际缺字段负例 | `schema-check.log`、`schema-tests.log` |
-| 构建/发布/真实Git合并策略 | 18用例通过；覆盖版本、身份、保留合并祖先、冲突中止、幂等、Windows CLI入口与query-string真实消费者 | `moe-engineering-tests.log`；另有独立Node入口测试 |
-| 工作流/远端 | 草稿PR#1已推送；首个50fa606 CI APK已成功下载核验；e6自有check含全量core/mobile及Mobile/Core/Quality/E2E/Audit/Native等已成功 | [CI记录](CI-VALIDATION-20260911.md)；e6常规CI含Desktop Rust已全成功、CI APK构建中 |
+| 首轮构建/发布/真实Git合并策略（历史） | 18用例通过；覆盖版本、身份、保留合并祖先、冲突中止、幂等、Windows CLI入口与query-string真实消费者 | `moe-engineering-tests.log`；另有独立Node入口测试 |
+| 发布流程工程与实际签名宿主 | 工程116 pass/1默认skip；随后直接消费builder说明输入的15场景通过（Node16 pass），使用一次性测试证书 | [发布流程记录](RELEASE-FLOW-20260912.md)；`signing-integration-builder-notes-5fb560d6.log` |
+| 工作流/远端 | e6对应CI APK已成功核验；ac473a7e四组CI成功；5a自有check/Native/Audit已success，普通CI与Dev APK仍in_progress | [收尾记录](FOLLOWUP-20260912.md)、[PR检查](https://github.com/XiaoLeXLDW/todo-moe/pull/1/checks)；旧[CI记录](CI-VALIDATION-20260911.md)保留阶段快照 |
 | 原生玻璃 | Kotlin/Java/JAR与完整APK编译通过；5项能力回退/导航节点稳定性测试通过 | `android-build-vc1-entry-fixed.log`、`glass-regression.log` |
 | 原生WidgetPayload | 15用例通过，包括Dev身份、错误渠道拒绝、实际应用名称及保留任务正文 | `widget-payload-final.log` 和Gradle XML报告 |
 | 生产core与schema | 生产实现未改；新增宿主恢复测试单独记数 | 历史 `core-diff.log`；下文宿主组合验证 |
 
 以上日志位于仓库本地 `evidence/development/`，不含真实同步账户。测试环境为 Windows 11 build22631、Node22.23.2、Bun1.3.5；日期测试进程固定TZ=UTC，不修改系统时区。一次与原生编译并行的移动端测试出现超时，已停止，未用它作为通过证据；后续独立回归未复现这些超时。
 
-## APK证据
+## 首轮APK证据（历史）
 
 首个中间包：`build/moe/development-1-0b13b85a47f1/todo-moe-0.1.0-development-vc1-app-release.apk`，39,598,303字节。SHA-256：`eeae88add570c195e1bba128a0d1deaedacd1722351e989319a0359fd29d0963`。aapt验证包名 `io.github.xiaolexldw.todomoe.dev`、versionName `0.1.0`、versionCode `1`；apksigner验证证书SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`。APK内有真实app.config与Hermes字节码（头部 `C6-1F-BC-03-C1-03-19-1F`）。该包是dirty工作区中间检查，最终候选从固定实现提交重建并另附清单。
 
@@ -31,7 +43,7 @@ Windows构建已定位并修复：Bun重复补丁与manifest缓存问题、CRLF�
 
 连接手机之前，硬件模拟器预检缺少hypervisor driver；隔离API33 x86_64软件AVD修正缓存目录后仍在ADB出现前以 `0xC0000005` 退出。应用从未安装进该模拟器，无遗留进程。历史证据仍为 `software-qa-controlled.log`、`software-qa-controlled-exit.json`；后来已连接物理手机并完成Dev验收，不再以“未连接手机”描述当前状态。
 
-仍缺完整交互/失败注入/折叠切换压力/TalkBack/大字体/提醒Widget设备矩阵、正式签名/Release/Obtainium及7天日用。外→内屏重新布局、vc6新增与vc7 More限定路径已有实测，不等于全部矩阵。任务同步与跨端按用户决定暂不启用。开发分支已推送并创建[草稿PR #1](https://github.com/XiaoLeXLDW/todo-moe/pull/1)，未合并、未创建Release。e6a797d5自有check（含全量core/mobile）和Mobile/Core/Quality/E2E/Audit/Native等已成功；常规CI（含Desktop Rust）、Dependency Audit与Native均已全部成功；e6 CI APK仍在构建。历史50fa606的首个CI APK使用4GiB堆构建19m43成功、Widget46秒通过，已下载核验；9ee08ff的2GiB R8 OOM失败保留，不能把旧成功或check成功写成e6 CI APK成功。后续结果以[CI记录](CI-VALIDATION-20260911.md)与PR为准。
+仍缺完整交互/失败注入/折叠切换压力/TalkBack/大字体/提醒Widget设备矩阵、正式签名/Release/Obtainium及7天日用。外→内屏重新布局、vc6新增与vc7 More限定路径已有实测，不等于全部矩阵；vc10的新目录选择器修复尚未装机复测。任务同步与跨端按用户决定暂不启用，不作为当前local-only必须开启的条件。开发分支和[PR #1](https://github.com/XiaoLeXLDW/todo-moe/pull/1)已推送并运行CI，e6对应APK亦已成功；5a36c0b1自有check/Native/Audit已success，普通CI与Dev APK在本次回读时仍进行中。50fa606首个4GiB CI APK与9ee08ff的2GiB R8 OOM均保留历史记录；它们不能代替新提交检查。正式发行尚未进行。
 
 ## vc2首次构建交付补录（历史）
 
@@ -75,4 +87,4 @@ vc7构建3m17，42,005,624字节；构建清单embeddedConfigVerified=true，JS 
 
 1914×2160内屏：vc6外→内布局正常，basic/More保存底1086/1064均小于IME顶1119，More标题133大于状态栏底100；滚动到日期、920010保存一次及冷重启保留已验。vc7本包More按原内屏路径再验，保存底1064、标题133均满足上述边界，关闭空草稿后10条active未增加。vc6→vc7严格全结构相同，10条active/12条总tasks、1project/2sections/1area；原始字节因对象key顺序不同而不同，判定见[vc6→vc7 JSON](../../evidence/development/device-20260911-153f8f46/vc6-vc7-upgrade-verdict.json)。
 
-首次展开热路径导出曾进入系统分享且未发送；同内屏冷重启后SAF与vc7首次导出成功。用户是否取消首次选择器仍不明，只读审查未发现本轮生产export/Activity配置差异；不认定fold/Expo缺陷已证实或被vc7修复。完整切换压力与系统矩阵仍待验。
+首次展开热路径导出曾进入系统分享且未发送；同内屏冷重启后SAF与vc7首次导出成功。初期记录尚不能区分取消与异常；后续用户已明确确认未点击取消，并定位到现代目录选择器适配器将所有异常当作取消。该适配器已修复并完成自动化检查，但具体手机原生错误及新修复的切屏表现仍待Diag9/Dev vc10受控复测，不能称vc7已修复，亦不能据此断定fold/Expo是已证根因。最新依据见[收尾记录](FOLLOWUP-20260912.md)。
