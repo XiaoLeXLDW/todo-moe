@@ -3,7 +3,6 @@ package io.github.xiaolexldw.todomoe.keyboard
 import android.content.Context
 import android.graphics.Rect
 import android.os.Build
-import android.util.Log
 import android.view.View
 import android.view.ViewTreeObserver
 import android.view.WindowInsets
@@ -77,11 +76,10 @@ class MoeKeyboardInsetsView(context: Context, appContext: AppContext) : ExpoView
   private fun publishInsets() {
     try {
       readInsets()
-    } catch (error: RuntimeException) {
+    } catch (_: RuntimeException) {
       // Window teardown or a React event bridge that is not ready must not
       // crash drawing. A subsequent existing layout/pre-draw can retry.
       lastFrame = ""
-      if (context.packageName.endsWith(".dev")) Log.i("TodoMoeIme", "[DEBUG-moe-ime-v4] unavailable=${error.javaClass.simpleName}")
     }
   }
 
@@ -136,8 +134,6 @@ class MoeKeyboardInsetsView(context: Context, appContext: AppContext) : ExpoView
       "density" to density.toDouble(),
       "source" to source,
     )
-    // Temporary, numeric-only Dev diagnostics for the vc4 device acceptance.
-    if (context.packageName.endsWith(".dev")) Log.i("TodoMoeIme", "[DEBUG-moe-ime-v4] $frame")
     onInsetsChange(frame)
     lastFrame = signature
   }

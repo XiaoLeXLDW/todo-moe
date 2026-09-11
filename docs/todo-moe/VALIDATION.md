@@ -1,19 +1,19 @@
 # 2026-09-11 本地验证
 
-当前交付为 Android Dev 候选；本文件区分自动化、构建与运行证据。源代码身份以 Git 提交和构建产物的 `build-manifest.json` 为准，APK 哈希由对应目录的 `SHA256SUMS` 提供。
+当前仍为 Android Dev 候选：MIX Fold 2 / Android 15上的vc2→vc3→vc4正常覆盖及字段/元数据保留、真实Android恢复、vc4键盘与热路径Toast已有通过证据；vc5 More顶部安全区补丁待构建后实测。详见 [真机验收](DEVICE-VALIDATION-20260911.md)。各APK源码和哈希独立记录，v1.0未放行。
 
 | 检查 | 结果 | 本地证据 |
 |---|---|---|
 | core 全量 | 202 文件通过、1 文件按上游条件跳过；3867 用例通过、8 跳过 | `core-tests-utc-node22.log` |
-| mobile 全量及失败项复核 | 271 文件/2679 用例已覆盖。全量中2677通过，2条旧Widget品牌断言失败；修改测试身份与预期后，该完整16用例套件复测通过。生产代码未因这些断言变化而修改 | `mobile-tests-solo.log`、`mobile-last-regression.log` |
-| core/mobile TypeScript | 均退出0 | `typecheck-core.log`、`typecheck-mobile-final.log` |
-| mobile lint | 0 errors、78 warnings；未将warnings改写成0 | `lint-mobile-final.log` |
+| mobile 最终全量 | Node22 + UTC、四worker：274文件/2713测试全部通过，254.43秒；原失败和定向复测保留 | `mobile-tests-vc5-final-workers4.log` |
+| core/mobile TypeScript | 均退出0；移动端已对最新修复重跑 | `typecheck-core.log`、`mobile-typecheck-vc5-final.log` |
+| mobile 最新lint | 退出0，0 errors、77 warnings；历史首交付为78 warnings，不改写旧日志 | `mobile-lint-vc5-final.log`；历史 `lint-mobile-final.log` |
 | 任务字段/存储映射检查 | schema parity通过；13用例通过，含LF/CRLF正例和实际缺字段负例 | `schema-check.log`、`schema-tests.log` |
 | 构建/发布/真实Git合并策略 | 18用例通过；覆盖版本、身份、保留合并祖先、冲突中止、幂等、Windows CLI入口与query-string真实消费者 | `moe-engineering-tests.log`；另有独立Node入口测试 |
 | 工作流 | 30份YAML解析通过；上游发行guard检查通过 | 本地命令；远程运行未执行 |
 | 原生玻璃 | Kotlin/Java/JAR与完整APK编译通过；5项能力回退/导航节点稳定性测试通过 | `android-build-vc1-entry-fixed.log`、`glass-regression.log` |
 | 原生WidgetPayload | 15用例通过，包括Dev身份、错误渠道拒绝、实际应用名称及保留任务正文 | `widget-payload-final.log` 和Gradle XML报告 |
-| 未改core源代码 | Git差异检查为空 | `core-diff.log` |
+| 生产core与schema | 生产实现未改；新增宿主恢复测试单独记数 | 历史 `core-diff.log`；下文宿主组合验证 |
 
 以上日志位于仓库本地 `evidence/development/`，不含真实同步账户。测试环境为 Windows 11 build22631、Node22.23.2、Bun1.3.5；日期测试进程固定TZ=UTC，不修改系统时区。一次与原生编译并行的移动端测试出现超时，已停止，未用它作为通过证据；后续独立回归未复现这些超时。
 
@@ -27,17 +27,26 @@ Windows构建已定位并修复：Bun重复补丁与manifest缓存问题、CRLF�
 
 原生Widget全套JVM在Windows上有7条上游Android/POSIX音频测试失败，分别涉及 `file://C:\...` URI及缺少文件符号链接权限；这些音频生产文件没有本轮修改。完整失败与主机说明保存在 `android-widget-tests.log`、`android-widget-host-summary.json`。本轮实际修改的WidgetPayload类15项通过；Linux构建工作流增加了完整Widget单元测试，尚无远程执行结果。未删除这些测试或把失败改为跳过。
 
-物理设备未连接。硬件模拟器预检报告缺少hypervisor driver；另准备了隔离API33 x86_64软件AVD，修正缓存目录后以同样软件参数受控启动，仍在ADB出现前以 `0xC0000005` 退出。应用从未安装进该模拟器，无遗留模拟器进程。证据为 `software-qa-controlled.log`、`software-qa-controlled-exit.json`；未改驱动、系统虚拟化或物理手机。
+连接手机之前，硬件模拟器预检缺少hypervisor driver；隔离API33 x86_64软件AVD修正缓存目录后仍在ADB出现前以 `0xC0000005` 退出。应用从未安装进该模拟器，无遗留进程。历史证据仍为 `software-qa-controlled.log`、`software-qa-controlled-exit.json`；后来已连接物理手机并完成Dev验收，不再以“未连接手机”描述当前状态。
 
-因此首次启动、真实操作手感、动态玻璃/性能、键盘与折叠布局、TalkBack/大字体、安装与覆盖升级、通知/Widget真实行为、实际云后端/跨端恢复和连续日用仍待设备验收。家族Logo尚为原创占位。没有创建PR、远程构建、Stable签名密钥、Release或Obtainium更新记录，v1.0未放行。
+仍缺完整交互/失败注入/折叠/TalkBack/大字体/提醒Widget设备矩阵、实际选择的隔离同步后端与第二客户端、正式签名/Release/Obtainium及连续日用。家族Logo仍为占位。GitHub身份/权限和push dry-run已验证，但尚未实际push、创建PR或执行远程构建/发布；v1.0未放行。
 
-## 最终构建交付补录
+## vc2首次构建交付补录（历史）
 
-Todo Moe Dev最终候选来自干净源码提交 `d06452a5ab011a6da450409e9709b135a399ca0d`，versionCode 2，39,600,223字节，APK SHA-256 `1102ddd36a6092b52a5c2e3bd6dc930cf04ab055517f5e3310a2d6310977fdd9`；证书与首包一致，APK内app.config的源码SHA、dirty=false和包名/版本再次核验通过。源代码ZIP对应同一实现提交，SHA-256 `a5e4ed4156fd961730410cb93244f23e480aa052c83d813c2587927115b154b5`。交付目录为本地 `artifacts/0.1.0-dev-vc2/`，包含APK、源代码ZIP、构建清单、验证摘要和校验文件。后续文档补录提交与运行源码提交分别记录，不将文档提交冒充已构建APK的源码。
+首次可复现Todo Moe Dev候选来自干净源码提交 `d06452a5ab011a6da450409e9709b135a399ca0d`，versionCode 2，39,600,223字节，APK SHA-256 `1102ddd36a6092b52a5c2e3bd6dc930cf04ab055517f5e3310a2d6310977fdd9`；证书与首包一致，APK内app.config的源码SHA、dirty=false和包名/版本再次核验通过。源代码ZIP对应同一实现提交，SHA-256 `a5e4ed4156fd961730410cb93244f23e480aa052c83d813c2587927115b154b5`。交付目录为本地 `artifacts/0.1.0-dev-vc2/`，包含APK、源代码ZIP、构建清单、验证摘要和校验文件。后续文档补录提交与运行源码提交分别记录，不将文档提交冒充已构建APK的源码。
 
 原版Benchmark对照也已构建：源代码 `0b13b85a47f18360b62f657296cfd0280bb2495c`，`tech.dongdongbh.mindwtr.benchmark`，1.3.0 / vc140，仅ARM64；41,395,508字节，SHA-256 `792c028e651e7bd13d374e1b58f95ff22cf62c6af1c86e154b9f31aa8f133aa4`，同Android Debug测试证书，签名及16KiB zipalign通过。精确Windows构建补丁与清单位于本地 `artifacts/upstream-baseline/`。原版UI/core/app.config/原生模块源代码未改，依赖与Bun缓存独立；该包不是Todo Moe，也不是上游正式签名发行。
 
-上述两包均未安装或进行真实UI、同步、恢复与升级测试。135个本地文档链接检查通过，当前缺少的是设备/用户验收与正式发行条件，不是将已有二进制目录当作构建成功证据。
+首交付时上述两包均未安装，此为历史状态；后来Dev vc2已首次安装，并正常升级到vc3/vc4，上游Benchmark仍未做真机对照。历史135个文档链接检查记录保留，不代替后续修改的验证。
+
+## 当前真机与vc5准备状态
+
+真实Android系统文件入口已恢复4任务/1清单/2分组/1文件夹，停止并重开后导出核对业务字段、顺序和两类容器；原备份hash保持。重复任务完成只生成一次后继，及时撤销后原日期/次数恢复、后继转为tombstone。损坏JSON没有覆盖当前数据，vc4热路径可见“无效备份”Toast。五条新增人工任务各一份；三主题切换与偏好重启保持。
+
+vc4首页保存按钮底1478px，IME顶1511px；More后重新聚焦底1456px，底部避让通过。另发现More顶部遮挡，safeArea补丁等待vc5实测。vc3 lab关闭/柔和/液态P95桶16/15/19ms，按同版本off的Histogram近似预算有条件通过；液态精确桶边界和legacy统计不能省略，详见 [GLASS](GLASS.md)。这些局部结果不代替全部设备矩阵。
+
+vc5首轮高并发全量的Review测试因缺NavigationContext替身而加载RN Flow，真实包复制测试5.886秒超过5秒。补齐局部mock后两套47条通过，再以四worker取得274文件/2713测试全量通过。补丁实现、超时阈值和业务断言没有因该超时而放宽；最新tsc退出0、lint退出0且77警告。详细逐包身份、失败历史及设备证据继续保留于 [真机记录](DEVICE-VALIDATION-20260911.md)。
+
 ## 后续宿主组合恢复验证
 
 在保持生产core、schema与移动端代码不变的情况下，新增 `packages/core/src/backup-sqlite-roundtrip.integration.test.ts`。Node22.23.2、TZ=UTC下定向2/2通过，独立纳入该测试的tsc通过，显式使用仓库Node配置的ESLint退出0。

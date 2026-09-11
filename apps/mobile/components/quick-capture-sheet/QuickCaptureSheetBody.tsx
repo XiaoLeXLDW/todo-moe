@@ -60,6 +60,7 @@ interface QuickCaptureSheetBodyProps {
   handleSave: () => void;
   handleSaveAndEdit?: () => void;
   insetsBottom: number;
+  insetsTop?: number;
   inputRef: RefObject<TextInput | null>;
   keyboardAvoidingEnabled?: boolean;
   /** Legacy caller input; Android now measures its own Dialog's WindowInsets. */
@@ -124,6 +125,7 @@ export function QuickCaptureSheetBody({
   handleSave,
   handleSaveAndEdit,
   insetsBottom,
+  insetsTop = 0,
   inputRef,
   keyboardAvoidingEnabled = true,
   noteValue,
@@ -257,7 +259,10 @@ export function QuickCaptureSheetBody({
           accessibilityElementsHidden={contentAccessibilityHidden}
           importantForAccessibility={contentAccessibilityHidden ? 'no-hide-descendants' : 'auto'}
         />
-        <View testID="quick-capture-visible-viewport" style={[styles.modalRoot, { marginBottom: androidKeyboardOverlap }]}>
+        <View testID="quick-capture-visible-viewport" style={[styles.modalRoot, {
+          marginTop: Platform.OS === 'android' ? Math.max(0, insetsTop) : 0,
+          marginBottom: androidKeyboardOverlap,
+        }]}>
         <KeyboardAvoidingView
           behavior={keyboardAvoidingBehavior}
           enabled={Platform.OS !== 'android' && keyboardAvoidingEnabled}

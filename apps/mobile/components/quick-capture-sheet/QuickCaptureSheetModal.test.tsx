@@ -352,6 +352,7 @@ describe('Quick capture modal composition', () => {
             insetsBottom={0}
             inputRef={{ current: null }}
             androidKeyboardInset={280}
+            insetsTop={97 / 2.75}
             noteValue=""
             onNoteChange={vi.fn()}
             onOpenAreaPicker={vi.fn()}
@@ -371,7 +372,7 @@ describe('Quick capture modal composition', () => {
             onToggleAddAnother={vi.fn()}
             onToggleRecording={vi.fn()}
             onValueChange={vi.fn()}
-            optionsExpanded={false}
+            optionsExpanded
             prioritiesEnabled
             priorityLabel="Priority"
             projectLabel="Project"
@@ -410,6 +411,11 @@ describe('Quick capture modal composition', () => {
     try {
       act(() => { probe.props.onInsetsChange({ nativeEvent: frame }); });
       const viewport = () => tree.root.findAllByType(View).find((node) => node.props.testID === 'quick-capture-visible-viewport')!;
+      const topMargin = flattenStyle(viewport().props.style).marginTop ?? 0;
+      expect(topMargin * frame.density).toBeCloseTo(97);
+      const options = tree.root.findAllByType(ScrollView).find((node) => node.props.testID === 'quick-capture-scroll')!;
+      expect(flattenStyle(options.props.style).flexShrink).toBe(1);
+      expect(flattenStyle(options.props.contentContainerStyle).flexGrow).toBe(0);
       const margin = flattenStyle(viewport().props.style).marginBottom;
       expect(margin).toBeCloseTo(1009 / 2.75);
       expect(2487 - margin * frame.density).toBeLessThanOrEqual(frame.keyboardTopPx);
@@ -420,6 +426,11 @@ describe('Quick capture modal composition', () => {
       expect(flattenStyle(viewport().props.style).marginBottom).toBe(0);
       act(() => { probe.props.onInsetsChange({ nativeEvent: { ...frame, imeVisible: false } }); });
       expect(flattenStyle(viewport().props.style).marginBottom).toBe(0);
+      const bodyProps = tree.root.findByType(QuickCaptureSheetBody).props as React.ComponentProps<typeof QuickCaptureSheetBody>;
+      Object.defineProperty(Platform, 'OS', { configurable: true, value: 'ios' });
+      act(() => tree.update(<QuickCaptureSheetBody {...bodyProps} />));
+      expect(flattenStyle(viewport().props.style).marginTop ?? 0).toBe(0);
+      expect(tree.root.findByType(KeyboardAvoidingView).props.behavior).toBe('padding');
     } finally {
       Object.defineProperty(Platform, 'OS', { configurable: true, value: originalPlatformOs });
       act(() => tree.unmount());

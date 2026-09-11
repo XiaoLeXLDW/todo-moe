@@ -1166,6 +1166,7 @@ export function QuickCaptureSheet({
           void handleSave({ openAfterSave: true });
         }}
         insetsBottom={insets.bottom}
+        insetsTop={insets.top}
         inputRef={inputRef}
         keyboardAvoidingEnabled={androidKeyboardAvoidingEnabled}
         noteValue={noteValue}
