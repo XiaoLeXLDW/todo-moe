@@ -4,6 +4,7 @@ const modernFileSystemMock = vi.hoisted(() => {
   type PathKind = 'file' | 'directory';
 
   const paths = new Map<string, PathKind>();
+  const pickDirectoryAsync = vi.fn<(initialUri?: string) => Promise<{ uri: string }>>();
   const directoryCreates = vi.fn((uri: string, _options?: unknown) => {
     paths.set(uri, 'directory');
   });
@@ -49,6 +50,7 @@ const modernFileSystemMock = vi.hoisted(() => {
   };
 
   class Directory {
+    static pickDirectoryAsync: typeof pickDirectoryAsync | undefined = pickDirectoryAsync;
     uri: string;
 
     constructor(uri: string | { uri: string }) {
@@ -152,6 +154,7 @@ const modernFileSystemMock = vi.hoisted(() => {
     Directory,
     File,
     Paths,
+    pickDirectoryAsync,
     directoryCreates,
     directoryDeletes,
     fileCreates,
@@ -160,6 +163,8 @@ const modernFileSystemMock = vi.hoisted(() => {
     fileMoves,
     __getPath: (uri: string) => paths.get(uri),
     __reset: () => {
+      Directory.pickDirectoryAsync = pickDirectoryAsync;
+      pickDirectoryAsync.mockReset();
       paths.clear();
       directoryCreates.mockClear();
       directoryDeletes.mockClear();
@@ -187,6 +192,9 @@ const legacyFileSystemMock = vi.hoisted(() => ({
   deleteAsync: vi.fn(),
   copyAsync: vi.fn(),
   moveAsync: vi.fn(),
+  StorageAccessFramework: {
+    requestDirectoryPermissionsAsync: vi.fn() as ReturnType<typeof vi.fn> | undefined,
+  },
 }));
 
 vi.mock('expo-file-system', () => modernFileSystemMock);
@@ -196,6 +204,64 @@ describe('file-system wrapper', () => {
   beforeEach(() => {
     modernFileSystemMock.__reset();
     vi.clearAllMocks();
+    legacyFileSystemMock.StorageAccessFramework.requestDirectoryPermissionsAsync = vi.fn()
+      .mockResolvedValue({ granted: true, directoryUri: 'content://legacy/tree/export' });
+  });
+
+  it('falls back to the legacy directory picker when the modern ActivityResultLauncher rejects', async () => {
+    const { StorageAccessFramework } = await import('./file-system');
+    const initialUri = 'content://com.android.externalstorage.documents/tree/primary%3ADocuments';
+    modernFileSystemMock.pickDirectoryAsync.mockRejectedValue(new Error('Attempting to launch an unregistered ActivityResultLauncher'));
+    await expect(StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri)).resolves.toEqual({ granted: true, directoryUri: 'content://legacy/tree/export' });
+    expect(modernFileSystemMock.pickDirectoryAsync).toHaveBeenCalledExactlyOnceWith(initialUri);
+    expect(legacyFileSystemMock.StorageAccessFramework.requestDirectoryPermissionsAsync).toHaveBeenCalledExactlyOnceWith(initialUri);
+  });
+
+  it('treats Expo ERR_PICKER_CANCELLED as a real cancellation without opening another picker', async () => {
+    const { StorageAccessFramework } = await import('./file-system');
+    modernFileSystemMock.pickDirectoryAsync.mockRejectedValue(Object.assign(new Error('The file picker was cancelled by the user'), { code: 'ERR_PICKER_CANCELLED' }));
+    await expect(StorageAccessFramework.requestDirectoryPermissionsAsync()).resolves.toEqual({ granted: false });
+    expect(legacyFileSystemMock.StorageAccessFramework.requestDirectoryPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  it('does not classify an arbitrary error message as user cancellation', async () => {
+    const { StorageAccessFramework } = await import('./file-system');
+    modernFileSystemMock.pickDirectoryAsync.mockRejectedValue(new Error('The file picker was cancelled by the user'));
+    await expect(StorageAccessFramework.requestDirectoryPermissionsAsync()).resolves.toMatchObject({ granted: true });
+    expect(legacyFileSystemMock.StorageAccessFramework.requestDirectoryPermissionsAsync).toHaveBeenCalledOnce();
+  });
+
+  it('rethrows the original modern error when no legacy picker exists', async () => {
+    const { StorageAccessFramework } = await import('./file-system');
+    const error = new Error('Activity is unavailable');
+    modernFileSystemMock.pickDirectoryAsync.mockRejectedValue(error);
+    legacyFileSystemMock.StorageAccessFramework.requestDirectoryPermissionsAsync = undefined;
+    await expect(StorageAccessFramework.requestDirectoryPermissionsAsync()).rejects.toBe(error);
+  });
+
+  it('propagates a failed legacy fallback instead of reporting cancellation', async () => {
+    const { StorageAccessFramework } = await import('./file-system');
+    const legacyError = new Error('Legacy launch failed');
+    modernFileSystemMock.pickDirectoryAsync.mockRejectedValue(new Error('Modern launch failed'));
+    legacyFileSystemMock.StorageAccessFramework.requestDirectoryPermissionsAsync!.mockRejectedValue(legacyError);
+    await expect(StorageAccessFramework.requestDirectoryPermissionsAsync()).rejects.toBe(legacyError);
+  });
+
+  it('returns a successful modern directory without invoking legacy', async () => {
+    const { StorageAccessFramework } = await import('./file-system');
+    modernFileSystemMock.pickDirectoryAsync.mockResolvedValue({ uri: 'content://modern/tree/export' });
+    await expect(StorageAccessFramework.requestDirectoryPermissionsAsync('content://initial')).resolves.toEqual({ granted: true, directoryUri: 'content://modern/tree/export' });
+    expect(modernFileSystemMock.pickDirectoryAsync).toHaveBeenCalledExactlyOnceWith('content://initial');
+    expect(legacyFileSystemMock.StorageAccessFramework.requestDirectoryPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  it('preserves the legacy result and initial URI when the modern picker is absent', async () => {
+    const { StorageAccessFramework } = await import('./file-system');
+    modernFileSystemMock.Directory.pickDirectoryAsync = undefined;
+    const result = { granted: false };
+    legacyFileSystemMock.StorageAccessFramework.requestDirectoryPermissionsAsync!.mockResolvedValue(result);
+    await expect(StorageAccessFramework.requestDirectoryPermissionsAsync('content://initial')).resolves.toBe(result);
+    expect(legacyFileSystemMock.StorageAccessFramework.requestDirectoryPermissionsAsync).toHaveBeenCalledExactlyOnceWith('content://initial');
   });
 
   it('repairs a stale directory at a file write target', async () => {
