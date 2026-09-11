@@ -6,6 +6,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensureFreshReleaseBundle } from './gradle-bundle.mjs';
 import { refreshAutolinkingCache, assertAutolinkingPackage, selectCurrentApkFiles } from './autolinking-helper.mjs';
+import { readSourceReleaseNotes, writeReleaseNotesInput } from './release-notes.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const mobile = join(root, 'apps/mobile');
@@ -28,6 +29,9 @@ const sdk = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
 const pinnedBun = readFileSync(join(root, '.bun-version'), 'utf8').trim();
 const actualBun = run(bun, ['--version'], root, true);
 if (actualBun !== pinnedBun) throw new Error(`Bun ${pinnedBun} required, found ${actualBun}.`);
+// Fail before the native build when the approved version has no reviewable notes.
+const releaseNotes = channel === 'stable' ? readSourceReleaseNotes(root,
+    JSON.parse(readFileSync(join(root, 'apps/mobile/moe/brand/config.json'), 'utf8')).version, sourceSha) : null;
 if (!sdk || !existsSync(sdk)) throw new Error('Set ANDROID_HOME to an existing SDK (platform 36, build-tools 36.0.0, NDK 27.1.12297006).');
 const java = spawnSync(process.env.JAVA_HOME ? join(process.env.JAVA_HOME, 'bin', process.platform === 'win32' ? 'java.exe' : 'java') : 'java', ['-version'], { encoding: 'utf8' });
 if (java.status !== 0 || !/version "(?:17|21)[.\"]/.test(java.stderr || '')) throw new Error('JDK 17 or 21 is required; configure JAVA_HOME and PATH.');
@@ -73,6 +77,7 @@ run(process.platform === 'win32' ? join(native, 'gradlew.bat') : join(native, 'g
 const output = join(root, 'build/moe', `${channel}-${versionCode}-${sourceSha.slice(0, 12)}`);
 mkdirSync(output, { recursive: true });
 const config = JSON.parse(run(bun, ['x', '--no-install', 'expo', 'config', '--type', 'public', '--json'], mobile, true, env));
+if (releaseNotes && releaseNotes.version !== config.version) throw new Error('Release notes version differs from the packaged application.');
 if (run('git', ['rev-parse', 'HEAD'], root, true) !== sourceSha ||
     (run('git', ['status', '--porcelain', '--untracked-files=normal'], root, true) !== '') !== dirty) {
     throw new Error('Git source state changed during the build; rebuild from a fixed checkout.');
@@ -103,6 +108,7 @@ const artifacts = apks.map((name) => {
     }
     return { file: targetName, bytes: contents.length, sha256: createHash('sha256').update(contents).digest('hex'), certificateSha256, embeddedConfigVerified: true };
 });
-writeFileSync(join(output, 'build-manifest.json'), JSON.stringify({ ...report, ...config.extra.todoMoe, androidPackage: config.android.package, artifacts }, null, 2) + '\n');
+const releaseNotesIdentity = releaseNotes ? { releaseNotes: writeReleaseNotesInput(output, releaseNotes) } : {};
+writeFileSync(join(output, 'build-manifest.json'), JSON.stringify({ ...report, ...config.extra.todoMoe, androidPackage: config.android.package, ...releaseNotesIdentity, artifacts }, null, 2) + '\n');
 writeFileSync(join(output, 'SHA256SUMS'), artifacts.map((item) => `${item.sha256}  ${item.file}`).join('\n') + '\n');
 console.log(`Build artifacts: ${output}`);
