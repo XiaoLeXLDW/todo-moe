@@ -15,7 +15,7 @@
 
 `apps/mobile/moe/brand/config.json` 集中名称、自有版本、仓库和上游追溯信息，`config.cjs` 提供 Node/Expo 可直接加载的身份函数及类型声明；`app.config.ts` 从真实 Git HEAD 生成 `extra.todoMoe`，记录完整 SHA、dirty、channel、versionCode。不能用环境变量伪造 HEAD。Stable 拒绝 dirty 检出，必须给出 versionCode。自有版本与上游版本各自独立。
 
-`icon.svg` 和三个 PNG 是本项目代码绘制的原创临时占位，不冒充用户既有家族素材。`node scripts/moe/brand-assets.mjs` 可重新生成；正式家族 Logo、命名最终认可仍待用户提供或指定。About 保留 AGPL 与上游来源。没有全仓替换内部 Mindwtr 协议或原作者声明。
+已按用户要求参考NAT Moe和VBAN Receiver生成家族角色/清单图标，来源和提示词见 [品牌记录](BRANDING-20260911.md)。`node scripts/moe/brand-assets.mjs`从工程内生成位图源离线封装标准、自适应和单色图标，不重新生成或程序重绘角色。旧占位SVG已移除，About保留AGPL与上游来源，内部协议不作全仓改名。
 
 上游 analytics 心跳、默认反馈地址、Dropbox app key、Expo owner/projectId 和 OTA 更新在实际 Expo 配置中关闭。只支持 Android；iOS CloudKit/Widget 插件不应用。Android 深链、快捷方式和通知动作由品牌插件处理；模块内部 Kotlin/Java 包命名空间仍保持原名。空 Dropbox 身份意味着该服务不可连接，不能仅靠替换包名声称第三方回调可用。
 

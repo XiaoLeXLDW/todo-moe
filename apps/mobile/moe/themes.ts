@@ -11,8 +11,8 @@ const ink: ThemeColors = {
   border: '#425069', tint: '#AEC0FF', onTint: '#182654', tabIconDefault: '#B3BFD1', tabIconSelected: '#AEC0FF',
   inputBg: '#273247', filterBg: '#273247', danger: '#FFA4AE', success: '#82D9B1', warning: '#F4CA80',
 };
-const family = { ...soft, bg: '#F8F3FB', tint: '#765099', tabIconSelected: '#765099', inputBg: '#F0E8F5', filterBg: '#F0E8F5' };
-const familyDark = { ...ink, bg: '#19131F', tint: '#D9B5F5', tabIconSelected: '#D9B5F5', onTint: '#381C4D', inputBg: '#33273F', filterBg: '#33273F' };
+const family = { ...soft, bg: '#F2F9F7', tint: '#166D68', tabIconSelected: '#166D68', inputBg: '#E5F3EF', filterBg: '#E5F3EF' };
+const familyDark = { ...ink, bg: '#101B1C', tint: '#80DFD3', tabIconSelected: '#80DFD3', onTint: '#073D37', inputBg: '#213B39', filterBg: '#213B39' };
 
 export function resolveMoeTheme(preferences: Pick<MoePreferences, 'theme' | 'followSystem'>, systemDark: boolean) {
   const isDark = preferences.followSystem ? systemDark : preferences.theme === 'ink';

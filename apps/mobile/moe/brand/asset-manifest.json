@@ -1,0 +1,32 @@
+{
+  "artwork": "family-mascot-checklist-v1",
+  "generator": "built-in image_gen",
+  "packaging": "Node 22 / pinned Expo image-utils Jimp backend",
+  "files": [
+    {
+      "file": "family-mascot-v1-source.png",
+      "bytes": 1388779,
+      "sha256": "67c942aa7fdcb74edc81e9a95449bfba6f3cc03db58964ce362e7574880feff3"
+    },
+    {
+      "file": "icon.png",
+      "bytes": 938953,
+      "sha256": "363d8d2d84fca71cc11e54e402f398373727ea2e1aeb25020a089426dd024322"
+    },
+    {
+      "file": "foreground.png",
+      "bytes": 536617,
+      "sha256": "2fb41d39fdaabfe74ab1e91f0650f0f6cfef851db78cfea304773281882e95d4"
+    },
+    {
+      "file": "monochrome.png",
+      "bytes": 2219,
+      "sha256": "8e7f3f6fcf787028003bed93074754db97ecfb9733b5b3a8665cb6e4dd2ea075"
+    },
+    {
+      "file": "monochrome.svg",
+      "bytes": 229,
+      "sha256": "5639482dec2e849157bd7cf9d5fdc80c0c95903a6bea9cb0a9c1fe5df1f302e3"
+    }
+  ]
+}

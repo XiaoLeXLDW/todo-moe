@@ -37,7 +37,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         }] as typeof entry;
         if (entry[0] === './plugins/android-widget') return [entry[0], { ...entry[1], label: identity.name }] as typeof entry;
         if (entry[0] === 'expo-splash-screen') return [entry[0], {
-            ...entry[1], image: './moe/brand/icon.png', backgroundColor: '#EEEFFA',
+            ...entry[1], image: './moe/brand/icon.png', backgroundColor: '#0D141B',
+            dark: { ...entry[1]?.dark, image: './moe/brand/icon.png', backgroundColor: '#0D141B' },
         }] as typeof entry;
         return entry;
     });
@@ -59,7 +60,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             adaptiveIcon: {
                 foregroundImage: './moe/brand/foreground.png',
                 monochromeImage: './moe/brand/monochrome.png',
-                backgroundColor: channel === 'development' ? '#E2DAFF' : '#EEEFFA',
+                backgroundColor: '#0D141B',
             },
         },
         extra: {
