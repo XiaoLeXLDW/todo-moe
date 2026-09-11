@@ -1,8 +1,8 @@
 # 2026-09-11 Android 真机验收
 
-当前已安装候选为vc6。手机已解锁，About家族图标/build6/source70366、家族浅色/系统深色及首页、启动画面均已复验；vc5→vc6真实导出全结构一致但非字节一致。两处文案漏名已在适配层修复，vc7尚未构建；本轮仍local-only，完整矩阵/正式发布/日用未放行。
+当前本地Dev候选为vc7：运行源码`e6a797d50df8b9294fe3260585f71e151b69b8dc`，APK SHA-256 `03fbb33441de9dd7cca835a2a3e5f558d1f580e7274838ee1111df25fd93568f`，42,005,624字节，已同Dev证书正常覆盖安装。About显示build7/source e6a797d5，两处静态文案及1914×2160内屏More键盘/顶部已实测通过；vc6→vc7完整导出结构一致（含数组顺序、全部元数据和settings），10条active/12条总tasks，原始字节因JSON对象key顺序不同而不相同。 本轮按用户决定local-only，任务同步暂不启用。vc6已有家族图标、启动画面、浅色/系统深色及外屏证据；完整折叠切换压力、无障碍/系统入口矩阵、7天日用与正式签名发布仍未完成，v1.0未放行。
 
-本记录仅覆盖连接的 Xiaomi MIX Fold 2（22061218C / zizhan）、Android 15 / API 35、ARM64、1080×2520、440 dpi。原始证据位于工程内 `evidence/development/device-20260911-153f8f46/`。没有卸载或清除应用数据，没有修改系统设置、驱动、网络或真实云端数据。
+本记录仅覆盖连接的 Xiaomi MIX Fold 2（22061218C / zizhan）、Android 15 / API 35、ARM64；外屏1080×2520、440 dpi，后续内屏1914×2160。原始证据位于工程内 `evidence/development/device-20260911-153f8f46/`。没有卸载或清除应用数据，没有修改系统设置、驱动、网络或真实云端数据。
 
 ## 包与安装
 
@@ -89,4 +89,20 @@ About已显示新家族猫图、build6及source70366（103-vc6-about）。[家�
 
 [vc6-startup-800.png](../../evidence/development/device-20260911-153f8f46/vc6-startup-800.png)已实际看到居中家族猫图。`vc6-cold-start.txt`记录COLD/TotalTime986ms，仅单次启动；`vc6-startup-capture.json`记录计划800ms、实际截图完成1440ms，文件名不是显示时间。
 
-两处静态文案sandbox.description与settings.gettingStartedContentDesc的漏名已在brand/terminology适配层修复，真实provider先RED后GREEN、30项通过；core/CSV/真实任务未改，vc7尚未构建，不能把该修复写成vc6已安装结果。本节不将后续代码回归写成vc6已包含该修复，也不放行完整系统矩阵、正式发行或连续日用。
+两处静态文案sandbox.description与settings.gettingStartedContentDesc的漏名已在brand/terminology适配层修复，真实provider先RED后GREEN、30项通过；core/CSV/真实任务未改，该修复当时未包含在vc6；现已随vc7构建安装并在真实界面复验通过。本节不将后续代码回归写成vc6已包含该修复，也不放行完整系统矩阵、正式发行或连续日用。
+
+## 2026-09-12 vc6内屏限定验收与导出观察
+
+外屏展开为1914×2160内屏后重新布局正常：basic保存按钮底1086px、More底1064px均小于IME顶1119px；More标题顶133px大于真实状态栏底100px。选项可滚动到日期，人工任务920010保存一次，冷重启后导出仍保留。More与滚动证据为110/111，人工任务及冷重启SAF证据为112—119；这不是完整折叠切换压力测试。
+
+首次展开后的热路径导出转入Android系统分享，未发送；尚不知用户是否取消前面的选择器。同内屏冷重启后的SAF导出成功，vc7首次导出也成功。只读审查未发现本轮生产export或Activity配置差异，当前仅登记原因未定的观察，不能认定fold/Expo缺陷已证实，或被vc7修复。
+
+## 2026-09-12 vc7：文案、内屏More与升级数据已验
+
+当前本地Dev候选为vc7：运行源码`e6a797d50df8b9294fe3260585f71e151b69b8dc`，APK SHA-256 `03fbb33441de9dd7cca835a2a3e5f558d1f580e7274838ee1111df25fd93568f`，42,005,624字节，已同Dev证书正常覆盖安装。About显示build7/source e6a797d5，两处静态文案及1914×2160内屏More键盘/顶部已实测通过；vc6→vc7完整导出结构一致（含数组顺序、全部元数据和settings），10条active/12条总tasks，原始字节因JSON对象key顺序不同而不相同。 包名/版本为`io.github.xiaolexldw.todomoe.dev`、0.1.0 / versionCode7，证书与前述Dev包相同。构建3m17、embeddedConfigVerified=true，JS bundle实际执行，原生1545项up-to-date；[独立版本记录](docs/versions/0.1.0-dev-vc7-2026-09-12.md)保留源码ZIP、产物哈希和构建边界。
+
+[120沙盒文案XML](../../evidence/development/device-20260911-153f8f46/120-vc7-sandbox-text.xml)与[121入门文案XML](../../evidence/development/device-20260911-153f8f46/121-vc7-getting-started-text.xml)确认两处品牌漏名修复；[124 About](../../evidence/development/device-20260911-153f8f46/124-vc7-about-inner.png)显示build7/source e6。修复仅在brand/terminology适配层，core/CSV/真实任务内容未改，30项真实provider回归及mobile tsc通过。
+
+16:27:09 UTC在vc7本包完成[内屏More复测](../../evidence/development/device-20260911-153f8f46/126-vc7-inner-more.png)：保存底1064px小于IME顶1119px，标题顶133px大于当前状态栏底100px。[关闭空草稿后的首页](../../evidence/development/device-20260911-153f8f46/127-vc7-delivery-home.png)仍有10条active，未额外新增任务。
+
+升级前`vc6-before-vc7-export.json` SHA-256为`58a3cfb5fe22814cb80a6509e1bd109eb74b3eb294a216681895cf0b3e16a551`；升级后`vc7-data-export.json`为`60ab90f1f2eb2e59aa78fc1e14f984eb8ed5b8f090524ad508a909ce84c8d538`。全结构严格相同，含数组顺序、全部元数据和settings，10条active/12条总tasks、1project/2sections/1area；仅JSON对象key序列化顺序导致字节不同。[判定JSON](../../evidence/development/device-20260911-153f8f46/vc6-vc7-upgrade-verdict.json)明确fullStructureEqual=true、exactBytes=false。以上均为人工Dev数据与限定设备路径，不放行完整矩阵、7天日用或正式签名发布。

@@ -2,7 +2,7 @@
 
 把 Mindwtr 二次开发为适合自己日用的 Android 待办：快速记录、文件夹与多清单、完成动画、家族品牌、模糊或液态玻璃，并保留数据与同步能力。
 
-**当前进度：家族图标版Dev vc6已正常覆盖安装，vc6 About家族图标、build6/source70366、启动画面、家族浅色/跟随系统深色及首页已复验；默认soft/followSystem=true已恢复；vc5基本/More键盘顶部及数据保留已验。** 本地完整移动端274文件/2713测试通过，远端core3869通过/8跳过。开发分支已推送并建[草稿PR #1](https://github.com/XiaoLeXLDW/todo-moe/pull/1)（未合并、未Release）；首个CI APK已成功构建并下载核验，4GiB R8修复已验证；后续提交的检查见PR。用户明确本轮local-only，任务同步暂不启用。详见[开发台账](IMPLEMENTATION.md)、[设备记录](DEVICE-VALIDATION-20260911.md)、[品牌决定](BRANDING-20260911.md)和[CI记录](CI-VALIDATION-20260911.md)。仍为开发候选，v1.0未放行。
+**当前进度：vc7已正常覆盖安装，家族图标、两处文案、内屏键盘和升级数据已验证。** 本轮仅使用本地数据，暂不启用同步；10条人工任务保留。对应源码的全量core/mobile与常规CI通过，完整系统矩阵、连续日用和正式签名发布仍未放行。产物、哈希和证据见[vc7记录](docs/versions/0.1.0-dev-vc7-2026-09-12.md)、[真机记录](DEVICE-VALIDATION-20260911.md)及[草稿PR #1](https://github.com/XiaoLeXLDW/todo-moe/pull/1)。
 
 ## 从这里开始
 
@@ -33,18 +33,18 @@
 
 | 版本 | 交付目标 | 当前状态 |
 |---|---|---|
-| [v0.1.0](docs/versions/v0.1.0.md) | 可复现构建、品牌、Dev身份和升级基线 | Dev连续覆盖至vc6、Android恢复已验；vc6已验上述限定UI；正式身份/完整系统能力仍有缺项 |
+| [v0.1.0](docs/versions/v0.1.0.md) | 可复现构建、品牌、Dev身份和升级基线 | Dev连续覆盖至vc7、Android恢复已验；vc6已验上述限定UI；正式身份/完整系统能力仍有缺项 |
 | [v0.2.0](docs/versions/v0.2.0.md) | 玻璃最小验证、性能对照和降级 | 动态背景已观察；vc3 lab近似预算有条件通过，完整矩阵未完成 |
-| [v0.3.0](docs/versions/v0.3.0.md) | 日常清单、快速添加、主题与交互 | 常用路径、偏好及vc5顶部/键盘已验；vc6限定品牌UI已验，vc7文案包及完整矩阵待验 |
+| [v0.3.0](docs/versions/v0.3.0.md) | 日常清单、快速添加、主题与交互 | 常用路径、偏好及vc5顶部/键盘已验；vc6限定品牌UI已验，vc7两处文案及内屏More已验，完整矩阵待验 |
 | [v0.4.0](docs/versions/v0.4.0.md) | 上游PR、检查、签名发布与更新 | 草稿PR#1已推送，CI已有成功记录；首个CI APK成功且已下载核验，正式发布未完成 |
 | [v1.0.0](docs/versions/v1.0.0.md) | 数据、同步、性能与连续日用验收 | 未放行 |
 
-以上版本号是阶段安排，不是五个正式发行版本。vc2首次交付及vc3—vc5测试保留历史；vc6源码`70366ddb4973cd7cc4cf39815e178b4cc033513c`、APK SHA-256 `8ea2302a824866e248a249c6a360d8bfa2bbc7e53c03702652d57cdb6fbef01b`已构建安装。新图标已集成，不再等待用户提供Logo；vc6 About/启动画面/家族配色及数据结构已验。真实同步与跨端按用户决定暂不启用，保留为后续范围。正式Release/Obtainium、完整设备矩阵和日用观察仍未放行。
+以上版本号是阶段安排，不是五个正式发行版本。vc2首次交付及vc3—vc6各自保留历史身份；最新[vc7](docs/versions/0.1.0-dev-vc7-2026-09-12.md)已安装实测。家族图标已集成，vc6内屏切换/新增与vc7 More限定路径已验；完整切换压力、正式Release/Obtainium和日用观察仍未放行。首次展开热路径导出转入系统分享且未发送，原因仍待确认，不能把后续SAF成功当成该观察已解释或修复。
 
 ## 使用约定
 
 “已实现”需要代码；“构建通过”需要构建日志；“已安装”需要设备记录；“验收通过”需要相应行为证据。“计划中”和“未执行”保留到证据齐全再更改。每次变化填写日期、版本、提交、测试和未验证事项，文档不包含私钥、口令或真实同步凭据。
 
-下一步：构建并安装尚未生成的vc7文案修复包后复验；完整系统矩阵、正式发布与日用仍未放行。
+下一步：对照vc7独立记录继续完整系统矩阵和日用观察；当前CI APK构建结果另行登记，正式发布仍未放行。
 
-2026-09-12追加：vc5→vc6真实App系统导出全结构一致，含数组顺序、全部元数据和settings；9条active、11条总tasks、1project/2sections/1area。原字节不相同，仅JSON对象key序列化顺序变化，不能写成字节一致。两处静态文案sandbox.description与settings.gettingStartedContentDesc的漏名已在brand/terminology适配层修复，真实provider先RED后GREEN、30项通过；core/CSV/真实任务未改，vc7尚未构建，不能把该修复写成vc6已安装结果；当前仍为local-only开发候选。
+2026-09-12追加：vc5→vc6真实App系统导出全结构一致，含数组顺序、全部元数据和settings；9条active、11条总tasks、1project/2sections/1area。原字节不相同，仅JSON对象key序列化顺序变化，不能写成字节一致。两处静态文案sandbox.description与settings.gettingStartedContentDesc的漏名已在brand/terminology适配层修复，真实provider先RED后GREEN、30项通过；core/CSV/真实任务未改，该修复当时未包含在vc6；现已随vc7构建安装并在真实界面复验通过；当前仍为local-only开发候选。

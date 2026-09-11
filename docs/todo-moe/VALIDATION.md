@@ -1,6 +1,6 @@
 # 2026-09-11 本地验证
 
-当前本机候选为家族图标版vc6：源码`70366ddb4973cd7cc4cf39815e178b4cc033513c`，APK SHA-256 `8ea2302a824866e248a249c6a360d8bfa2bbc7e53c03702652d57cdb6fbef01b`，已覆盖安装；vc6 About家族图标、build6/source70366、启动画面、家族浅色/跟随系统深色及首页已复验；默认soft/followSystem=true已恢复。vc5源码`aacdaedfb754b1354094fe1fd2edbaed9b14b4bb`已验基本/More键盘顶部，vc4→vc5导出字节一致。用户明确本轮local-only、不启用任务同步；新家族图标已集成，见[品牌记录](BRANDING-20260911.md)。各APK与CI提交身份分开，v1.0未放行。
+当前本地Dev候选为vc7：运行源码`e6a797d50df8b9294fe3260585f71e151b69b8dc`，APK SHA-256 `03fbb33441de9dd7cca835a2a3e5f558d1f580e7274838ee1111df25fd93568f`，42,005,624字节，已同Dev证书正常覆盖安装。About显示build7/source e6a797d5，两处静态文案及1914×2160内屏More键盘/顶部已实测通过；vc6→vc7完整导出结构一致（含数组顺序、全部元数据和settings），10条active/12条总tasks，原始字节因JSON对象key顺序不同而不相同。 本轮按用户决定local-only，任务同步暂不启用。vc6已有家族图标、启动画面、浅色/系统深色及外屏证据；完整折叠切换压力、无障碍/系统入口矩阵、7天日用与正式签名发布仍未完成，v1.0未放行。 各APK与CI提交身份分别追溯，见[vc7记录](docs/versions/0.1.0-dev-vc7-2026-09-12.md)。
 
 | 检查 | 结果 | 本地证据 |
 |---|---|---|
@@ -10,7 +10,7 @@
 | mobile 最新lint | 退出0，0 errors、77 warnings；历史首交付为78 warnings，不改写旧日志 | `mobile-lint-vc5-final.log`；历史 `lint-mobile-final.log` |
 | 任务字段/存储映射检查 | schema parity通过；13用例通过，含LF/CRLF正例和实际缺字段负例 | `schema-check.log`、`schema-tests.log` |
 | 构建/发布/真实Git合并策略 | 18用例通过；覆盖版本、身份、保留合并祖先、冲突中止、幂等、Windows CLI入口与query-string真实消费者 | `moe-engineering-tests.log`；另有独立Node入口测试 |
-| 工作流/远端 | 草稿PR#1已推送；9ee08ff常规CI/Audit/Native全成功；首个50fa606 CI APK已成功并下载核验 | [CI记录](CI-VALIDATION-20260911.md)；当前Desktop也已成功 |
+| 工作流/远端 | 草稿PR#1已推送；首个50fa606 CI APK已成功下载核验；e6自有check含全量core/mobile及Mobile/Core/Quality/E2E/Audit/Native等已成功 | [CI记录](CI-VALIDATION-20260911.md)；e6常规CI含Desktop Rust已全成功、CI APK构建中 |
 | 原生玻璃 | Kotlin/Java/JAR与完整APK编译通过；5项能力回退/导航节点稳定性测试通过 | `android-build-vc1-entry-fixed.log`、`glass-regression.log` |
 | 原生WidgetPayload | 15用例通过，包括Dev身份、错误渠道拒绝、实际应用名称及保留任务正文 | `widget-payload-final.log` 和Gradle XML报告 |
 | 生产core与schema | 生产实现未改；新增宿主恢复测试单独记数 | 历史 `core-diff.log`；下文宿主组合验证 |
@@ -29,7 +29,7 @@ Windows构建已定位并修复：Bun重复补丁与manifest缓存问题、CRLF�
 
 连接手机之前，硬件模拟器预检缺少hypervisor driver；隔离API33 x86_64软件AVD修正缓存目录后仍在ADB出现前以 `0xC0000005` 退出。应用从未安装进该模拟器，无遗留进程。历史证据仍为 `software-qa-controlled.log`、`software-qa-controlled-exit.json`；后来已连接物理手机并完成Dev验收，不再以“未连接手机”描述当前状态。
 
-仍缺完整交互/失败注入/折叠/TalkBack/大字体/提醒Widget设备矩阵、正式签名/Release/Obtainium及连续日用。新家族Logo已生成并集成vc6，其About/启动画面/家族配色已验；任务同步与跨端按用户明确决定暂不启用，不是本轮索取后端的阻塞。[草稿PR #1](https://github.com/XiaoLeXLDW/todo-moe/pull/1)已推送、未合并和发布。截至本次补录，远端HEAD为`efb2a335fcb8ea71c6438aed8e8bee7752af9611`：常规CI、Dependency Audit和Native Platform CI全部成功；此前efb2a335的check成功/排队状态保留为历史。9ee08ff的常规CI/Audit/Native曾全成功，但其自有APK因2GiB R8堆OOM失败；后续50fa606使用4GiB堆构建19m43成功，产物已下载并核验。后续提交检查以PR为准。
+仍缺完整交互/失败注入/折叠切换压力/TalkBack/大字体/提醒Widget设备矩阵、正式签名/Release/Obtainium及7天日用。外→内屏重新布局、vc6新增与vc7 More限定路径已有实测，不等于全部矩阵。任务同步与跨端按用户决定暂不启用。开发分支已推送并创建[草稿PR #1](https://github.com/XiaoLeXLDW/todo-moe/pull/1)，未合并、未创建Release。e6a797d5自有check（含全量core/mobile）和Mobile/Core/Quality/E2E/Audit/Native等已成功；常规CI（含Desktop Rust）、Dependency Audit与Native均已全部成功；e6 CI APK仍在构建。历史50fa606的首个CI APK使用4GiB堆构建19m43成功、Widget46秒通过，已下载核验；9ee08ff的2GiB R8 OOM失败保留，不能把旧成功或check成功写成e6 CI APK成功。后续结果以[CI记录](CI-VALIDATION-20260911.md)与PR为准。
 
 ## vc2首次构建交付补录（历史）
 
@@ -37,9 +37,9 @@ Windows构建已定位并修复：Bun重复补丁与manifest缓存问题、CRLF�
 
 原版Benchmark对照也已构建：源代码 `0b13b85a47f18360b62f657296cfd0280bb2495c`，`tech.dongdongbh.mindwtr.benchmark`，1.3.0 / vc140，仅ARM64；41,395,508字节，SHA-256 `792c028e651e7bd13d374e1b58f95ff22cf62c6af1c86e154b9f31aa8f133aa4`，同Android Debug测试证书，签名及16KiB zipalign通过。精确Windows构建补丁与清单位于本地 `artifacts/upstream-baseline/`。原版UI/core/app.config/原生模块源代码未改，依赖与Bun缓存独立；该包不是Todo Moe，也不是上游正式签名发行。
 
-首交付时上述两包均未安装，此为历史状态；后来Dev vc2已首次安装，并正常升级至vc6，其中vc2→vc5字段与元数据保留已有证据；上游Benchmark仍未做真机对照。历史135个文档链接检查记录保留，不代替后续修改的验证。
+首交付时上述两包均未安装，此为历史状态；后来Dev vc2已首次安装，并正常升级至vc7，其中vc2→vc5字段与元数据保留已有证据；上游Benchmark仍未做真机对照。历史135个文档链接检查记录保留，不代替后续修改的验证。
 
-## 已验vc5与当前vc6状态
+## vc5基线及历史行为验证
 
 真实Android系统文件入口已恢复4任务/1清单/2分组/1文件夹，停止并重开后导出核对业务字段、顺序和两类容器；原备份hash保持。重复任务完成只生成一次后继，及时撤销后原日期/次数恢复、后继转为tombstone。损坏JSON没有覆盖当前数据，vc4热路径可见“无效备份”Toast。五条新增人工任务各一份；三主题切换与偏好重启保持。
 
@@ -57,7 +57,7 @@ vc5首轮高并发全量的Review测试因缺NavigationContext替身而加载RN 
 
 本地证据为 `artifacts/0.1.0-dev-vc2/host-backup-restore/run-ZsmgSw/`，包括原始备份、SQLite、关闭重开读取、独立预期、生成时间、测试源码及共享源码哈希。测试源码SHA-256为 `b09c17ad54c187ea9e12fb70f9692f87cb69c3910d60d8aa5134e20e9b827060`。旧的预期遗漏与不规范容器样本运行保留为历史，不作为规范样本通过依据。核心全量3867项是前轮记录，本次2项单独记数，不冒充重跑了全套。
 
-当前最新已安装包仍为vc6；About/启动画面/家族浅深色和首页已有新设备证据，vc5→vc6数据全结构一致但非原字节一致。详见[DEVICE-VALIDATION](DEVICE-VALIDATION-20260911.md)；vc7仅为待构建的后续文案修复。
+当前最新已安装包为vc7；两处文案、About及内屏More回归通过。vc6→vc7全结构一致、非字节一致，详见[DEVICE-VALIDATION](DEVICE-VALIDATION-20260911.md)与[vc7版本记录](docs/versions/0.1.0-dev-vc7-2026-09-12.md)。
 
 vc6包内图标 `res/Sj.png` 与源 `icon.png` 解码后的RGBA逐字节一致，构建日志确认JS bundle任务实际执行；见本地 `artifacts/0.1.0-dev-vc6/packaged-brand-asset-verification.json` 与[vc6版本记录](docs/versions/0.1.0-dev-vc6-2026-09-11.md)。包内资产核验与后来取得的About/启动画面/主题UI证据分别记录。
 
@@ -65,4 +65,12 @@ vc6包内图标 `res/Sj.png` 与源 `icon.png` 解码后的RGBA逐字节一致�
 
 vc5→vc6真实App系统导出全结构一致，含数组顺序、全部元数据和settings；9条active、11条总tasks、1project/2sections/1area。原字节不相同，仅JSON对象key序列化顺序变化，不能写成字节一致。vc5导出SHA-256为`d2032db8be6d970564eb3f2a4eaf41acb94bd45ebc6dddf8c7434e08bb63d33e`，vc6为`a1f90450f0afa425617ce135292303c70087ec47ab2974ed39f6c8b2215c50d5`；[判定JSON](../../evidence/development/device-20260911-153f8f46/vc5-vc6-upgrade-verdict.json)记录exactBytes=false、fullStructureEqual=true。
 
-About与家族浅/系统深色、首页、默认偏好恢复对应103—107证据。冷启动成功单次TotalTime986ms；`vc6-startup-800.png`实际截图完成1440ms，800仅计划延时，不能当显示耗时。两处静态文案sandbox.description与settings.gettingStartedContentDesc的漏名已在brand/terminology适配层修复，真实provider先RED后GREEN、30项通过；core/CSV/真实任务未改，vc7尚未构建，不能把该修复写成vc6已安装结果。首个CI APK的19m43构建、46秒Widget与下载核验见[CI记录](CI-VALIDATION-20260911.md)。
+About与家族浅/系统深色、首页、默认偏好恢复对应103—107证据。冷启动成功单次TotalTime986ms；`vc6-startup-800.png`实际截图完成1440ms，800仅计划延时，不能当显示耗时。两处静态文案sandbox.description与settings.gettingStartedContentDesc的漏名已在brand/terminology适配层修复，真实provider先RED后GREEN、30项通过；core/CSV/真实任务未改，该修复当时未包含在vc6；现已随vc7构建安装并在真实界面复验通过。首个CI APK的19m43构建、46秒Widget与下载核验见[CI记录](CI-VALIDATION-20260911.md)。
+
+## 2026-09-12 vc7与内屏限定验证
+
+vc7构建3m17，42,005,624字节；构建清单embeddedConfigVerified=true，JS bundle实际执行，原生1545项up-to-date。30项定向真实provider回归与mobile tsc通过；本地274文件/2713项全量属于此前vc5基线，e6远端自有check另含全量core/mobile成功。
+
+1914×2160内屏：vc6外→内布局正常，basic/More保存底1086/1064均小于IME顶1119，More标题133大于状态栏底100；滚动到日期、920010保存一次及冷重启保留已验。vc7本包More按原内屏路径再验，保存底1064、标题133均满足上述边界，关闭空草稿后10条active未增加。vc6→vc7严格全结构相同，10条active/12条总tasks、1project/2sections/1area；原始字节因对象key顺序不同而不同，判定见[vc6→vc7 JSON](../../evidence/development/device-20260911-153f8f46/vc6-vc7-upgrade-verdict.json)。
+
+首次展开热路径导出曾进入系统分享且未发送；同内屏冷重启后SAF与vc7首次导出成功。用户是否取消首次选择器仍不明，只读审查未发现本轮生产export/Activity配置差异；不认定fold/Expo缺陷已证实或被vc7修复。完整切换压力与系统矩阵仍待验。
