@@ -2,13 +2,17 @@
 
 本文件只记录已经完成的工作。App 版本的计划见 [版本索引](docs/versions/README.md)，不得提前作为发布记录填写。
 
+## 未发布 · 2026-09-12 · 后续说明文案修正
+
+vc6解锁实测已看到新启动/关于图标、家族明暗主题，升级后9条有效任务和完整数据结构保留。检查中发现沙盒说明还自称Mindwtr，快速上手说明把清单与收件箱条目都称作项目；已仅在移动端静态文案适配层修正，保留core原文、用户任务、Mindwtr CSV/JSON格式名。真实语言provider回归先失败后通过，30项定向用例通过、移动端TypeScript通过，准备下一vc7；尚未将这段文案修正写成已装入vc6。
+
 ## 未发布 · 2026-09-11 · 0.1.0-dev 构建3至6
 
 最新候选vc6已正常覆盖安装，运行源码 `70366ddb4973cd7cc4cf39815e178b4cc033513c`。家族图标按用户两个仓库参考生成并接入启动画面、About、标准与自适应图标，家族主题更新为青绿色；用户明确暂不启用数据同步，本轮使用本地数据。
 
 vc3—vc5修复真实Android键盘遮挡、More顶部安全区、保留页面错误Toast不可见和简体中文术语映射；玻璃滤镜在采样分辨率内计算后放大。vc5完成三次连续覆盖数据保留、Android真实恢复、重复完成/撤销、五条新增和限定玻璃对照，移动端完整274文件/2713测试通过。vc6安装时手机息屏，新界面和升级后数据读取待解锁，不能用vc5结果代替。
 
-开发分支已推送并创建 [草稿PR #1](https://github.com/XiaoLeXLDW/todo-moe/pull/1)。已修正首次CI中的过时测试与Android范围选择，常规CI、Native Platform CI、Dependency Audit均已在远端成功；自有APK构建曾因R8的2GiB堆失败，资源修复后仍待远端构建结果。未配置正式签名、合并或发布Release。具体产物与边界见 [vc6记录](docs/versions/0.1.0-dev-vc6-2026-09-11.md)、[真机记录](DEVICE-VALIDATION-20260911.md) 和 [CI记录](CI-VALIDATION-20260911.md)。
+开发分支已推送并创建 [草稿PR #1](https://github.com/XiaoLeXLDW/todo-moe/pull/1)。已修正首次CI中的过时测试与Android范围选择，常规CI、Native Platform CI、Dependency Audit均已在远端成功；自有APK构建曾因R8的2GiB堆失败，4GiB修复后已远端构建成功并下载核验。未配置正式签名、合并或发布Release。具体产物与边界见 [vc6记录](docs/versions/0.1.0-dev-vc6-2026-09-11.md)、[真机记录](DEVICE-VALIDATION-20260911.md) 和 [CI记录](CI-VALIDATION-20260911.md)。
 
 以下条目保留对应时间的结果；其中“未推送/未连接/占位图标”不是当前状态。
 

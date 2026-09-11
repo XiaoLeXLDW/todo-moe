@@ -14,7 +14,7 @@ export const getMobileAppName = () => resolveMobileAppName(Constants.expoConfig)
 /** Only application self-references. Provider names, backup formats, attribution
  * and task content must never pass through a global name replacement. */
 export const MOBILE_APP_NAME_KEYS = new Set([
-  'app.name', 'onboarding.title', 'onboarding.startFreshTitle',
+  'app.name', 'onboarding.title', 'onboarding.startFreshTitle', 'sandbox.description',
   'appLock.title', 'appLock.description', 'appLock.prompt', 'appLock.enablePrompt', 'appLock.cancelled',
   'settings.mobile.appLockDesc',
   'quickAdd.audioQueued', 'obsidian.bringIntoMindwtrSuccess',

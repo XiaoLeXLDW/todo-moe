@@ -1,6 +1,6 @@
 # 2026-09-11 Android 真机验收
 
-当前候选为家族图标 vc6，已正常覆盖安装，新的界面与升级后数据读取等待手机解锁。此前 vc5 的键盘、顶部安全区、Toast、三次覆盖数据保留已有下述证据。本轮用户选择本地使用，暂不启用数据同步。早期各节中的“待修复/待验”描述保留为当时状态，以文末逐版本结果为准。
+当前已安装候选为vc6。手机已解锁，About家族图标/build6/source70366、家族浅色/系统深色及首页、启动画面均已复验；vc5→vc6真实导出全结构一致但非字节一致。两处文案漏名已在适配层修复，vc7尚未构建；本轮仍local-only，完整矩阵/正式发布/日用未放行。
 
 本记录仅覆盖连接的 Xiaomi MIX Fold 2（22061218C / zizhan）、Android 15 / API 35、ARM64、1080×2520、440 dpi。原始证据位于工程内 `evidence/development/device-20260911-153f8f46/`。没有卸载或清除应用数据，没有修改系统设置、驱动、网络或真实云端数据。
 
@@ -51,7 +51,7 @@ vc2的P95桶近似为16/20/22ms，液态超出off×1.2预算，柔和尚不能�
 
 独立 `capture-quick` 深链会进入另一个capture-modal，按钮位于IME上方；这不能当作首页“＋”对应QuickCaptureSheet修复通过。对照用例和原失败截图全部保留。
 
-仍待完成：最终键盘/Toast修复、第二次连续覆盖升级与数据核对、全部设备交互矩阵、真实隔离同步后端和第二客户端、正式签名/远端工作流/Obtainium、真实家族素材与连续日用记录。当前不放行v1.0。
+当时仍待完成（历史清单，后续结果见vc4—vc6）：最终键盘/Toast修复、第二次连续覆盖升级与数据核对、全部设备交互矩阵、真实隔离同步后端和第二客户端、正式签名/远端工作流/Obtainium、真实家族素材与连续日用记录。当前不放行v1.0。
 
 ## vc4 闭环与最终候选准备（历史过程）
 
@@ -77,6 +77,16 @@ More重新聚焦时另发现标题顶33px、状态栏底97px的遮挡，已追�
 
 干净运行源码 `70366ddb4973cd7cc4cf39815e178b4cc033513c`，0.1.0 / versionCode 6，42,005,360字节；APK SHA-256 `8ea2302a824866e248a249c6a360d8bfa2bbc7e53c03702652d57cdb6fbef01b`。构建3m5，日志确认 `createBundleReleaseJsAndAssets` 实际执行；从APK解出的1024px图标与品牌源 `icon.png` 的RGBA像素逐字节相同。包内源码/版本/渠道/品牌状态、测试证书和16KiB zipalign检查通过，32个原生库与vc5已核验库字节相同。
 
-`adb install -r` 成功，实际包信息读回versionCode6，未卸载、清数据或降级。安装时手机处于Hangup/AOD，后续为Dozing；此前自动导出尝试因屏幕未解锁失败，不能算作新的备份。新的启动、About图标、家族主题与升级后9条人工任务读取尚未完成，不能把安装成功等同于这些行为通过。用户解锁后继续，当前保留vc5的最后已验备份和全部原始文件。
+`adb install -r` 成功并读回vc6，未卸载、清数据或降级。安装时曾处于Hangup/AOD，早先息屏导出失败保留为历史，不能冒充成功备份；随后手机解锁后的真实复验及导出见下节。
 
 交付目录 `artifacts/0.1.0-dev-vc6/` 包含APK、固定源码ZIP、图标、提示词和独立验证摘要。源码ZIP SHA-256 `2bbb5525299540abfa7a447adefc6ec2f19c794c2026994674ef6e2ad2ecf1ee`。后续CI/文档提交与本APK运行源码分别追溯；品牌来源见 [品牌记录](BRANDING-20260911.md)。
+
+## 2026-09-12 vc6解锁后复验
+
+About已显示新家族猫图、build6及source70366（103-vc6-about）。[家族浅色](../../evidence/development/device-20260911-153f8f46/104-vc6-family-light.png)、[跟随系统深色](../../evidence/development/device-20260911-153f8f46/105-vc6-family-system.png)和[家族首页](../../evidence/development/device-20260911-153f8f46/106-vc6-family-home.png)均显示正确；[107默认偏好XML](../../evidence/development/device-20260911-153f8f46/107-vc6-defaults-restored.xml)确认soft/followSystem=true已恢复。
+
+真实App系统导出`vc6-data-export.json`与`vc5-final-data-export.json`深度全结构一致，包括实体数组顺序、全部元数据和settings；9条active/11条总tasks、1project、2sections、1area。原文件SHA分别为`d2032db8be6d970564eb3f2a4eaf41acb94bd45ebc6dddf8c7434e08bb63d33e`与`a1f90450f0afa425617ce135292303c70087ec47ab2974ed39f6c8b2215c50d5`，仅JSON对象key序列化顺序不同，不能宣称字节一致。[vc5→vc6判定](../../evidence/development/device-20260911-153f8f46/vc5-vc6-upgrade-verdict.json)。
+
+[vc6-startup-800.png](../../evidence/development/device-20260911-153f8f46/vc6-startup-800.png)已实际看到居中家族猫图。`vc6-cold-start.txt`记录COLD/TotalTime986ms，仅单次启动；`vc6-startup-capture.json`记录计划800ms、实际截图完成1440ms，文件名不是显示时间。
+
+两处静态文案sandbox.description与settings.gettingStartedContentDesc的漏名已在brand/terminology适配层修复，真实provider先RED后GREEN、30项通过；core/CSV/真实任务未改，vc7尚未构建，不能把该修复写成vc6已安装结果。本节不将后续代码回归写成vc6已包含该修复，也不放行完整系统矩阵、正式发行或连续日用。

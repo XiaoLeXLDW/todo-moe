@@ -34,6 +34,12 @@ describe('mobile language provider entity labels', () => {
     expect(language.t('projects.areaFilter')).toBe('文件夹筛选');
     expect(language.t('projects.allAreas')).toBe('所有文件夹');
     expect(language.t('taskEdit.sectionLabel')).toBe('分组');
+    expect(language.t('sandbox.description')).toBe('使用虚构的任务和清单体验 Todo Moe Dev。你的个人数据会单独保存。');
+    expect(language.t('settings.gettingStartedContentDesc')).toBe('创建或恢复引导式“快速上手”清单和示例收件箱任务。');
+    expect(zhHans['settings.gettingStartedContentDesc']).toBe('创建或恢复引导式“快速上手”项目和示例收集箱项目。');
+    expect(zhHans['sandbox.description']).toBe('使用虚构的任务和项目体验 Mindwtr。你的个人数据会单独保存。');
+    expect(language.t('settings.syncMobile.importFromMindwtrCsv')).toBe(zhHans['settings.syncMobile.importFromMindwtrCsv']);
+    expect(language.t('settings.importDataDesc')).toBe(zhHans['settings.importDataDesc']);
 
     const userTitle = '项目预算、领域研究与分区方案';
     expect(language.t('task.aria.openProject').replace('{{name}}', userTitle)).toBe(`打开清单${userTitle}`);
@@ -45,6 +51,7 @@ describe('mobile language provider entity labels', () => {
     expect(language.language).toBe('en');
     expect(language.t('projects.addPlaceholder')).toBe(en['projects.addPlaceholder']);
     expect(language.t('taskEdit.sectionLabel')).toBe(en['taskEdit.sectionLabel']);
+    expect(language.t('settings.gettingStartedContentDesc')).toBe(en['settings.gettingStartedContentDesc']);
     expect(language.t(userTitle)).toBe(userTitle);
   });
 });

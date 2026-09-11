@@ -1,5 +1,11 @@
 # GitHub CI 首次运行与修正
 
+**首个远端APK已成功并下载核验。** [运行34615262274](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34615262274)使用4GiB Gradle堆，完整Android构建19m43成功，随后POSIX Widget测试46秒成功。源码`50fa606deb53f2f6a392c08cc2f5b7224ca549fe`，Dev versionCode21915124，42,030,840字节，APK SHA-256 `be4dac07b46ff0f3f4ce2069e1c6d0d38aedbaf4a4dc7be6406219fb58c02156`。此结果关闭该轮R8内存不足问题；后续提交的实时检查见[PR #1](https://github.com/XiaoLeXLDW/todo-moe/pull/1)。
+
+下载的Actions ZIP SHA-256与GitHub artifact digest完全一致：`ab3936a768e5f09ca5dd1e19c5617174a4358687d3551e29f9969a8d335f19a2`。本机再次核验APK哈希、aapt包/版本、apksigner测试证书、实际app.config、品牌图标像素、16KiB zipalign及32个ELF库所有PT_LOAD对齐，均通过。记录保存在`artifacts/ci-21915124-50fa606/verification.json`；没有安装这个CI包，手机仍是vc6，不能用CI结果代替新UI或正式发行验收。
+
+下文保留此前失败、排队与修复过程；其中“待构建结果”是各次补录时的历史状态。
+
 PR：[Todo Moe Android开发](https://github.com/XiaoLeXLDW/todo-moe/pull/1)，开发分支`feat/todo-moe`；未合并、未创建正式Release。本机候选已更新到vc6 / 源码70366ddb4973cd7cc4cf39815e178b4cc033513c；家族图标已集成并覆盖安装，手机界面待解锁复验。后续治理/构建脚本提交与本机APK运行源码分开记录。
 
 首次PR检查针对提交62e4075e67f3a48d82dd54ba661b383a3a425a20运行。自有[检查工作流](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34607358864)的check job已通过，APK任务排队。上游CI的core（3869通过/8跳过）、mobile、Web E2E、代码质量、性能预算、cloud/MCP、Windows Rust及Rust依赖审计已有成功结果。

@@ -2,6 +2,7 @@
  * upstream entities; only the Chinese display vocabulary changes. Never apply
  * this adapter to task titles, persisted data, providers or interpolated text. */
 const PROJECT_KEYS = new Set([
+  'sandbox.description',
   'nav.projects', 'list.groupByProject', 'bulk.keepProject',
   'task.createProjectFromTask', 'task.promoteToProjectFailed', 'task.promoteToProjectCreated', 'task.promoteToProjectMoved',
   'taskEdit.projectLabel', 'taskEdit.noProjectOption', 'task.aria.openProject',
@@ -63,6 +64,10 @@ const SECTION_KEYS = new Set([
 export function adaptMobileEntityTerminology(key: string, template: string, language: string): string {
   // Core uses zh at runtime and zh-Hans as its locale source filename.
   if (language !== 'zh' && language !== 'zh-Hans' && language !== 'zh-Hant') return template;
+  // Here the second 项目 translates inbox "items", not another Project.
+  if (key === 'settings.gettingStartedContentDesc' && language !== 'zh-Hant') {
+    return template.replace('项目和示例收集箱项目', '清单和示例收件箱任务');
+  }
   const project = PROJECT_KEYS.has(key);
   const area = AREA_KEYS.has(key);
   const section = SECTION_KEYS.has(key);
