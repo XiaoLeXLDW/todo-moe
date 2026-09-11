@@ -70,6 +70,23 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Cache Gradle dependencies
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb
+        with:
+          path: |
+            ${{ env.GRADLE_USER_HOME }}/caches
+            ${{ env.GRADLE_USER_HOME }}/wrapper
+          key: ${{ runner.os }}-moe-gradle-${{ hashFiles('bun.lock', 'apps/mobile/package.json', 'apps/mobile/modules/**/android/build.gradle', '.github/workflows/moe-build-android.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-moe-gradle-
+      - name: Configure Gradle build resources
+        run: |
+          mkdir -p "$GRADLE_USER_HOME"
+          cat > "$GRADLE_USER_HOME/gradle.properties" <<'PROPERTIES'
+          org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
+          org.gradle.workers.max=4
+          org.gradle.caching=true
+          PROPERTIES
       - name: Android SDK
         env:
           ANDROID_SDK_PACKAGES: platform-tools platforms;android-36 build-tools;36.0.0 ndk;27.1.12297006 cmake;3.22.1

@@ -12,3 +12,10 @@ PR：[Todo Moe Android开发](https://github.com/XiaoLeXLDW/todo-moe/pull/1)，�
 | Android Widget测试 | 无appLabel的legacy payload已采用中性fallback，旧测试仍期待Mindwtr文案；只更新旧文案断言 | QuickCapturePayloadAudio与WidgetPayload两套原生复核成功 |
 
 合并执行工程策略及两份治理测试：47项通过、449断言；原始失败日志与本地复核保存在`evidence/development/`。这些修正需要新提交上的远端复跑，不能把本地通过或被跳过的完整iOS应用构建写成已完成的跨平台发行验收。
+## 后续结果与R8内存修正
+
+提交9ee08ff30fd39c19f8e76a0b50e754898212c6b9的常规CI、Dependency Audit、Native Platform CI及自有check job均已通过；Linux的完整Widget任务也通过，独立Swift回归继续执行，完整iOS应用步骤按Android范围跳过。
+
+自有APK job 103299017326 在26m29后因 `R8: java.lang.OutOfMemoryError: Java heap space` 失败；项目默认Gradle堆为2GiB，本机成功交付使用4GiB堆、1GiB metaspace及最多4个worker。CI现将这些成功参数写入其项目内GRADLE_USER_HOME，并缓存依赖与wrapper。
+
+同时增加实际APK内 `assets/app.config` 检查，防止缓存或构建期间源码变化造成源码SHA/版本/渠道/图标身份不一致；只读取有大小上限的单一元数据项。真实压缩ZIP的缺失、错误来源、错误渠道/版本/包名及超大元数据负例均能拒绝，已用于现有vc6实际APK。工程24项测试通过，缓存与资源修复仍需新CI构建完成后才能写为成功。

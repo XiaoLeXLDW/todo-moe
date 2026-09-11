@@ -66,6 +66,11 @@ run(process.platform === 'win32' ? join(native, 'gradlew.bat') : join(native, 'g
 const output = join(root, 'build/moe', `${channel}-${versionCode}-${sourceSha.slice(0, 12)}`);
 mkdirSync(output, { recursive: true });
 const config = JSON.parse(run(bun, ['x', '--no-install', 'expo', 'config', '--type', 'public', '--json'], mobile, true, env));
+if (run('git', ['rev-parse', 'HEAD'], root, true) !== sourceSha ||
+    (run('git', ['status', '--porcelain', '--untracked-files=normal'], root, true) !== '') !== dirty) {
+    throw new Error('Git source state changed during the build; rebuild from a fixed checkout.');
+}
+const { verifyEmbeddedAppConfig } = await import('./apk-identity.mjs');
 const apks = readdirSync(join(native, 'app/build/outputs/apk/release')).filter((name) => name.endsWith('.apk'));
 if (!apks.length) throw new Error('Gradle produced no APK.');
 const artifacts = apks.map((name) => {
@@ -73,6 +78,8 @@ const artifacts = apks.map((name) => {
     const target = join(output, targetName);
     copyFileSync(join(native, 'app/build/outputs/apk/release', name), target);
     const contents = readFileSync(target);
+    verifyEmbeddedAppConfig(contents, { ...config.extra.todoMoe, sourceSha, dirty, versionCode,
+        name: config.name, version: config.version, packageName: config.android.package, scheme: config.scheme, channel });
     const sdkTools=join(sdk,'build-tools/36.0.0');
     const aapt=join(sdkTools,process.platform==='win32'?'aapt.exe':'aapt');
     const badging=run(aapt,['dump','badging',target],root,true);
@@ -85,7 +92,7 @@ const artifacts = apks.map((name) => {
         certificateSha256=verified.match(/Signer #1 certificate SHA-256 digest: ([a-f0-9]+)/i)?.[1]?.toLowerCase();
         if(!certificateSha256) throw new Error('Dev APK signing certificate was not verified.');
     }
-    return { file: targetName, bytes: contents.length, sha256: createHash('sha256').update(contents).digest('hex'), certificateSha256 };
+    return { file: targetName, bytes: contents.length, sha256: createHash('sha256').update(contents).digest('hex'), certificateSha256, embeddedConfigVerified: true };
 });
 writeFileSync(join(output, 'build-manifest.json'), JSON.stringify({ ...report, ...config.extra.todoMoe, androidPackage: config.android.package, artifacts }, null, 2) + '\n');
 writeFileSync(join(output, 'SHA256SUMS'), artifacts.map((item) => `${item.sha256}  ${item.file}`).join('\n') + '\n');
