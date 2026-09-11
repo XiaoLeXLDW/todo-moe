@@ -41,7 +41,7 @@ class WidgetTapActivity : Activity() {
           WidgetRenderer.refreshAll(this)
         }
       }
-      data.scheme == "mindwtr" -> startActivity(WidgetRenderer.appIntent(this, data.toString()))
+      data.scheme == WidgetPayload.schemeForPackage(packageName) -> startActivity(WidgetRenderer.appIntent(this, data.toString()))
     }
     finish()
   }

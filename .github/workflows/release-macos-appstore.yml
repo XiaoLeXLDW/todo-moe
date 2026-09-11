@@ -76,6 +76,7 @@ concurrency:
 
 jobs:
   macos-appstore:
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' }}
     runs-on: macos-15
     timeout-minutes: 90
     env:

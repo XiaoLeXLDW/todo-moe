@@ -1,19 +1,15 @@
 import { Link, Tabs, useRouter } from 'expo-router';
-import { CommonActions } from '@react-navigation/native';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Search, Inbox, Calendar, Circle, ClipboardCheck, Folder, Menu, Mic, Plus, Target } from 'lucide-react-native';
-import { Animated, Dimensions, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, type ViewStyle } from 'react-native';
+import { Search, Inbox, Calendar, Circle, ClipboardCheck, Folder, Menu, Settings, Target } from 'lucide-react-native';
+import { Animated, Dimensions, PanResponder, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { MobileAreaSwitcher } from '@/components/mobile-area-switcher';
 import { useMobileAreaFilter } from '@/hooks/use-mobile-area-filter';
 import { useMobileSyncBadge } from '@/hooks/use-mobile-sync-badge';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { useThemeColors } from '@/hooks/use-theme-colors';
-import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { MOBILE_HOME_TAB_ROUTE } from '@/lib/home-route';
 import { useLanguage } from '../../../contexts/language-context';
 import { QuickCaptureSheet } from '@/components/quick-capture-sheet';
@@ -22,16 +18,17 @@ import { QuickCaptureProvider, useQuickCapture, type QuickCaptureOptions } from 
 import { useToastBottomOffset } from '../../../contexts/toast-context';
 import { getDefaultTaskAreaMode, useTaskStore, type MobileQuickAccessView, type SavedSearch, type Task } from '@mindwtr/core';
 import {
-  coerceMobileQuickAccessView,
   MOBILE_QUICK_ACCESS_STACK_ROUTE,
-  MOBILE_QUICK_ACCESS_TAB_ROUTE,
 } from '@/lib/mobile-quick-access-view';
 import { COMPACT_NAV_TEXT_MAX_SCALE } from '@/constants/text-scale';
+import { MoeTabBar } from '@/moe/MoeTabBar';
+import { MoeSettings } from '@/moe/MoeSettings';
+import { moeTabLabel } from '@/moe/navigation';
+import { MoeCelebration } from '@/moe/MoeCelebration';
+import { MOE_TAB_BOTTOM_PADDING, MoeTabInsetContext } from '@/moe/tab-insets';
 
 type IconSymbolName = Parameters<typeof IconSymbol>[0]['name'];
 type Translate = (key: string) => string;
-
-const CAPTURE_BUTTON_LIFT = 4;
 
 type MoreDestination = {
   id: string;
@@ -362,202 +359,9 @@ function MoreNavigationSheet({
   );
 }
 
-function NativeTabBar({
-  state,
-  descriptors,
-  navigation,
-  iconTint,
-  inactiveTint,
-  tc,
-  captureBg,
-  captureFg,
-  captureRadius,
-  tabBarHeight,
-  tabBarBottomInset,
-  tabBarBottomOffset,
-  tabItemTopOffset,
-  iconLift,
-  openQuickCapture,
-  closeMoreSheet,
-  toggleMoreSheet,
-  defaultAutoRecord,
-  addTaskAccessibilityLabel,
-  audioCaptureAccessibilityLabel,
-  menuSyncIndicatorColor,
-  moreSheetVisible,
-  quickAccessTabRoute,
-}: BottomTabBarProps & {
-  iconTint: string;
-  inactiveTint: string;
-  tc: { cardBg: string; border: string; onTint: string; tint: string };
-  captureBg: string;
-  captureFg: string;
-  captureRadius: number;
-  tabBarHeight: number;
-  tabBarBottomInset: number;
-  tabBarBottomOffset: number;
-  tabItemTopOffset: number;
-  iconLift: number;
-  openQuickCapture: (options?: { initialValue?: string; initialProps?: Partial<Task>; autoRecord?: boolean }) => void;
-  closeMoreSheet: () => void;
-  toggleMoreSheet: () => void;
-  defaultAutoRecord: boolean;
-  addTaskAccessibilityLabel: string;
-  audioCaptureAccessibilityLabel: string;
-  menuSyncIndicatorColor?: string;
-  moreSheetVisible: boolean;
-  quickAccessTabRoute: string;
-}) {
-  const longPressRef = useRef(false);
-  const visibleTabNames = new Set(['inbox', 'focus', 'capture', quickAccessTabRoute, 'menu']);
-  const visibleRoutes = state.routes.filter((route) => visibleTabNames.has(route.name));
-
-  return (
-    <View
-      style={[
-        styles.nativeTabBar,
-        {
-          backgroundColor: tc.cardBg,
-          borderTopColor: tc.border,
-          height: tabBarHeight,
-          paddingBottom: tabBarBottomInset,
-          marginBottom: tabBarBottomOffset,
-        },
-      ]}
-    >
-      {visibleRoutes.map((route) => {
-        const focused = state.routes[state.index]?.key === route.key;
-        const descriptor = descriptors[route.key];
-        const options = descriptor.options;
-
-        if (route.name === 'capture') {
-          return (
-            <TouchableOpacity
-              key={route.key}
-              onPress={() => {
-                if (longPressRef.current) {
-                  longPressRef.current = false;
-                  return;
-                }
-                if (moreSheetVisible) closeMoreSheet();
-                openQuickCapture({ autoRecord: defaultAutoRecord });
-              }}
-              onLongPress={() => {
-                longPressRef.current = true;
-                if (moreSheetVisible) closeMoreSheet();
-                openQuickCapture({ autoRecord: !defaultAutoRecord });
-                setTimeout(() => {
-                  longPressRef.current = false;
-                }, 400);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={defaultAutoRecord ? audioCaptureAccessibilityLabel : addTaskAccessibilityLabel}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={[
-                styles.nativeTabItem,
-                {
-                  paddingTop: iconLift,
-                  transform: [{ translateY: tabItemTopOffset - CAPTURE_BUTTON_LIFT }],
-                },
-              ]}
-            >
-              <View style={[styles.captureButtonInner, { backgroundColor: captureBg, borderRadius: captureRadius }]}>
-                {defaultAutoRecord ? (
-                  <Mic size={24} color={captureFg} strokeWidth={2.5} />
-                ) : (
-                  <Plus size={28} color={captureFg} strokeWidth={3} />
-                )}
-              </View>
-            </TouchableOpacity>
-          );
-        }
-
-        const active = route.name === 'menu' ? moreSheetVisible : focused;
-
-        const onPress = () => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          });
-          if (event.defaultPrevented) return;
-          if (route.name === 'menu') {
-            toggleMoreSheet();
-            return;
-          }
-          if (moreSheetVisible) closeMoreSheet();
-          if (focused) return;
-          navigation.dispatch({
-            ...CommonActions.navigate(route),
-            target: state.key,
-          });
-        };
-
-        const onLongPress = () => {
-          navigation.emit({ type: 'tabLongPress', target: route.key });
-        };
-
-        const tabIcon = options.tabBarIcon?.({
-          focused: active,
-          color: active ? iconTint : inactiveTint,
-          size: active ? 24 : 22,
-        });
-        const tabLabel = typeof options.title === 'string' ? options.title : route.name;
-
-        return (
-          <TouchableOpacity
-            key={route.key}
-            accessibilityRole="button"
-            accessibilityState={route.name === 'menu' ? { expanded: moreSheetVisible } : focused ? { selected: true } : {}}
-            accessibilityLabel={options.tabBarAccessibilityLabel ?? options.title}
-            testID={options.tabBarButtonTestID}
-            onPress={onPress}
-            onLongPress={onLongPress}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={[
-              styles.nativeTabItem,
-              { paddingTop: iconLift, transform: [{ translateY: tabItemTopOffset }] },
-            ]}
-          >
-            <View style={styles.nativeTabIconWrap}>
-              {tabIcon}
-              {route.name === 'menu' && menuSyncIndicatorColor ? (
-                <View
-                  accessibilityElementsHidden
-                  importantForAccessibility="no"
-                  style={[
-                    styles.menuSyncDot,
-                    {
-                      backgroundColor: menuSyncIndicatorColor,
-                      borderColor: tc.cardBg,
-                    },
-                  ]}
-                />
-              ) : null}
-            </View>
-            <Text
-              style={[
-                styles.nativeTabLabel,
-                styles.nativeTabTextLabel,
-                { color: active ? iconTint : inactiveTint, fontWeight: active ? '700' : '600' },
-              ]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              maxFontSizeMultiplier={COMPACT_NAV_TEXT_MAX_SCALE}
-            >
-              {tabLabel}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-}
-
 export default function TabLayout() {
   const tc = useThemeColors();
-  const tokens = useThemeTokens();
-  const { t } = useLanguage();
+  const { t, language = 'en' } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   // The root layout's provider, which presents capture as a pushed route.
@@ -565,17 +369,9 @@ export default function TabLayout() {
   const settings = useTaskStore((state) => state.settings);
   const { selectedAreaIdForNewTasks } = useMobileAreaFilter();
   const defaultAreaMode = getDefaultTaskAreaMode(settings);
-  const androidNavInset = Platform.OS === 'android' && insets.bottom >= 20
-    ? Math.max(0, insets.bottom - 12)
-    : 0;
-  const iosBottomInset = Platform.OS === 'ios'
-    ? Math.max(0, insets.bottom - 12)
-    : 0;
-  const tabBarBottomInset = Platform.OS === 'ios' ? iosBottomInset : androidNavInset;
+  const tabBarBottomInset = Math.max(0, insets.bottom);
   const tabBarBottomOffset = 0;
-  const tabItemTopOffset = Platform.OS === 'ios' ? 0 : -2;
-  const tabBarHeight = 66 + tabBarBottomInset;
-  const iconLift = 0;
+  const tabBarHeight = 80 + tabBarBottomInset;
   // Undo toasts must sit above the tab bar, not on top of it (#1044).
   useToastBottomOffset(tabBarHeight + tabBarBottomOffset);
   const [captureState, setCaptureState] = useState<{
@@ -591,9 +387,9 @@ export default function TabLayout() {
     initialProps: null,
     autoRecord: false,
   });
+  const [moeSettingsVisible, setMoeSettingsVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
   const [moreSheetCloseRequestId, setMoreSheetCloseRequestId] = useState(0);
-  const longPressRef = useRef(false);
   const withSelectedArea = useCallback((initialProps?: Partial<Task> | null): Partial<Task> | undefined => {
     const nextInitialProps = initialProps ? { ...initialProps } : {};
     const hasProject = typeof nextInitialProps.projectId === 'string' && nextInitialProps.projectId.trim().length > 0;
@@ -649,50 +445,26 @@ export default function TabLayout() {
 
   const iconTint = tc.tabIconSelected;
   const inactiveTint = tc.tabIconDefault;
-  // Material 3: capture is Mindwtr's most important action, so the FAB uses the
-  // high-emphasis M3 FAB role (primary/onPrimary) rather than the deliberately
-  // subdued primaryContainer — keeping it the visual top of the action hierarchy.
-  // Other primary buttons stay primaryContainer (canonical). Non-Material themes
-  // keep today's primary tint + 10px radius. M3 also applies the "large" radius.
-  const captureBg = tokens.isMaterial && tokens.roles ? tokens.roles.primary : tc.tint;
-  const captureFg = tokens.isMaterial && tokens.roles ? tokens.roles.onPrimary : tc.onTint;
-  const captureRadius = tokens.isMaterial ? tokens.shape.large : 10;
   const defaultCapture = settings.gtd?.defaultCaptureMethod ?? 'text';
   const defaultAutoRecord = defaultCapture === 'audio';
-  const quickAccessView = coerceMobileQuickAccessView(settings.appearance?.mobileQuickAccessView);
-  const quickAccessTabRoute = MOBILE_QUICK_ACCESS_TAB_ROUTE[quickAccessView];
+  const quickAccessView = 'projects' as const;
   const { syncBadgeAccessibilityLabel, syncBadgeColor } = useMobileSyncBadge();
 
   return (
     <QuickCaptureProvider value={{ openQuickCapture }}>
+    <MoeTabInsetContext.Provider value={MOE_TAB_BOTTOM_PADDING + Math.max(0, insets.bottom)}>
       <Tabs
         initialRouteName={MOBILE_HOME_TAB_ROUTE}
         tabBar={(props) => (
-          <NativeTabBar
+          <MoeTabBar
             {...props}
-            iconTint={iconTint}
-            inactiveTint={inactiveTint}
-            tc={{ cardBg: tc.cardBg, border: tc.border, onTint: tc.onTint, tint: tc.tint }}
-            captureBg={captureBg}
-            captureFg={captureFg}
-            captureRadius={captureRadius}
-            tabBarHeight={tabBarHeight}
             tabBarBottomInset={tabBarBottomInset}
-            tabBarBottomOffset={tabBarBottomOffset}
-            tabItemTopOffset={tabItemTopOffset}
-            iconLift={iconLift}
             openQuickCapture={openQuickCapture}
             closeMoreSheet={closeMoreSheet}
-            toggleMoreSheet={toggleMoreSheet}
             defaultAutoRecord={defaultAutoRecord}
-            addTaskAccessibilityLabel={t('nav.addTask')}
-            audioCaptureAccessibilityLabel={t('quickAdd.audioCaptureLabel')}
-            menuSyncIndicatorColor={syncBadgeColor}
-            moreSheetVisible={moreSheetVisible}
-            quickAccessTabRoute={quickAccessTabRoute}
           />
         )}
-        screenOptions={({ route }) => ({
+        screenOptions={{
         tabBarActiveTintColor: iconTint,
         tabBarInactiveTintColor: inactiveTint,
         tabBarShowLabel: false,
@@ -715,7 +487,16 @@ export default function TabLayout() {
             ]}
           />
         ),
-        headerLeft: () => <MobileAreaSwitcher />,
+        headerLeft: () => (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity onPress={toggleMoreSheet} style={styles.headerIconButton} accessibilityRole="button"
+              accessibilityLabel={language.startsWith('zh') ? '高级 GTD 视图' : 'Advanced GTD views'} accessibilityState={{ expanded: moreSheetVisible }}>
+              <Menu size={22} color={tc.text} />
+              {syncBadgeColor ? <View style={[styles.menuSyncDot, { backgroundColor: syncBadgeColor }]} /> : null}
+            </TouchableOpacity>
+            <MobileAreaSwitcher />
+          </View>
+        ),
         headerLeftContainerStyle: {
           paddingLeft: 16,
         },
@@ -735,33 +516,28 @@ export default function TabLayout() {
           fontSize: 17,
           fontWeight: '700',
         },
-        headerRight: route.name === 'menu'
-          ? undefined
-          : () => (
+        headerRight: () => (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Link href="/global-search" asChild>
-              <TouchableOpacity style={styles.headerIconButton} accessibilityLabel={t('search.title')}>
+              <TouchableOpacity style={styles.headerIconButton} accessibilityLabel={t('search.title')} accessibilityRole="button">
                 <Search size={22} color={tc.text} />
               </TouchableOpacity>
             </Link>
-          ),
+            <TouchableOpacity onPress={() => setMoeSettingsVisible(true)} style={styles.headerIconButton}
+              accessibilityLabel={t('nav.settings')} accessibilityRole="button">
+              <Settings size={22} color={tc.text} />
+            </TouchableOpacity>
+          </View>
+        ),
         headerRightContainerStyle: {
           paddingRight: 16,
         },
-        tabBarButton: (props) => (
-          <HapticTab
-            {...props}
-            activeBackgroundColor="transparent"
-            inactiveBackgroundColor="transparent"
-            activeIndicatorColor="transparent"
-            indicatorHeight={0}
-          />
-        ),
-      })}
+      }}
       >
       <Tabs.Screen
         name={MOBILE_HOME_TAB_ROUTE}
         options={{
-          title: t('tab.next'),
+          title: moeTabLabel('focus', language.startsWith('zh')),
           tabBarIcon: ({ color, focused }) => (
             <Target size={focused ? 26 : 24} color={color} strokeWidth={2} opacity={focused ? 1 : 0.8} />
           ),
@@ -770,47 +546,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="inbox"
         options={{
-          title: t('tab.inbox'),
+          title: moeTabLabel('inbox', language.startsWith('zh')),
           tabBarIcon: ({ color, focused }) => (
             <Inbox size={focused ? 26 : 24} color={color} strokeWidth={2} opacity={focused ? 1 : 0.8} />
           ),
         }}
       />
-      <Tabs.Screen
-        name="capture"
-        options={{
-          title: t('nav.addTask'),
-          tabBarButton: () => (
-            <TouchableOpacity
-              onPress={() => {
-                if (longPressRef.current) {
-                  longPressRef.current = false;
-                  return;
-                }
-                openQuickCapture({ autoRecord: defaultAutoRecord });
-              }}
-              onLongPress={() => {
-                longPressRef.current = true;
-                openQuickCapture({ autoRecord: !defaultAutoRecord });
-                setTimeout(() => {
-                  longPressRef.current = false;
-                }, 400);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={defaultAutoRecord ? t('quickAdd.audioCaptureLabel') : t('nav.addTask')}
-              style={styles.captureButton}
-            >
-              <View style={[styles.captureButtonInner, { backgroundColor: captureBg, borderRadius: captureRadius }]}>
-                {defaultAutoRecord ? (
-                  <Mic size={24} color={captureFg} strokeWidth={2.5} />
-                ) : (
-                  <Plus size={28} color={captureFg} strokeWidth={3} />
-                )}
-              </View>
-            </TouchableOpacity>
-          ),
-        }}
-      />
+      <Tabs.Screen name="capture" options={{ href: null }} />
       <Tabs.Screen
         name="capture-quick"
         options={{
@@ -820,8 +562,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="projects"
         options={{
-          title: t('projects.title'),
-          href: quickAccessView === 'projects' ? undefined : null,
+          title: moeTabLabel('projects', language.startsWith('zh')),
+          href: undefined,
           tabBarIcon: ({ color, focused }) => (
             <Folder size={focused ? 26 : 24} color={color} strokeWidth={2} opacity={focused ? 1 : 0.8} />
           ),
@@ -831,7 +573,7 @@ export default function TabLayout() {
         name="calendar-tab"
         options={{
           title: t('nav.calendar'),
-          href: quickAccessView === 'calendar' ? undefined : null,
+          href: null,
           tabBarIcon: ({ color, focused }) => (
             <Calendar size={focused ? 26 : 24} color={color} strokeWidth={2} opacity={focused ? 1 : 0.8} />
           ),
@@ -841,7 +583,7 @@ export default function TabLayout() {
         name="contexts-tab"
         options={{
           title: t('nav.contexts'),
-          href: quickAccessView === 'contexts' ? undefined : null,
+          href: null,
           tabBarIcon: ({ color, focused }) => (
             <Circle size={focused ? 26 : 24} color={color} strokeWidth={2} opacity={focused ? 1 : 0.8} />
           ),
@@ -851,7 +593,7 @@ export default function TabLayout() {
         name="review-tab"
         options={{
           title: t('tab.review'),
-          href: quickAccessView === 'review' ? undefined : null,
+          href: null,
           tabBarIcon: ({ color, focused }) => (
             <ClipboardCheck size={focused ? 26 : 24} color={color} strokeWidth={2} opacity={focused ? 1 : 0.8} />
           ),
@@ -880,6 +622,8 @@ export default function TabLayout() {
         onClose={closeQuickCapture}
       />
     )}
+    <MoeCelebration />
+    {moeSettingsVisible && <MoeSettings visible onClose={() => setMoeSettingsVisible(false)} />}
     <MoreNavigationSheet
       closeRequestId={moreSheetCloseRequestId}
       onClose={closeMoreSheet}
@@ -891,29 +635,12 @@ export default function TabLayout() {
       visible={moreSheetVisible}
       quickAccessView={quickAccessView}
     />
+    </MoeTabInsetContext.Provider>
     </QuickCaptureProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  nativeTabBar: {
-    flexDirection: 'row',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    alignItems: 'stretch',
-    overflow: 'visible',
-  },
-  nativeTabItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 0,
-    paddingHorizontal: 2,
-  },
-  nativeTabIconWrap: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  } as ViewStyle,
   menuSyncDot: {
     position: 'absolute',
     top: -2,
@@ -924,19 +651,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     opacity: 0.85,
   },
-  nativeTabLabel: {
-    fontSize: 10,
-    lineHeight: 12,
-    maxWidth: '100%',
-    minWidth: 0,
-    textAlign: 'center',
-  },
-  nativeTabTextLabel: {
-    marginTop: 2,
-  },
   headerIconButton: {
-    minWidth: 44,
-    minHeight: 44,
+    minWidth: 48,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -945,24 +662,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     minWidth: 0,
-  },
-  captureButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    transform: [{ translateY: -CAPTURE_BUTTON_LIFT }],
-  },
-  captureButtonInner: {
-    width: 48,
-    height: 38,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
   },
   moreOverlayContainer: {
     ...StyleSheet.absoluteFillObject,

@@ -1,3 +1,4 @@
+import { getAppIdentity, TODO_MOE_RELEASES_API, TODO_MOE_RELEASES_URL } from '@/lib/app-identity';
 import '../polyfills';
 import { StartupReadinessContext } from '../hooks/use-startup-screen-ready';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -172,8 +173,8 @@ const UPDATE_REMINDER_STARTUP_DELAY_MS = 1750;
 // fetchMobileUpdateReminderInfo is a plain fetch with no timeout; cap present()
 // so a hung network never holds the single prompt slot for the whole session.
 const UPDATE_REMINDER_FETCH_TIMEOUT_MS = 15000;
-const UPDATE_REMINDER_RELEASES_API = 'https://api.github.com/repos/dongdongbh/Mindwtr/releases/latest';
-const UPDATE_REMINDER_RELEASES_URL = 'https://github.com/dongdongbh/Mindwtr/releases/latest';
+const UPDATE_REMINDER_RELEASES_API = TODO_MOE_RELEASES_API;
+const UPDATE_REMINDER_RELEASES_URL = TODO_MOE_RELEASES_URL;
 const APP_STORE_APP_ID = '6758597144';
 const APP_STORE_REVIEW_URL = `itms-apps://itunes.apple.com/app/id${APP_STORE_APP_ID}?action=write-review`;
 const APP_STORE_LISTING_URL = `https://apps.apple.com/app/mindwtr/id${APP_STORE_APP_ID}`;
@@ -244,7 +245,7 @@ const buildUpdateReminderAnnouncement = (info: MobileUpdateReminderInfo): AppAnn
 });
 
 const getAndroidPackageName = (): string => (
-  Constants.expoConfig?.android?.package || Application.applicationId || 'tech.dongdongbh.mindwtr'
+  Constants.expoConfig?.android?.package || Application.applicationId || getAppIdentity().packageName
 );
 
 const getGooglePlayListingUrl = (): string => (

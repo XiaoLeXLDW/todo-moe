@@ -39,8 +39,13 @@ describe('android-startup-trace', () => {
 
     expect(receiver).toContain('package tech.dongdongbh.mindwtr.contextautomation');
     expect(receiver).toContain('class ContextAutomationReceiver : BroadcastReceiver()');
-    expect(receiver).toContain('tech.dongdongbh.mindwtr.action.ACTIVATE_CONTEXT');
-    expect(receiver).toContain('tech.dongdongbh.mindwtr.action.DEACTIVATE_CONTEXT');
+    // The code namespace remains upstream; broadcast actions belong to the
+    // actual Stable/Dev installation and must be derived from its package.
+    expect(receiver).toContain('ContextAutomationPayload.fromIntent(intent, context.packageName)');
+    expect(receiver).toContain('fun fromIntent(intent: Intent?, packageName: String)');
+    expect(receiver).toContain('"$packageName.action.ACTIVATE_CONTEXT" -> "activate"');
+    expect(receiver).toContain('"$packageName.action.DEACTIVATE_CONTEXT" -> "deactivate"');
+    expect(receiver).not.toContain('tech.dongdongbh.mindwtr.action.');
     expect(receiver).toContain('ContextAutomationHeadlessService::class.java');
     expect(receiver).toContain('HeadlessJsTaskService.acquireWakeLockNow(context)');
 

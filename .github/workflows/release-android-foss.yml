@@ -30,6 +30,7 @@ concurrency:
 
 jobs:
   android-foss:
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' }}
     runs-on: ubuntu-latest
     name: Android FOSS Build
     timeout-minutes: 90

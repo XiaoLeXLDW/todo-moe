@@ -1,0 +1,12 @@
+{
+  "name": "Todo Moe",
+  "version": "0.1.0",
+  "androidPackage": "io.github.xiaolexldw.todomoe",
+  "scheme": "todomoe",
+  "repository": "https://github.com/XiaoLeXLDW/todo-moe",
+  "upstreamRepository": "https://github.com/dongdongbh/Mindwtr",
+  "upstreamVersion": "1.3.0",
+  "upstreamSha": "0b13b85a47f18360b62f657296cfd0280bb2495c",
+  "upstreamRef": "fork-main-snapshot",
+  "artworkStatus": "original-placeholder-awaiting-family-assets"
+}

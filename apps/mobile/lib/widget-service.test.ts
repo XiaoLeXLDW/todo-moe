@@ -44,7 +44,15 @@ vi.mock('react-native', () => ({
 
 vi.mock('expo-constants', () => ({
     __esModule: true,
-    default: { expoConfig: { version: '1.0.0' } },
+    default: {
+        expoConfig: {
+            version: '1.0.0',
+            name: 'Todo Moe',
+            scheme: 'todomoe',
+            android: { package: 'io.github.xiaolexldw.todomoe' },
+            extra: { todoMoe: { channel: 'stable' } },
+        },
+    },
 }));
 
 vi.mock('@react-native-async-storage/async-storage', () => ({
@@ -173,7 +181,7 @@ describe('widget-service', () => {
             audioEnabled: true,
             audioRecord: 'Start recording',
             audioStop: 'Stop recording',
-            audioSaved: 'Saved. Audio will be transcribed when you open Mindwtr.',
+            audioSaved: 'Saved. Audio will be transcribed when you open Todo Moe.',
         });
 
         await updateMobileWidgetFromData(data);
@@ -227,14 +235,14 @@ describe('widget-service', () => {
         expect(payload.subtitle).toBe('Inbox: 0 · +10 More');
         expect(payload.inboxLabel).toBe('Inbox');
         expect(payload.inboxCount).toBe(0);
-        expect(payload.focusUri).toBe('mindwtr:///focus');
+        expect(payload.focusUri).toBe('todomoe:///focus');
         expect(payload.palette.background).toMatch(/^#/);
         expect(payload.quickCapture).toMatchObject({
             title: 'Quick capture',
             placeholder: 'Add task to inbox...',
             save: 'Save',
             cancel: 'Cancel',
-            added: 'Task added to Mindwtr.',
+            added: 'Task added to Todo Moe.',
         });
         expect(mockLogInfo).toHaveBeenCalledWith('Android widget Focus and Today payload published', {
             scope: 'widget',

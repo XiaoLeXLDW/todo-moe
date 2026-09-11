@@ -68,8 +68,24 @@ const patchQueryString = (mobileDirectory = path.resolve(__dirname, '..')) => {
   }
 };
 
+// Bun's Windows hoisted linker can attempt the same patched package rename
+// concurrently for these consumers (ENOTEMPTY). Apply the already verified CJS
+// compatibility patch after linking instead. Resolve each consumer explicitly:
+// correctness must not depend on node_modules being hardlinked rather than copied.
+const patchAllQueryStringConsumers = (mobileDirectory = path.resolve(__dirname, '..')) => {
+  const navigationDirectory = path.dirname(require.resolve('@react-navigation/native/package.json', { paths: [mobileDirectory] }));
+  const consumerDirectories = new Set([
+    mobileDirectory,
+    path.dirname(require.resolve('@react-navigation/core/package.json', { paths: [mobileDirectory] })),
+    path.dirname(require.resolve('@react-navigation/core/package.json', { paths: [navigationDirectory] })),
+    path.dirname(require.resolve('expo-router/package.json', { paths: [mobileDirectory] })),
+  ]);
+  for (const consumerDirectory of consumerDirectories) patchQueryString(consumerDirectory);
+  return [...consumerDirectories];
+};
+
 if (require.main === module) {
-  patchQueryString();
+  patchAllQueryStringConsumers();
 }
 
-module.exports = { hasCompatibleImport, patchQueryString };
+module.exports = { hasCompatibleImport, patchQueryString, patchAllQueryStringConsumers };

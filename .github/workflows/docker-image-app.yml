@@ -21,6 +21,7 @@ concurrency:
 
 jobs:
   build-and-push-image:
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' }}
     uses: ./.github/workflows/docker-image-reusable.yml
     with:
       image_name: mindwtr-app

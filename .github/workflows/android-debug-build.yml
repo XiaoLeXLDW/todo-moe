@@ -27,6 +27,7 @@ concurrency:
 
 jobs:
   android-debug:
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' }}
     runs-on: ubuntu-latest
     name: Android Debug APK
     timeout-minutes: 90

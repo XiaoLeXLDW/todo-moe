@@ -41,23 +41,23 @@ describe('context-automation', () => {
   });
 
   it('parses context automation URLs', () => {
-    expect(parseContextAutomationUrl('mindwtr://contexts?token=%40parents&contextAction=activate')).toEqual({
+    expect(parseContextAutomationUrl('todomoe://contexts?token=%40parents&contextAction=activate')).toEqual({
       action: 'activate',
       context: '@parents',
     });
-    expect(parseContextAutomationUrl('mindwtr:///context/deactivate/parents')).toEqual({
+    expect(parseContextAutomationUrl('todomoe:///context/deactivate/parents')).toEqual({
       action: 'deactivate',
       context: '@parents',
     });
-    expect(parseContextAutomationUrl('mindwtr:///context/activate/parents/errands')).toEqual({
+    expect(parseContextAutomationUrl('todomoe:///context/activate/parents/errands')).toEqual({
       action: 'activate',
       context: '@parents/errands',
     });
-    expect(parseContextAutomationUrl('mindwtr://activate-context?name=parents')).toEqual({
+    expect(parseContextAutomationUrl('todomoe://activate-context?name=parents')).toEqual({
       action: 'activate',
       context: '@parents',
     });
-    expect(parseContextAutomationUrl('mindwtr://contexts?token=%40parents')).toBeNull();
+    expect(parseContextAutomationUrl('todomoe://contexts?token=%40parents')).toBeNull();
     expect(parseContextAutomationUrl('https://example.com/context?token=parents&action=activate')).toBeNull();
   });
 

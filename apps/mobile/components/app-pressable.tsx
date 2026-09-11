@@ -1,6 +1,8 @@
 import React, { useCallback, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View, type GestureResponderEvent, type PressableProps, type PressableStateCallbackType, type StyleProp, type ViewStyle } from 'react-native';
 import { useThemeTokens } from '../hooks/use-theme-tokens';
+import { useReducedMotion } from '../hooks/use-reduced-motion';
+import { MOE_MOTION } from '../moe/preference-model';
 
 type AppPressableProps = PressableProps & {
     /** Overlay color while pressed; defaults to a theme-aware dim layer. Useful
@@ -32,6 +34,7 @@ const findBorderRadius = (style: StyleProp<ViewStyle>): number | undefined => {
  */
 export function AppPressable({ style, children, pressedColor, onPressIn, onPressOut, ...rest }: AppPressableProps) {
     const { isMaterial, state, isDark } = useThemeTokens();
+    const reducedMotion = useReducedMotion();
     const [pressed, setPressed] = useState(false);
     const hasRipple = isMaterial && Boolean(state.rippleColor);
     // android_ripple is inert off Android, so the overlay covers those cases.
@@ -54,7 +57,12 @@ export function AppPressable({ style, children, pressedColor, onPressIn, onPress
     return (
         <Pressable
             android_ripple={hasRipple ? { color: state.rippleColor } : undefined}
-            style={style}
+            style={(pressState) => {
+                const base = typeof style === 'function' ? style(pressState) : style;
+                const flattened = (Array.isArray(base) ? Object.assign({}, ...(base as unknown[]).flat(Infinity).filter(Boolean)) : base) as ViewStyle | undefined;
+                const transforms = Array.isArray(flattened?.transform) ? flattened.transform : [];
+                return [base, pressed && !reducedMotion ? { transform: [...transforms, { scale: MOE_MOTION.pressScale }] } : undefined];
+            }}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
             {...rest}

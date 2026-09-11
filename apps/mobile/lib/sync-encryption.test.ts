@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+vi.mock('expo-constants', () => ({ default: { expoConfig: {} } }));
 import * as nodeCrypto from 'node:crypto';
 import { argon2id } from '@noble/hashes/argon2.js';
 import type { AppData, SyncEncryptionRemotePort, SyncRemoteMutationFenceLease } from '@mindwtr/core';

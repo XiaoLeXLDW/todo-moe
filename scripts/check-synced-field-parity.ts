@@ -94,7 +94,10 @@ const PATHS = {
     mcpQueries: 'apps/mcp-server/src/queries.ts',
 };
 
-const read = (path: string) => readFileSync(path, 'utf8');
+// Source parsers operate on logical lines. A Windows checkout leaves a trailing
+// CR after split('\n'), preventing end-anchored comment stripping and Rust test
+// section matching. Normalize only the in-memory input, never the source files.
+const read = (path: string) => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
 
 const unique = (fields: string[], label: string): string[] => {
     const seen = new Set<string>();

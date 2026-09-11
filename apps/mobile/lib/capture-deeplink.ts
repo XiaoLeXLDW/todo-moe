@@ -1,3 +1,4 @@
+import { getAppIdentity } from './app-identity';
 export type ShortcutCapturePayload = {
     title: string;
     note?: string;
@@ -15,8 +16,8 @@ const trimOrUndefined = (value: string | null | undefined): string | undefined =
 };
 
 const normalizeRouteFromUrl = (url: URL): string => {
-    // mindwtr://capture -> hostname "capture"
-    // mindwtr:///capture -> pathname "/capture"
+    // todomoe://capture -> hostname "capture" (Dev uses todomoe-dev)
+    // todomoe:///capture -> pathname "/capture"
     const route = trimOrUndefined(url.hostname) ?? trimOrUndefined(url.pathname.replace(/^\/+/, '')) ?? '';
     return route.toLowerCase();
 };
@@ -26,7 +27,7 @@ export function isShortcutCaptureUrl(rawUrl: string): boolean {
 
     try {
         const parsed = new URL(rawUrl);
-        return (parsed.protocol || '').toLowerCase() === 'mindwtr:' && normalizeRouteFromUrl(parsed) === 'capture';
+        return (parsed.protocol || '').toLowerCase() === `${getAppIdentity().scheme}:` && normalizeRouteFromUrl(parsed) === 'capture';
     } catch {
         return false;
     }
@@ -103,7 +104,7 @@ export function isOpenFeatureUrl(rawUrl: string): boolean {
 
     try {
         const parsed = new URL(rawUrl);
-        return (parsed.protocol || '').toLowerCase() === 'mindwtr:' && normalizeRouteFromUrl(parsed) === 'open-feature';
+        return (parsed.protocol || '').toLowerCase() === `${getAppIdentity().scheme}:` && normalizeRouteFromUrl(parsed) === 'open-feature';
     } catch {
         return false;
     }
@@ -123,7 +124,7 @@ export type EntityOpenPayload = { kind: EntityOpenKind; id: string };
 
 const ENTITY_OPEN_PARAM_KINDS: EntityOpenKind[] = ['task', 'project', 'area'];
 
-// mindwtr://open?task=<id> | ?project=<id> | ?area=<id> — the deep link a
+// todomoe://open?task=<id> | ?project=<id> | ?area=<id> — the deep link a
 // system-search result (#1017) or any future entity-open surface opens.
 // Distinct from open-feature (named app sections) and capture (quick-add).
 export function isEntityOpenUrl(rawUrl: string): boolean {
@@ -131,7 +132,7 @@ export function isEntityOpenUrl(rawUrl: string): boolean {
 
     try {
         const parsed = new URL(rawUrl);
-        return (parsed.protocol || '').toLowerCase() === 'mindwtr:' && normalizeRouteFromUrl(parsed) === 'open';
+        return (parsed.protocol || '').toLowerCase() === `${getAppIdentity().scheme}:` && normalizeRouteFromUrl(parsed) === 'open';
     } catch {
         return false;
     }

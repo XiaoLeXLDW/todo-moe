@@ -21,6 +21,7 @@ import { NativeEventEmitter, NativeModules, PermissionsAndroid, Platform } from 
 import { isLoggingEnabled, logInfo, logWarn } from './app-log';
 import { ensureReminderNotificationChannel, restorePersistentCaptureNotification } from '@/modules/notification-open-intents';
 import { getDuplicateAlarmRetryFireAt } from './notification-service-local-utils';
+import { brandMobileTranslations, getMobileAppName } from '../moe/brand-text';
 
 type NotificationOpenPayload = {
   notificationId?: string;
@@ -92,7 +93,7 @@ type NativeEmitterSubscription = {
 const LOCAL_ALARM_MAP_KEY = 'mindwtr:local:alarms:v1';
 const LOCAL_POMODORO_ALARM_KEY = 'mindwtr:local:pomodoro-alarm:v1';
 const LOCAL_NOTIFICATION_CHANNEL = 'mindwtr_reminders_v2';
-const LOCAL_NOTIFICATION_CHANNEL_NAME = 'Mindwtr reminders';
+const LOCAL_NOTIFICATION_CHANNEL_NAME = `${getMobileAppName()} reminders`;
 const LOCAL_NOTIFICATION_COLOR = '#3b82f6';
 const LOCAL_SMALL_ICON = 'ic_launcher';
 const MAX_DUPLICATE_ALARM_RETRIES = 59;
@@ -760,7 +761,7 @@ async function runRescheduleCycle(api: AlarmNotificationsApi): Promise<void> {
   }
 
   const language: Language = await loadStoredLanguage(AsyncStorage, getSystemDefaultLanguage()).catch(() => getSystemDefaultLanguage());
-  const tr = await getTranslations(language);
+  const tr = brandMobileTranslations(await getTranslations(language));
   const now = new Date();
 
   // Derivation lives in core (`buildReminderSchedule`): digests, weekly review, every task's

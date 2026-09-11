@@ -1,0 +1,67 @@
+name: Todo Moe upstream stable discovery
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Prepare and push the single upstream sync PR
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: moe-upstream-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    if: github.repository == 'XiaoLeXLDW/todo-moe' && (github.event_name == 'workflow_dispatch' || vars.MOE_UPSTREAM_SYNC_ENABLED == 'true')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      sha: ${{ steps.sync.outputs.sha }}
+      status: ${{ steps.sync.outputs.status }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: '22'
+      - id: sync
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPLY: ${{ inputs.apply || (github.event_name == 'schedule' && vars.MOE_UPSTREAM_SYNC_ENABLED == 'true') }}
+        run: |
+          if [ "$APPLY" = true ]; then node scripts/moe/upstream.mjs prepare; else node scripts/moe/upstream.mjs discover; fi
+      - name: Update single sync PR after successful merge
+        if: steps.sync.outputs.status == 'prepared'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SYNC_WORKTREE: ${{ steps.sync.outputs.worktree }}
+          UPSTREAM_TAG: ${{ steps.sync.outputs.tag }}
+        run: |
+          git -C "$SYNC_WORKTREE" push origin HEAD:refs/heads/moe/upstream-sync
+          node -e 'const fs=require("fs"); const r=JSON.parse(fs.readFileSync("build/moe/upstream-report.json","utf8")); fs.writeFileSync("build/moe/upstream-pr.md",`Merge upstream ${r.tag} (${r.upstreamSha}) into ${r.baseSha}.\n\nMerged commit: ${r.mergeSha}.\n\nReview flags:\n${r.reviewFlags.map(x=>`- ${x}`).join("\n")}\n\nChecks and a Dev APK are explicitly invoked by this run. Device acceptance remains required.\n`);'
+          PR="$(gh pr list --head moe/upstream-sync --base main --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$PR" ]; then
+            gh pr edit "$PR" --title "chore(moe): merge upstream $UPSTREAM_TAG" --body-file build/moe/upstream-pr.md
+          else
+            gh pr create --head moe/upstream-sync --base main --title "chore(moe): merge upstream $UPSTREAM_TAG" --body-file build/moe/upstream-pr.md
+          fi
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        if: always()
+        with:
+          name: upstream-sync-report-${{ github.run_id }}
+          path: build/moe/upstream-report.json
+          if-no-files-found: warn
+  verify-merged-source:
+    needs: sync
+    if: needs.sync.outputs.status == 'prepared'
+    uses: ./.github/workflows/moe-check.yml
+    with:
+      source_sha: ${{ needs.sync.outputs.sha }}

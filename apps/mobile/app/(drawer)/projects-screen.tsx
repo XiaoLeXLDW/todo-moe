@@ -54,6 +54,9 @@ import { logError, logWarn } from '../../lib/app-log';
 import { AREA_FILTER_ALL, AREA_FILTER_NONE, areaFilterSelectionToValue } from '@mindwtr/core';
 import { consumePendingCaptureTaskOpen, openContextsScreen, openProjectScreen } from '@/lib/task-meta-navigation';
 import { CompactText, CompactTextInput } from '@/components/compact-text';
+import { useMoeTabInset } from '@/moe/tab-insets';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
+import { animateMoeListMutation } from '@/moe/motion';
 
 type ProjectTaskSortBy = TaskSortBy;
 const EMPTY_PROJECT_TASKS: Task[] = [];
@@ -63,6 +66,8 @@ function resolveTaskRouteTab(value?: string | string[]): TaskEditTab {
 }
 
 export default function ProjectsScreen() {
+  const moeTabInset = useMoeTabInset();
+  const reducedMotion = useReducedMotion();
   const onStartupLayout = useStartupScreenReady('projects');
   const {
     projects,
@@ -517,6 +522,7 @@ export default function ProjectsScreen() {
   };
 
   const toggleAreaCollapse = useCallback((areaId: string) => {
+    animateMoeListMutation(reducedMotion);
     projectListViewStateTouchedRef.current = true;
     const current = projectListViewStateRef.current;
     const collapsedAreas = { ...current.collapsedAreas };
@@ -531,9 +537,10 @@ export default function ProjectsScreen() {
     };
     setCollapsedAreas(compactCollapsedAreas(collapsedAreas));
     persistProjectListViewState(nextState);
-  }, [persistProjectListViewState]);
+  }, [persistProjectListViewState, reducedMotion]);
 
   const toggleProjectSection = useCallback((sectionKind: Extract<ProjectListRow, { type: 'section-toggle' }>['sectionKind']) => {
+    animateMoeListMutation(reducedMotion);
     projectListViewStateTouchedRef.current = true;
     const current = projectListViewStateRef.current;
     if (sectionKind === 'deferred') {
@@ -551,7 +558,7 @@ export default function ProjectsScreen() {
     };
     setShowArchivedProjects(nextState.showArchivedProjects);
     persistProjectListViewState(nextState);
-  }, [persistProjectListViewState]);
+  }, [persistProjectListViewState, reducedMotion]);
 
   const renderProjectListRow = ({ item, index }: { item: ProjectListRow; index: number }) => {
     if (item.type === 'section-label') {
@@ -584,6 +591,9 @@ export default function ProjectsScreen() {
       return (
         <TouchableOpacity
           onPress={() => toggleAreaCollapse(item.areaId)}
+          accessibilityRole="button"
+          accessibilityLabel={item.title}
+          accessibilityState={{ expanded: !item.collapsed }}
           style={styles.collapsibleAreaHeader}
         >
           <View style={styles.collapsibleAreaHeaderContent}>
@@ -978,7 +988,7 @@ export default function ProjectsScreen() {
       <FlatList
         data={projectListRows}
         keyExtractor={(item) => item.key}
-        contentContainerStyle={defaultListContentStyle}
+        contentContainerStyle={[defaultListContentStyle, moeTabInset > 0 && { paddingBottom: moeTabInset }]}
         style={{ flex: 1 }}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>

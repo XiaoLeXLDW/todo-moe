@@ -47,7 +47,7 @@ describe('context automation throttling', () => {
 
 describe('parseContextAutomationHeadlessTaskData', () => {
   const cases: [string, unknown, { action: string; context: string } | null][] = [
-    ['url wins over extras', { url: 'mindwtr://contexts?token=%40home&contextAction=activate', action: 'off', context: 'work' }, { action: 'activate', context: '@home' }],
+    ['url wins over extras', { url: 'todomoe://contexts?token=%40home&contextAction=activate', action: 'off', context: 'work' }, { action: 'activate', context: '@home' }],
     ['falls back to extras when the url is unparseable', { url: 'not a url', action: 'off', context: 'work' }, { action: 'deactivate', context: 'work' }],
     ['accepts the activate aliases', { action: 'ON', context: 'home' }, { action: 'activate', context: 'home' }],
     ['accepts the deactivate aliases', { action: ' Inactive ', context: 'home' }, { action: 'deactivate', context: 'home' }],

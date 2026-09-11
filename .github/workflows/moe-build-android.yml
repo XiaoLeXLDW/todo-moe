@@ -1,0 +1,95 @@
+name: Todo Moe Android build
+on:
+  workflow_call:
+    inputs:
+      source_sha:
+        required: true
+        type: string
+      channel:
+        required: false
+        default: development
+        type: string
+      version_code:
+        required: false
+        default: ''
+        type: string
+    outputs:
+      artifact:
+        value: ${{ jobs.build.outputs.artifact }}
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    concurrency:
+      group: moe-android-${{ inputs.channel }}
+      cancel-in-progress: false
+    outputs:
+      artifact: ${{ steps.identity.outputs.artifact }}
+    env:
+      EXPO_NO_TELEMETRY: '1'
+      NODE_OPTIONS: --max-old-space-size=6144
+      GRADLE_USER_HOME: ${{ github.workspace }}/.tools/gradle-cache
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: '22'
+      - id: version
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          STABLE_VERSION_CODE: ${{ inputs.version_code }}
+        run: |
+          if [ "$CHANNEL" = development ]; then
+            node scripts/moe/dev-version.mjs
+          elif [ "$CHANNEL" = stable ]; then
+            [[ "$STABLE_VERSION_CODE" =~ ^[1-9][0-9]*$ ]]
+            echo "version_code=$STABLE_VERSION_CODE" >> "$GITHUB_OUTPUT"
+          else
+            exit 1
+          fi
+      - id: identity
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          CHANNEL: ${{ inputs.channel }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+        run: |
+          [[ "$SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]] && test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          [[ "$CHANNEL" = development || "$CHANNEL" = stable ]]
+          [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]
+          echo "artifact=todo-moe-${CHANNEL}-${VERSION_CODE}-${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        env:
+          ANDROID_SDK_PACKAGES: platform-tools platforms;android-36 build-tools;36.0.0 ndk;27.1.12297006 cmake;3.22.1
+        run: bash scripts/ci/setup-android-sdk.sh
+      - run: bun install --frozen-lockfile
+      - name: Build standalone APK
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+        run: node scripts/moe/build-android.mjs --variant "$CHANNEL" --version-code "$VERSION_CODE"
+      - name: Android widget unit tests on POSIX host
+        working-directory: apps/mobile/android
+        env:
+          APP_VARIANT: ${{ inputs.channel }}
+          MOE_VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          FOSS_BUILD: '1'
+        run: ./gradlew :android-widget:testReleaseUnitTest --no-daemon
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: ${{ steps.identity.outputs.artifact }}
+          path: build/moe/${{ inputs.channel }}-*/*
+          if-no-files-found: error
+          retention-days: 14

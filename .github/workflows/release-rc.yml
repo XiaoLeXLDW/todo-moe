@@ -65,6 +65,7 @@ env:
 
 jobs:
   validate:
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' }}
     runs-on: ubuntu-latest
     name: Validate RC Tag
     permissions:
@@ -179,7 +180,7 @@ jobs:
           echo "Verified $TAG points at $HEAD_SHA."
 
   linux:
-    if: ${{ needs.validate.outputs.existing_release != 'true' }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (needs.validate.outputs.existing_release != 'true') }}
     needs: validate
     uses: ./.github/workflows/release-linux.yml
     with:
@@ -187,7 +188,7 @@ jobs:
     secrets: inherit
 
   macos:
-    if: ${{ needs.validate.outputs.existing_release != 'true' }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (needs.validate.outputs.existing_release != 'true') }}
     needs: validate
     uses: ./.github/workflows/release-macos.yml
     with:
@@ -195,7 +196,7 @@ jobs:
     secrets: inherit
 
   windows:
-    if: ${{ needs.validate.outputs.existing_release != 'true' }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (needs.validate.outputs.existing_release != 'true') }}
     needs: validate
     uses: ./.github/workflows/release-windows.yml
     permissions:
@@ -209,7 +210,7 @@ jobs:
     secrets: inherit
 
   android-version-code:
-    if: ${{ needs.validate.outputs.existing_release != 'true' }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (needs.validate.outputs.existing_release != 'true') }}
     needs: validate
     runs-on: ubuntu-latest
     name: Android VersionCode Preflight
@@ -284,7 +285,7 @@ jobs:
             node scripts/ci/android-version-code-policy.js
 
   android:
-    if: ${{ needs.validate.outputs.existing_release != 'true' }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (needs.validate.outputs.existing_release != 'true') }}
     needs: [validate, android-version-code]
     permissions:
       actions: read
@@ -300,7 +301,7 @@ jobs:
     secrets: inherit
 
   android-foss:
-    if: ${{ always() && needs.validate.outputs.existing_release != 'true' && needs.validate.result == 'success' && needs['android-version-code'].result == 'success' }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && needs.validate.outputs.existing_release != 'true' && needs.validate.result == 'success' && needs['android-version-code'].result == 'success') }}
     needs: [validate, android-version-code]
     uses: ./.github/workflows/release-android-foss.yml
     with:
@@ -309,7 +310,7 @@ jobs:
     secrets: inherit
 
   ios-appstore:
-    if: ${{ needs.validate.outputs.existing_release != 'true' && (github.event_name != 'workflow_dispatch' || inputs.run_ios_testflight) }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (needs.validate.outputs.existing_release != 'true' && (github.event_name != 'workflow_dispatch' || inputs.run_ios_testflight)) }}
     needs: validate
     uses: ./.github/workflows/release-ios-appstore.yml
     with:
@@ -324,7 +325,7 @@ jobs:
     secrets: inherit
 
   macos-appstore:
-    if: ${{ needs.validate.outputs.existing_release != 'true' && (github.event_name != 'workflow_dispatch' || inputs.run_macos_testflight) }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (needs.validate.outputs.existing_release != 'true' && (github.event_name != 'workflow_dispatch' || inputs.run_macos_testflight)) }}
     needs: validate
     uses: ./.github/workflows/release-macos-appstore.yml
     with:
@@ -337,7 +338,7 @@ jobs:
     secrets: inherit
 
   retag-recovery-notice:
-    if: ${{ needs.validate.outputs.existing_release == 'true' && github.event_name == 'push' }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (needs.validate.outputs.existing_release == 'true' && github.event_name == 'push') }}
     needs: validate
     runs-on: ubuntu-latest
     name: Retag Recovery Notice
@@ -350,7 +351,7 @@ jobs:
           echo "Dispatch release-rc.yml manually with explicit channel flags when ready."
 
   prerelease:
-    if: ${{ always() && needs.validate.outputs.existing_release != 'true' && needs.validate.result == 'success' && needs.linux.result == 'success' && needs.macos.result == 'success' && needs.windows.result == 'success' && needs.android.result == 'success' && needs.android-foss.result == 'success' && (needs.ios-appstore.result == 'success' || needs.ios-appstore.result == 'skipped') && (needs.macos-appstore.result == 'success' || needs.macos-appstore.result == 'skipped') }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && needs.validate.outputs.existing_release != 'true' && needs.validate.result == 'success' && needs.linux.result == 'success' && needs.macos.result == 'success' && needs.windows.result == 'success' && needs.android.result == 'success' && needs.android-foss.result == 'success' && (needs.ios-appstore.result == 'success' || needs.ios-appstore.result == 'skipped') && (needs.macos-appstore.result == 'success' || needs.macos-appstore.result == 'skipped')) }}
     needs: [validate, linux, macos, windows, android, android-foss, ios-appstore, macos-appstore]
     runs-on: ubuntu-latest
     name: Create GitHub Prerelease
@@ -496,7 +497,7 @@ jobs:
             --notes-file "$NOTES_FILE"
 
   flathub-beta:
-    if: ${{ always() && needs.validate.result == 'success' && (needs.prerelease.result == 'success' || (needs.validate.outputs.existing_release == 'true' && github.event_name == 'workflow_dispatch')) && (github.event_name != 'workflow_dispatch' || inputs.run_flathub_beta) }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && needs.validate.result == 'success' && (needs.prerelease.result == 'success' || (needs.validate.outputs.existing_release == 'true' && github.event_name == 'workflow_dispatch')) && (github.event_name != 'workflow_dispatch' || inputs.run_flathub_beta)) }}
     needs: [validate, prerelease]
     name: Update Flathub Beta
     uses: ./.github/workflows/update-flathub.yml
@@ -506,7 +507,7 @@ jobs:
     secrets: inherit
 
   aur-beta:
-    if: ${{ always() && needs.validate.result == 'success' && (needs.prerelease.result == 'success' || (needs.validate.outputs.existing_release == 'true' && github.event_name == 'workflow_dispatch')) && (github.event_name != 'workflow_dispatch' || inputs.run_aur_beta) }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && needs.validate.result == 'success' && (needs.prerelease.result == 'success' || (needs.validate.outputs.existing_release == 'true' && github.event_name == 'workflow_dispatch')) && (github.event_name != 'workflow_dispatch' || inputs.run_aur_beta)) }}
     needs: [validate, prerelease]
     name: Update AUR Beta
     uses: ./.github/workflows/update-aur-beta.yml
@@ -515,7 +516,7 @@ jobs:
     secrets: inherit
 
   linux-repos-beta:
-    if: ${{ always() && needs.validate.result == 'success' && (needs.prerelease.result == 'success' || (needs.validate.outputs.existing_release == 'true' && github.event_name == 'workflow_dispatch')) && (github.event_name != 'workflow_dispatch' || inputs.run_linux_repos_beta) }}
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' && (always() && needs.validate.result == 'success' && (needs.prerelease.result == 'success' || (needs.validate.outputs.existing_release == 'true' && github.event_name == 'workflow_dispatch')) && (github.event_name != 'workflow_dispatch' || inputs.run_linux_repos_beta)) }}
     needs: [validate, prerelease]
     name: Update Linux Beta Repos
     permissions:

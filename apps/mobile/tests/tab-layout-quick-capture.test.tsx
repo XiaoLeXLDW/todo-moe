@@ -8,6 +8,10 @@ import Index from '../app/index';
 import { unstable_settings as drawerLayoutSettings } from '../app/(drawer)/_layout';
 import TabLayout from '../app/(drawer)/(tabs)/_layout';
 
+vi.mock('@/moe/MoeCelebration', () => ({ MoeCelebration: () => null }));
+vi.mock('@/moe/MoeSettings', () => ({ MoeSettings: (props: any) => React.createElement('MoeSettings', props) }));
+vi.mock('@/moe/glass/GlassSurface', () => ({ GlassSurface: (props: any) => React.createElement('GlassSurface', props, props.children) }));
+
 const mockRouterPush = vi.hoisted(() => vi.fn());
 const mockRouteQuickCapture = vi.hoisted(() => vi.fn());
 const tabProviderValue = vi.hoisted(() => ({
@@ -48,6 +52,8 @@ vi.mock('expo-router', () => {
   const Tabs = ({ children, tabBar, ...props }: any) => React.createElement(
     'Tabs',
     props,
+    props.screenOptions.headerLeft?.(),
+    props.screenOptions.headerRight?.(),
     tabBar({
       state: {
         index: 0,
@@ -155,6 +161,7 @@ vi.mock('@/hooks/use-theme-tokens', () => ({
 
 vi.mock('../contexts/language-context', () => ({
   useLanguage: () => ({
+    language: 'en',
     t: (key: string) => ({
       'nav.addTask': 'Add task',
       'nav.archived': 'Archived',
@@ -197,9 +204,7 @@ vi.mock('react-native-safe-area-context', () => ({
 }));
 
 const getAddTaskButton = (tree: ReturnType<typeof create>) => {
-  const button = tree.root.findAllByType(TouchableOpacity).find(
-    (node) => node.props.accessibilityLabel === 'Add task'
-  );
+  const button = tree.root.findAll((node) => String(node.type) === 'Pressable' && node.props.testID === 'moe-capture')[0];
   if (!button) throw new Error('Add task button not found');
   return button;
 };
@@ -232,64 +237,29 @@ const getMoreSheetButtonLabelStyle = (tree: ReturnType<typeof create>, label: st
   return flattenStyle(getMoreSheetButtonLabelNode(tree, label).props.style);
 };
 
-const getCaptureButtonInnerStyle = (tree: ReturnType<typeof create>) => {
-  const view = tree.root.findAll((node) => (
-    String(node.type) === 'View'
-    && flattenStyle(node.props.style).backgroundColor === '#3b82f6'
-  ))[0];
-  if (!view) throw new Error('Capture button inner view not found');
-  return flattenStyle(view.props.style);
-};
-
-const getCaptureInnerStyleBySize = (tree: ReturnType<typeof create>) => {
-  const view = tree.root.findAll((node) => {
-    if (String(node.type) !== 'View') return false;
-    const s = flattenStyle(node.props.style);
-    return s.width === 48 && s.height === 38;
-  })[0];
-  if (!view) throw new Error('Capture button inner view not found');
-  return flattenStyle(view.props.style);
-};
+const getCaptureButtonInnerStyle = (tree: ReturnType<typeof create>) => flattenStyle(getAddTaskButton(tree).props.style);
 
 const getCaptureIcon = (tree: ReturnType<typeof create>) => {
-  const icon = tree.root.findAllByType(Plus)[0];
+  const icon = getAddTaskButton(tree).findAllByType(Plus)[0];
   if (!icon) throw new Error('Capture plus icon not found');
   return icon;
 };
 
-const getCaptureIconColor = (tree: ReturnType<typeof create>) => getCaptureIcon(tree).props.color;
-
 const getMenuButton = (tree: ReturnType<typeof create>) => {
   const button = tree.root.findAllByType(TouchableOpacity).find(
-    (node) => node.props.accessibilityLabel === 'Menu'
+    (node) => node.props.accessibilityLabel === 'Advanced GTD views'
   );
   if (!button) throw new Error('Menu button not found');
   return button;
 };
 
 const getTabButton = (tree: ReturnType<typeof create>, label: string) => {
-  const button = tree.root.findAllByType(TouchableOpacity).find(
-    (node) => node.props.accessibilityLabel === label
-  );
-  if (!button) throw new Error(`${label} tab button not found`);
+  const button = tree.root.findAll((node) => String(node.type) === 'Pressable' && node.props.accessibilityRole === 'tab' && node.props.accessibilityLabel === label)[0];
+  if (!button) throw new Error(label + ' tab button not found');
   return button;
 };
-
-const getBottomTabLabels = (tree: ReturnType<typeof create>) => {
-  const tabLabels = new Set(['Focus', 'Inbox', 'Add task', 'Projects', 'Calendar', 'Contexts', 'Review', 'Menu']);
-  return tree.root
-    .findAllByType(TouchableOpacity)
-    .map((node) => node.props.accessibilityLabel)
-    .filter((label): label is string => typeof label === 'string' && tabLabels.has(label));
-};
-
-const getBottomTabTextLabels = (tree: ReturnType<typeof create>) => {
-  const labels = new Set(['Focus', 'Inbox', 'Add task', 'Projects', 'Calendar', 'Contexts', 'Review', 'Menu']);
-  return tree.root
-    .findAll((node) => String(node.type) === 'Text')
-    .map((node) => node.children.join(''))
-    .filter((label) => labels.has(label));
-};
+const getBottomTabLabels = (tree: ReturnType<typeof create>) => tree.root.findAll((node) => String(node.type) === 'Pressable' && node.props.accessibilityRole === 'tab').map((node) => node.props.accessibilityLabel);
+const getBottomTabTextLabels = (tree: ReturnType<typeof create>) => tree.root.findAll((node) => String(node.type) === 'Text').map((node) => node.children.join('')).filter((text) => ['Today', 'Lists', 'Inbox'].includes(text));
 
 const getQuickCaptureSheets = (tree: ReturnType<typeof create>) => (
   tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheet')
@@ -320,7 +290,7 @@ const moreDestinationLabels = [
   'Settings',
   'Waiting For',
   'Board View',
-  'Projects',
+  'Review',
   'Someday',
   'Contexts',
   'Calendar',
@@ -486,8 +456,9 @@ describe('mobile tab quick capture', () => {
 
     const tabs = tree.root.find((node) => String(node.type) === 'Tabs');
     expect(tabs.props.initialRouteName).toBe('focus');
-    expect(getBottomTabLabels(tree).slice(0, 2)).toEqual(['Focus', 'Inbox']);
-    expect(getBottomTabTextLabels(tree)).toEqual(['Focus', 'Inbox', 'Review', 'Menu']);
+    expect(getBottomTabLabels(tree)).toEqual(['Today', 'Lists', 'Inbox']);
+    expect(getBottomTabTextLabels(tree)).toEqual(['Today', 'Lists', 'Inbox']);
+    expect(getAddTaskButton(tree).props.accessibilityRole).toBe('button');
   });
 
   it('anchors restored stack screens above tabs so Back stays available', () => {
@@ -502,7 +473,7 @@ describe('mobile tab quick capture', () => {
     });
 
     const tabs = tree.root.find((node) => String(node.type) === 'Tabs');
-    const screenOptions = tabs.props.screenOptions({ route: { name: 'projects' } });
+    const screenOptions = tabs.props.screenOptions;
     const headerTitle = screenOptions.headerTitle({ children: 'Projects' });
 
     expect(headerTitle.props.children).toBe('Projects');
@@ -562,7 +533,7 @@ describe('mobile tab quick capture', () => {
     expect(sheets[0]?.props.openRequestId).toBe(2);
   });
 
-  it('keeps the primary capture button prominent and slightly lifted in the bottom bar', () => {
+  it('keeps capture separate with a 56 dp touch target', () => {
     let tree!: ReturnType<typeof create>;
 
     act(() => {
@@ -570,41 +541,24 @@ describe('mobile tab quick capture', () => {
     });
 
     expect(getCaptureButtonInnerStyle(tree)).toEqual(expect.objectContaining({
-      width: 48,
-      height: 38,
-      borderRadius: 10,
+      width: 56,
+      height: 56,
+      borderRadius: 22,
     }));
-    expect(getCaptureIcon(tree).props.size).toBe(28);
+    expect(getCaptureIcon(tree).props.size).toBe(30);
 
-    const transform = flattenStyle(getAddTaskButton(tree).props.style).transform as { translateY: number }[];
-    expect(transform[0]?.translateY).toBe(-6);
+    expect(getAddTaskButton(tree).props.accessibilityRole).toBe('button');
   });
 
-  it('boosts the capture FAB to the high-emphasis M3 primary role under Material', () => {
-    // Capture is Mindwtr's most important action, so under M3 the FAB uses the
-    // high-emphasis FAB role (primary/onPrimary), not the deliberately subdued
-    // primaryContainer. Other primary buttons stay primaryContainer (canonical),
-    // preserving M3's emphasis hierarchy with capture at the top.
-    mockThemeTokens.value = {
-      isMaterial: true,
-      roles: {
-        primary: '#AAC7FF',
-        onPrimary: '#003063',
-        primaryContainer: '#00458B',
-        onPrimaryContainer: '#D7E2FF',
-      },
-      shape: { large: 16 },
-    };
-
+  it('opens settings from the top right while retaining search and upstream settings', () => {
     let tree!: ReturnType<typeof create>;
-    act(() => {
-      tree = create(<TabLayout />);
-    });
-
-    const inner = getCaptureInnerStyleBySize(tree);
-    expect(inner.backgroundColor).toBe('#AAC7FF');
-    expect(inner.borderRadius).toBe(16);
-    expect(getCaptureIconColor(tree)).toBe('#003063');
+    act(() => { tree = create(<TabLayout />); });
+    const tabs = tree.root.find((node) => String(node.type) === 'Tabs');
+    const headerRight = tabs.props.screenOptions.headerRight();
+    expect(headerRight.props.children).toHaveLength(2);
+    const settings = tree.root.findAllByType(TouchableOpacity).find((node) => node.props.accessibilityLabel === 'Settings')!;
+    act(() => { settings.props.onPress(); });
+    expect(tree.root.findAll((node) => String(node.type) === 'MoeSettings')).toHaveLength(1);
   });
 
   it('opens the restored compact More grid and navigates to Calendar', () => {
@@ -644,7 +598,7 @@ describe('mobile tab quick capture', () => {
     expect(getMoreSheetButtons(tree, 'Calendar')).toHaveLength(0);
   });
 
-  it('swaps a selected quick access view with Review in the More sheet', () => {
+  it('keeps Review in advanced views while Lists stays in the three primary tabs', () => {
     mockTaskSettings.appearance = { mobileQuickAccessView: 'projects' };
     let tree!: ReturnType<typeof create>;
 
@@ -652,7 +606,7 @@ describe('mobile tab quick capture', () => {
       tree = create(<TabLayout />);
     });
 
-    expect(getTabButton(tree, 'Projects')).toBeTruthy();
+    expect(getTabButton(tree, 'Lists')).toBeTruthy();
 
     act(() => {
       getMenuButton(tree).props.onPress();

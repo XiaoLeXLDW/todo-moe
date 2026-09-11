@@ -48,6 +48,7 @@ env:
 
 jobs:
   standalone:
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' }}
     runs-on: windows-2025-vs2026
     name: Windows Release
     timeout-minutes: 120

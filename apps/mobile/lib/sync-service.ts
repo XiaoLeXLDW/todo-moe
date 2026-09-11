@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import { isDevelopmentBuild } from './app-identity';
+import { assertDevelopmentSyncTarget, readStoredDevSyncTarget } from './dev-sync-guard';
 import { AppData, SYNC_ENCRYPTION_LOG_EVENTS, buildSyncEncryptionActivationExtra, buildSyncEncryptionErrorExtra, buildSyncEncryptionRemoteReadExtra, buildSyncEncryptionStateExtra, type SyncEncryptionState, type SyncEncryptionStateDecision, acquireSyncRemoteMutationFence, clearIdleSyncCycleSnapshot, createDropboxSyncRemoteMutationFencePort, createSyncOrchestrator, createWebdavSyncRemoteMutationFencePort, webdavMutationFenceUrl, probeWebdavSyncCompatibility, runSerializedSyncDocumentOperation, runSharedSyncCycle, useTaskStore, isSandboxMode, isWorkspaceTransitionActive, webdavGetSyncDocument, webdavHeadFile, webdavPutSyncDocument, syncEncryptedArtifactName, markRemoteEncryptionDiscovered, markRemotePlaintextDiscovered, SyncEncryptionRemoteConflictError, SyncEncryptionRemotePlaintextError, SyncEncryptionRemoteVersionUnavailableError, SyncEncryptionTerminalError, SyncEncryptionTransitionIncompleteError, SyncFileLockUnavailableError, SyncRemoteWriteConflict, type SyncKeyMaterial, cloudGetJson, cloudHeadJson, cloudPutJson, flushPendingSave, performSyncCycle, withRetry, isRetryableError, isRetryableWebdavReadError, isWebdavInvalidJsonError, normalizeStrongWebdavEtag, normalizeWebdavUrl, normalizeCloudUrl, createSyncBackendIO, buildFastSyncScope, hasPendingSyncSideEffects, injectExternalCalendars as injectExternalCalendarsForSync, persistExternalCalendars as persistExternalCalendarsForSync, getInMemoryAppDataSnapshot, createAbortableFetch, normalizeCloudProvider as normalizeCoreCloudProvider, isDropboxUnauthorizedError, parseFastSyncState, serializeFastSyncState, summarizeTaskLifecycleCounts, decodeUriSafe, buildSyncPayloadTraceExtra, isSyncPayloadTraceEnabled, SYNC_TRACE_EVENT_MESSAGES, SYNC_FILE_NAME, SYNC_REMOTE_MUTATION_REQUEST_HORIZON_MS, CLOUD_PROVIDER_DROPBOX, CLOUD_PROVIDER_SELF_HOSTED, type Attachment, type CloudProvider, type FastSyncState, type SyncBackendContext, type SyncBackendIO, type SyncRunDiagnosticEvent, type SyncRunNotifier, type SyncRunPlatformHooks, type SyncRunResult, type SyncRunStorage, type SyncTransport } from '@mindwtr/core';
 import { mobileStorage } from './storage-adapter';
 import { logInfo, logSyncError, logWarn, sanitizeLogMessage } from './app-log';
@@ -2117,6 +2119,22 @@ const mobileSyncOrchestrator = createSyncOrchestrator<MobileSyncRequest | undefi
 
     if (backend === 'off') {
       return { success: true };
+    }
+    if (isDevelopmentBuild()) {
+      const candidate = request?.configOverride;
+      const target = candidate ? {
+        backend,
+        location: candidate.webdav?.url ?? candidate.cloud?.url ?? candidate.syncPath,
+        account: candidate.webdav?.username,
+        credential: candidate.webdav?.password ?? candidate.cloud?.token ?? candidate.dropbox?.tokens.refreshToken,
+        provider: candidate.cloudProvider,
+      } : await readStoredDevSyncTarget(getCachedConfigValue);
+      if (request?.syncPathOverride && backend === 'file') target.location = request.syncPathOverride;
+      try {
+        await assertDevelopmentSyncTarget(target, request?.manual === true);
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : String(error) };
+      }
     }
     if (await shouldSkipSyncForOfflineState(backend)) {
       return buildOfflineSkipResult('network');

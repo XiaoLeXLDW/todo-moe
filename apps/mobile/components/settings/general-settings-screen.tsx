@@ -16,14 +16,11 @@ import {
     useTaskStore,
 } from '@mindwtr/core';
 
-import { useTheme } from '@/contexts/theme-context';
+import { MoeSettings } from '@/moe/MoeSettings';
+import { useMoePreferences } from '@/moe/preferences';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { isAppSearchSupported, readAppSearchIndexingEnabled, writeAppSearchIndexingEnabled } from '@/lib/app-search-preference';
 import { enableAppSearchIndexing, wipeAppSearchIndex } from '@/lib/app-search-service';
-import {
-    coerceMobileQuickAccessView,
-    MOBILE_QUICK_ACCESS_VIEWS,
-} from '@/lib/mobile-quick-access-view';
 import { authenticateWithDeviceLock, getMobileAppLockErrorKey } from '@/lib/mobile-app-lock';
 
 import { SettingRow, SettingToggleRow } from './setting-row';
@@ -33,7 +30,7 @@ import { SettingsTopBar } from './settings.shell';
 import { styles } from './settings.styles';
 
 export function GeneralSettingsScreen() {
-    const { themeMode, setThemeMode } = useTheme();
+    const moePreferences = useMoePreferences();
     const { language, tr, setLanguage, t } = useSettingsLocalization();
     const { settings, updateSettings } = useTaskStore((state) => ({
         settings: state.settings,
@@ -47,7 +44,6 @@ export function GeneralSettingsScreen() {
     const [dateFormatPickerOpen, setDateFormatPickerOpen] = useState(false);
     const [calendarSystemPickerOpen, setCalendarSystemPickerOpen] = useState(false);
     const [timeFormatPickerOpen, setTimeFormatPickerOpen] = useState(false);
-    const [quickAccessPickerOpen, setQuickAccessPickerOpen] = useState(false);
     const [appLockBusy, setAppLockBusy] = useState(false);
     const [appLockErrorKey, setAppLockErrorKey] = useState<string | null>(null);
 
@@ -67,36 +63,10 @@ export function GeneralSettingsScreen() {
     const showCalendarSystem = canUseJalaliCalendar({ language, systemLocale });
     const calendarSystem = resolveCalendarSystemSetting(settings.calendarSystem, { language, systemLocale });
     const showTaskAge = settings.appearance?.showTaskAge === true;
-    const quickAccessView = coerceMobileQuickAccessView(settings.appearance?.mobileQuickAccessView);
     const appLockEnabled = settings.security?.mobileAppLockEnabled === true;
-    const baseThemeOptions: { value: typeof themeMode; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
-        { value: 'system', label: t('settings.system'), icon: 'phone-portrait-outline' },
-        { value: 'light', label: t('settings.light'), icon: 'sunny-outline' },
-        { value: 'dark', label: t('settings.dark'), icon: 'moon-outline' },
-    ];
-    const styledThemeOptions: { value: typeof themeMode; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
-        { value: 'material3-light', label: t('settings.material3Light'), icon: 'color-palette-outline' },
-        { value: 'material3-dark', label: t('settings.material3Dark'), icon: 'color-palette-outline' },
-        { value: 'eink', label: t('settings.eink'), icon: 'document-text-outline' },
-        { value: 'nord', label: t('settings.nord'), icon: 'snow-outline' },
-        { value: 'catppuccin-macchiato', label: t('settings.catppuccinMacchiato'), icon: 'cafe-outline' },
-        { value: 'dracula', label: t('settings.dracula'), icon: 'wine-outline' },
-        { value: 'sepia', label: t('settings.sepia'), icon: 'book-outline' },
-        { value: 'oled', label: t('settings.oled'), icon: 'contrast-outline' },
-    ];
-    const themeOptions = [...baseThemeOptions, ...styledThemeOptions];
-    const currentThemeLabel = themeOptions.find((opt) => opt.value === themeMode)?.label ?? t('settings.system');
-    const quickAccessOptions = MOBILE_QUICK_ACCESS_VIEWS.map((value) => ({
-        value,
-        label: value === 'review'
-            ? t('tab.review')
-            : value === 'projects'
-                ? t('nav.projects')
-                : value === 'calendar'
-                    ? t('nav.calendar')
-                    : t('nav.contexts'),
-    }));
-    const currentQuickAccessLabel = quickAccessOptions.find((opt) => opt.value === quickAccessView)?.label ?? t('tab.review');
+    const currentThemeLabel = language.startsWith('zh')
+        ? (moePreferences.followSystem ? '跟随系统明暗' : { soft: '柔白', ink: '墨色', family: '家族色' }[moePreferences.theme])
+        : (moePreferences.followSystem ? 'Follow system appearance' : { soft: 'Soft white', ink: 'Ink', family: 'Family' }[moePreferences.theme]);
     // Both "System default" labels show what they resolve to: the runtime locale
     // decides, which on a customized OS can differ from the OS setting (#1006).
     const systemWeekStart = normalizeWeekStartSetting('system');
@@ -218,14 +188,6 @@ export function GeneralSettingsScreen() {
                         }}
                         trackColor={{ false: tc.secondaryText, true: tc.tint }}
                     />
-                    <SettingRow
-                        divider
-                        onPress={() => setQuickAccessPickerOpen(true)}
-                        label={tr('settings.mobile.quickAccessView')}
-                        description={currentQuickAccessLabel}
-                    >
-                        <Ionicons color={tc.secondaryText} name="chevron-down" size={18} />
-                    </SettingRow>
                 </View>
 
                 <Text style={[styles.sectionTitle, { color: tc.secondaryText, marginTop: 16 }]}>{tr('settings.privacy')}</Text>
@@ -262,115 +224,7 @@ export function GeneralSettingsScreen() {
                     )}
                 </View>
 
-                <Modal
-                    transparent
-                    visible={themePickerOpen}
-                    animationType="fade"
-                    onRequestClose={() => setThemePickerOpen(false)}
-                >
-                    <Pressable style={styles.pickerOverlay} onPress={() => setThemePickerOpen(false)}>
-                        <View
-                            style={[styles.pickerCard, { backgroundColor: tc.cardBg, borderColor: tc.border }]}
-                            onStartShouldSetResponder={() => true}
-                        >
-                            <Text style={[styles.pickerTitle, { color: tc.text }]}>{t('settings.theme')}</Text>
-                            <ScrollView style={styles.pickerList} contentContainerStyle={styles.pickerListContent}>
-                                {themeOptions.map((option, index) => {
-                                    const selected = option.value === themeMode;
-                                    const startsStyledThemes = index === baseThemeOptions.length;
-                                    return (
-                                        <React.Fragment key={option.value}>
-                                            {startsStyledThemes && (
-                                                <View style={{ borderTopWidth: 1, borderTopColor: tc.border, marginVertical: 8 }} />
-                                            )}
-                                            <TouchableOpacity
-                                                accessibilityRole="radio"
-                                                accessibilityState={{ selected }}
-                                                style={[
-                                                    styles.pickerOption,
-                                                    { borderColor: tc.border, backgroundColor: selected ? tc.filterBg : 'transparent' },
-                                                ]}
-                                                onPress={() => {
-                                                    setThemeMode(option.value);
-                                                    updateSettings({ theme: option.value }).catch(console.error);
-                                                    setThemePickerOpen(false);
-                                                }}
-                                            >
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-                                                    <View
-                                                        style={{
-                                                            width: 32,
-                                                            height: 32,
-                                                            borderRadius: 16,
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            backgroundColor: tc.filterBg,
-                                                            borderWidth: 1,
-                                                            borderColor: selected ? tc.tint : tc.border,
-                                                        }}
-                                                    >
-                                                        <Ionicons
-                                                            color={selected ? tc.tint : tc.secondaryText}
-                                                            name={option.icon}
-                                                            size={17}
-                                                        />
-                                                    </View>
-                                                    <Text style={[styles.pickerOptionText, { color: selected ? tc.tint : tc.text }]}>
-                                                        {option.label}
-                                                    </Text>
-                                                </View>
-                                                {selected && <Ionicons color={tc.tint} name="checkmark" size={18} />}
-                                            </TouchableOpacity>
-                                        </React.Fragment>
-                                    );
-                                })}
-                            </ScrollView>
-                        </View>
-                    </Pressable>
-                </Modal>
-                <Modal
-                    transparent
-                    visible={quickAccessPickerOpen}
-                    animationType="fade"
-                    onRequestClose={() => setQuickAccessPickerOpen(false)}
-                >
-                    <Pressable style={styles.pickerOverlay} onPress={() => setQuickAccessPickerOpen(false)}>
-                        <View
-                            style={[styles.pickerCard, { backgroundColor: tc.cardBg, borderColor: tc.border }]}
-                            onStartShouldSetResponder={() => true}
-                        >
-                            <Text style={[styles.pickerTitle, { color: tc.text }]}>{tr('settings.mobile.quickAccessView')}</Text>
-                            <ScrollView style={styles.pickerList} contentContainerStyle={styles.pickerListContent}>
-                                {quickAccessOptions.map((option) => {
-                                    const selected = quickAccessView === option.value;
-                                    return (
-                                        <TouchableOpacity
-                                            key={option.value}
-                                            style={[
-                                                styles.pickerOption,
-                                                { borderColor: tc.border, backgroundColor: selected ? tc.filterBg : 'transparent' },
-                                            ]}
-                                            onPress={() => {
-                                                updateSettings({
-                                                    appearance: {
-                                                        ...(settings.appearance ?? {}),
-                                                        mobileQuickAccessView: option.value,
-                                                    },
-                                                }).catch(console.error);
-                                                setQuickAccessPickerOpen(false);
-                                            }}
-                                        >
-                                            <Text style={[styles.pickerOptionText, { color: selected ? tc.tint : tc.text }]}>
-                                                {option.label}
-                                            </Text>
-                                            {selected && <Ionicons color={tc.tint} name="checkmark" size={18} />}
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </ScrollView>
-                        </View>
-                    </Pressable>
-                </Modal>
+                {themePickerOpen && <MoeSettings visible onClose={() => setThemePickerOpen(false)} />}
 
                 <Text style={[styles.sectionTitle, { color: tc.secondaryText, marginTop: 16 }]}>{t('settings.language')}</Text>
                 <Text style={[styles.description, { color: tc.secondaryText }]}>{t('settings.selectLang')}</Text>

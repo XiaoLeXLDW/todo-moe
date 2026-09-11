@@ -7,6 +7,7 @@ import { translateWithFallback } from '@mindwtr/core';
 import { useLanguage } from '@/contexts/language-context';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { useFilledButtonColors } from '@/hooks/use-filled-button-colors';
+import { brandMobileText } from '@/moe/brand-text';
 import {
   authenticateWithDeviceLock,
   getMobileAppLockErrorKey,
@@ -35,7 +36,7 @@ export function MobileAppLockGate({ enabled, children }: MobileAppLockGateProps)
   const wasEnabledRef = useRef(enabled);
 
   const resolveText = useCallback((key: string, fallback: string) => (
-    translateWithFallback(t, key, fallback)
+    brandMobileText(key, translateWithFallback(t, key, fallback))
   ), [t]);
 
   const authenticate = useCallback(async () => {

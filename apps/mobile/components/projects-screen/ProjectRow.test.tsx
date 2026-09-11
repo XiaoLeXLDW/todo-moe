@@ -6,11 +6,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProjectRow } from './ProjectRow';
 
 const hapticsMocks = vi.hoisted(() => ({
+  impactAsync: vi.fn().mockResolvedValue(undefined),
   selectionAsync: vi.fn().mockResolvedValue(undefined),
   notificationAsync: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('expo-haptics', () => ({
+  impactAsync: hapticsMocks.impactAsync,
   NotificationFeedbackType: {
     Warning: 'warning',
   },
@@ -202,7 +204,7 @@ describe('ProjectRow', () => {
       deleteAction?.onPress?.();
     });
 
-    expect(hapticsMocks.notificationAsync).toHaveBeenCalledWith('warning');
+    expect(hapticsMocks.impactAsync).toHaveBeenCalledWith('light');
     expect(onDeleteProject).toHaveBeenCalledWith('project-1');
   });
 

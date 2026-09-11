@@ -22,6 +22,7 @@ concurrency:
 
 jobs:
   package-flight:
+    if: ${{ github.repository == 'dongdongbh/Mindwtr' }}
     runs-on: windows-latest
     timeout-minutes: 45
     steps:

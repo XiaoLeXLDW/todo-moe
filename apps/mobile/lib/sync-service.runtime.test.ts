@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import {
   buildSyncLocationScope,
@@ -444,6 +445,22 @@ describe('mobile sync-service runtime', () => {
 
     syncServiceModule.__mobileSyncTestUtils.reset();
     __resetSyncEncryptionStateForTests();
+  });
+
+  it('stops unconfirmed Dev background sync before any network probe or local task access', async () => {
+    const config = Constants.expoConfig!;
+    const original = config.android;
+    config.android = { package: 'io.github.xiaolexldw.todomoe.dev' };
+    try {
+      const result = await syncServiceModule.performMobileSync();
+      expect(result).toMatchObject({ success: false, error: expect.stringContaining('Dev 同步已暂停') });
+      expect(networkMocks.getNetworkStateAsync).not.toHaveBeenCalled();
+      expect(coreMocks.webdavGetSyncDocument).not.toHaveBeenCalled();
+      expect(coreMocks.webdavPutJson).not.toHaveBeenCalled();
+      expect(storageMocks.getData).not.toHaveBeenCalled();
+    } finally {
+      config.android = original;
+    }
   });
 
   it('does not read personal sync configuration in sandbox', async () => {

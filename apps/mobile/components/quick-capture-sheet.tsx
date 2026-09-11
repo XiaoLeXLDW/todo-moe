@@ -70,6 +70,9 @@ import { QuickCaptureSheetBody } from './quick-capture-sheet/QuickCaptureSheetBo
 import { QuickCaptureSheetPickers } from './quick-capture-sheet/QuickCaptureSheetPickers';
 import { useQuickCaptureAudio } from './use-quick-capture-audio';
 import { useAndroidQuickCaptureExpand } from './quick-capture-sheet/useAndroidQuickCaptureExpand';
+import { useReducedMotion } from '../hooks/use-reduced-motion';
+import { animateMoeListMutation } from '../moe/motion';
+import { moeHaptic } from '../moe/haptics';
 
 const PRIORITY_OPTIONS: TaskPriority[] = ['low', 'medium', 'high', 'urgent'];
 const ANDROID_OPTIONS_EXPAND_FALLBACK_MS = 500;
@@ -218,6 +221,7 @@ export function QuickCaptureSheet({
   );
 
   const [value, setValue] = useState('');
+  const reducedMotion = useReducedMotion();
   const [saving, setSaving] = useState(false);
   // Refreshed by resetDraftState — which runs on open AND after each capture in
   // an "Add another" burst, so a context/tag/person created by one capture is
@@ -708,7 +712,7 @@ export function QuickCaptureSheet({
     const request = buildCaptureRequestForInput(inputValue, inputValue.trim());
     const result = await executeCaptureTransaction(
       request.input,
-      { addProject, addTask },
+      { addProject, addTask: (title, props) => { animateMoeListMutation(reducedMotion); return addTask(title, props); } },
       request.options,
     );
     if (!result.success && result.reason === 'invalid-date-command') {
@@ -716,11 +720,12 @@ export function QuickCaptureSheet({
       return null;
     }
     if (!result.success) return null;
+    moeHaptic();
     return {
       createdTaskId: result.createdTaskId ?? null,
       props: result.props,
     };
-  }, [addProject, addTask, buildCaptureRequestForInput, showToast, t]);
+  }, [addProject, addTask, buildCaptureRequestForInput, reducedMotion, showToast, t]);
 
   const createBulkTasks = useCallback(async (lines: string[]) => {
     const session = activeSubmissionSessionRef.current;

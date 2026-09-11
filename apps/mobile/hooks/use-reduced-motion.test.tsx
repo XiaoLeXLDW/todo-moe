@@ -78,4 +78,15 @@ describe('useReducedMotion', () => {
 
     expect(mocked.remove).toHaveBeenCalledTimes(1);
   });
+
+  it('shares one platform observer across a large set of rows', async () => {
+    await act(async () => { tree = create(<>{Array.from({ length: 100 }, (_, index) => <Harness key={index} />)}</>); });
+    expect(mocked.addEventListener).toHaveBeenCalledTimes(1);
+    expect(mocked.isReduceMotionEnabled).toHaveBeenCalledTimes(1);
+    act(() => { mocked.listener?.(true); });
+    expect(latest).toBe(true);
+    act(() => { tree?.unmount(); });
+    tree = null;
+    expect(mocked.remove).toHaveBeenCalledTimes(1);
+  });
 });

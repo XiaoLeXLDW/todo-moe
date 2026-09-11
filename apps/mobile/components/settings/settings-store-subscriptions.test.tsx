@@ -7,6 +7,9 @@ import { GtdSettingsScreen } from './gtd-settings-screen';
 import { useSyncSettingsStoreSlice } from './use-sync-settings-store-slice';
 
 const updateSettings = vi.hoisted(() => vi.fn(async () => undefined));
+// General settings imports the shared presentation panel, whose navigation
+// buttons are outside this store-subscription test's scope.
+vi.mock('expo-router', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 const storeHarness = vi.hoisted(() => ({
     listeners: new Set<() => void>(),
     state: {} as Record<string, unknown>,

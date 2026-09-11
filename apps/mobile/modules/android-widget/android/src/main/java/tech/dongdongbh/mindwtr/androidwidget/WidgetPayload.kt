@@ -140,7 +140,8 @@ data class WidgetPayload(
       ?: ListPayload(headerTitle, dateLabel, sections, items)
 
   companion object {
-    const val DEFAULT_FOCUS_URI = "mindwtr:///focus"
+    const val DEFAULT_FOCUS_URI = "todomoe:///focus"
+    fun schemeForPackage(packageName: String): String = if (packageName.endsWith(".dev")) "todomoe-dev" else "todomoe"
     const val MAX_ITEMS = 50
 
     val EMPTY = WidgetPayload(
@@ -163,13 +164,13 @@ data class WidgetPayload(
         placeholder = "Add task to inbox...",
         save = "Save",
         cancel = "Cancel",
-        added = "Task added to Mindwtr.",
+        added = "Task added.",
         audioEnabled = false,
         audioRecord = "Record audio",
         audioStop = "Stop recording",
         audioRecording = "Recording...",
         audioReady = "Recording ready to save.",
-        audioSaved = "Saved. Audio will be transcribed when you open Mindwtr.",
+        audioSaved = "Saved. Open the app to transcribe audio.",
         audioError = "We could not record audio. Please try again.",
         audioPermissionDenied = "Enable microphone access to record audio captures.",
       ),
@@ -182,15 +183,22 @@ data class WidgetPayload(
       ),
     )
 
-    fun parse(json: String): WidgetPayload? {
+    fun defaultForApp(appLabel: String): WidgetPayload = EMPTY.copy(
+      quickCapture = EMPTY.quickCapture.copy(
+        added = "Task added to $appLabel.",
+        audioSaved = "Saved. Audio will be transcribed when you open $appLabel.",
+      ),
+    )
+
+    fun parse(json: String, scheme: String = "todomoe", appLabel: String? = null): WidgetPayload? {
       val root = try {
         JSONObject(json)
       } catch (error: JSONException) {
         return null
       }
-      val defaults = EMPTY
-      val items = parseItems(root.optJSONArray("items"))
-      val sections = parseSections(root.optJSONArray("sections"))
+      val defaults = appLabel?.let { defaultForApp(it) } ?: EMPTY
+      val items = parseItems(root.optJSONArray("items"), scheme)
+      val sections = parseSections(root.optJSONArray("sections"), scheme)
       val lists = LinkedHashMap<String, ListPayload>()
       root.optJSONObject("lists")?.let { listsJson ->
         for (key in listsJson.keys()) {
@@ -198,8 +206,8 @@ data class WidgetPayload(
           lists[key] = ListPayload(
             title = list.stringOr("title", key),
             dateLabel = list.optString("dateLabel").trim().takeIf { it.isNotEmpty() && !list.isNull("dateLabel") },
-            sections = parseSections(list.optJSONArray("sections")),
-            items = parseItems(list.optJSONArray("items")),
+            sections = parseSections(list.optJSONArray("sections"), scheme),
+            items = parseItems(list.optJSONArray("items"), scheme),
           )
         }
       }
@@ -216,7 +224,7 @@ data class WidgetPayload(
         }
       }
       // Only the app's own routes may be launched from a tap.
-      val focusUri = appUriOrNull(root.optString("focusUri")) ?: DEFAULT_FOCUS_URI
+      val focusUri = appUriOrNull(root.optString("focusUri"), scheme) ?: "$scheme:///focus"
       val labels = root.optJSONObject("quickCapture")
       val quickCapture = QuickCaptureLabels(
         title = labels.stringOr("title", defaults.quickCapture.title),
@@ -265,19 +273,19 @@ data class WidgetPayload(
       )
     }
 
-    private fun parseSections(json: JSONArray?): List<Section> {
+    private fun parseSections(json: JSONArray?, scheme: String): List<Section> {
       val sections = ArrayList<Section>()
       if (json == null) return sections
       for (index in 0 until json.length()) {
         val section = json.optJSONObject(index) ?: continue
-        val sectionItems = parseItems(section.optJSONArray("items"))
+        val sectionItems = parseItems(section.optJSONArray("items"), scheme)
         if (sectionItems.isEmpty()) continue
         sections.add(Section(section.stringOr("title", ""), section.optString("detail").trim().takeIf { it.isNotEmpty() && !section.isNull("detail") }, sectionItems))
       }
       return sections
     }
 
-    private fun parseItems(json: JSONArray?): List<Item> {
+    private fun parseItems(json: JSONArray?, scheme: String): List<Item> {
       val items = ArrayList<Item>()
       if (json == null) return items
       for (index in 0 until minOf(json.length(), MAX_ITEMS)) {
@@ -290,7 +298,7 @@ data class WidgetPayload(
             title = title,
             dueLabel = item.optString("dueLabel").trim().takeIf { it.isNotEmpty() && !item.isNull("dueLabel") },
             dueEmphasis = item.optBoolean("dueEmphasis", false),
-            openUri = appUriOrNull(item.optString("openUri")),
+            openUri = appUriOrNull(item.optString("openUri"), scheme),
             priorityColor = parseHexColor(item.optString("priorityColor")),
             contextLabel = item.optString("contextLabel").trim().takeIf { it.isNotEmpty() && !item.isNull("contextLabel") },
             identityColor = parseHexColor(item.optString("identityColor")),
@@ -338,7 +346,8 @@ data class WidgetPayload(
       )
     }
 
-    fun appUriOrNull(value: String?): String? = value?.takeIf { it.startsWith("mindwtr:") }
+    fun appUriOrNull(value: String?, scheme: String = "todomoe"): String? =
+      value?.takeIf { it.startsWith("$scheme:") }
 
     /**
      * `#RRGGBB` or `#RRGGBBAA` (CSS order, what core's getAccentTint writes) to
@@ -369,8 +378,12 @@ object WidgetPayloadStore {
   fun readRaw(context: Context): String? =
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_PAYLOAD, null)
 
-  fun read(context: Context): WidgetPayload =
-    readRaw(context)?.let { WidgetPayload.parse(it) } ?: WidgetPayload.EMPTY
+  fun read(context: Context): WidgetPayload {
+    val scheme = WidgetPayload.schemeForPackage(context.packageName)
+    val appLabel = context.packageManager.getApplicationLabel(context.applicationInfo).toString()
+    return readRaw(context)?.let { WidgetPayload.parse(it, scheme, appLabel) }
+      ?: WidgetPayload.defaultForApp(appLabel).copy(focusUri = "$scheme:///focus")
+  }
 
   fun write(context: Context, json: String) {
     // commit(), not apply(): the widget provider and the dialog read this from

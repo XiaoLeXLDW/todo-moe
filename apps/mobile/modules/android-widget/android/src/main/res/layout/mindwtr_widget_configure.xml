@@ -12,7 +12,7 @@
         android:id="@+id/mindwtr_widget_configure_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Mindwtr"
+        android:text=""
         android:textColor="@color/mindwtr_widget_text"
         android:textSize="18sp"
         android:textStyle="bold" />

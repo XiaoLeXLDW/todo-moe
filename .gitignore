@@ -91,6 +91,7 @@ build-dir/
 # Agent files
 AGENT.md
 AGENTS.md
+!/AGENTS.md
 .codex
 .codegraph/
 .agents
@@ -109,6 +110,10 @@ scripts/ci/__pycache__/
 Mindwtr.wiki/
 
 # Local workspace configuration
+.tools/
+.secrets/
+artifacts/
+evidence/development/
 .worktrees/
 pnpm-workspace.yaml
 

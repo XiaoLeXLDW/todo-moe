@@ -5,12 +5,9 @@ import android.content.Context
 import android.content.Intent
 import com.facebook.react.HeadlessJsTaskService
 
-private const val ACTIVATE_CONTEXT_ACTION = "tech.dongdongbh.mindwtr.action.ACTIVATE_CONTEXT"
-private const val DEACTIVATE_CONTEXT_ACTION = "tech.dongdongbh.mindwtr.action.DEACTIVATE_CONTEXT"
-
 class ContextAutomationReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent?) {
-    val payload = ContextAutomationPayload.fromIntent(intent) ?: return
+    val payload = ContextAutomationPayload.fromIntent(intent, context.packageName) ?: return
     val serviceIntent = Intent(context, ContextAutomationHeadlessService::class.java).apply {
       putExtra("action", payload.action)
       putExtra("context", payload.context)
@@ -27,10 +24,10 @@ private data class ContextAutomationPayload(
   val context: String
 ) {
   companion object {
-    fun fromIntent(intent: Intent?): ContextAutomationPayload? {
+    fun fromIntent(intent: Intent?, packageName: String): ContextAutomationPayload? {
       val contextAction = when (intent?.action) {
-        ACTIVATE_CONTEXT_ACTION -> "activate"
-        DEACTIVATE_CONTEXT_ACTION -> "deactivate"
+        "$packageName.action.ACTIVATE_CONTEXT" -> "activate"
+        "$packageName.action.DEACTIVATE_CONTEXT" -> "deactivate"
         else -> return null
       }
 

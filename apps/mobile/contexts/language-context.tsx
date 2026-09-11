@@ -4,6 +4,7 @@ import { workspaceSessionStorage as AsyncStorage } from '@/lib/workspace-session
 import { type Language, getSystemDefaultLanguage, loadTranslations, loadStoredLanguage, saveStoredLanguage } from '@mindwtr/core';
 import { logError } from '../lib/app-log';
 import { markStartupPhase, measureStartupPhase } from '../lib/startup-profiler';
+import { brandMobileText } from '../moe/brand-text';
 
 export type { Language };
 
@@ -83,7 +84,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     }, [hasLoadedFallback, hasLoadedLanguage, hasLoadedTranslations, isReady]);
 
     const t = (key: string): string => {
-        return translationsMap[key] || fallbackTranslations[key] || key;
+        return brandMobileText(key, translationsMap[key] || fallbackTranslations[key] || key);
     };
 
     return (
