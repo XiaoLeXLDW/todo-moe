@@ -1,5 +1,7 @@
 # 分版本开发与验收记录
 
+最新记录：[干净Dev vc10](0.1.0-dev-vc10-2026-09-12.md)与[Stable vc1无签名工程验证](0.1.0-stable-vc1-unsigned-2026-09-12.md)已构建核验，手机仍为vc7。[临时诊断vc8](0.1.0-diagnostic-vc8-2026-09-12.md)未安装且已替代，[诊断vc9](0.1.0-diagnostic-vc9-2026-09-12.md)待外屏解锁复测；诊断包与正式候选分开记录。最新验收边界见[收尾记录](../../FOLLOWUP-20260912.md)，下文保留vc7及此前阶段快照。
+
 > 最新整合：vc7已构建、覆盖安装并实测两处文案、About及内屏More；vc6→vc7全结构相同、非字节相同。首个50fa CI APK已成功并下载核验；e6自有check含全量core/mobile已成功，常规CI含Desktop Rust已全成功、e6 CI APK构建中。草稿PR#1未合并/Release，见[vc7记录](0.1.0-dev-vc7-2026-09-12.md)和[设备记录](../../DEVICE-VALIDATION-20260911.md)。
 
 

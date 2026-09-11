@@ -1,5 +1,7 @@
 # GitHub CI 首次运行与修正
 
+追加：vc7对应PR head e6a797d5的全部工作流与APK运行已成功，实际合并构建SHA为39e380895067822ca6fd7b0acc6f5c7b4f573abd，两者Git tree相同；产物已下载并核验。后续源码89fcedb9的目录选择器/渠道缓存修复已完成本地2720移动测试、35工程测试及Dev/Stable往返构建，其新远端结果以PR为准。完整身份见[收尾记录](FOLLOWUP-20260912.md)。
+
 **首个远端APK已成功并下载核验。** [运行34615262274](https://github.com/XiaoLeXLDW/todo-moe/actions/runs/34615262274)使用4GiB Gradle堆，完整Android构建19m43成功，随后POSIX Widget测试46秒成功。源码`50fa606deb53f2f6a392c08cc2f5b7224ca549fe`，Dev versionCode21915124，42,030,840字节，APK SHA-256 `be4dac07b46ff0f3f4ce2069e1c6d0d38aedbaf4a4dc7be6406219fb58c02156`。此结果关闭该轮R8内存不足问题；后续提交的实时检查见[PR #1](https://github.com/XiaoLeXLDW/todo-moe/pull/1)。
 
 下载的Actions ZIP SHA-256与GitHub artifact digest完全一致：`ab3936a768e5f09ca5dd1e19c5617174a4358687d3551e29f9969a8d335f19a2`。本机再次核验APK哈希、aapt包/版本、apksigner测试证书、实际app.config、品牌图标像素、16KiB zipalign及32个ELF库所有PT_LOAD对齐，均通过。记录保存在`artifacts/ci-21915124-50fa606/verification.json`；没有安装这个CI包，手机仍是vc6，不能用CI结果代替新UI或正式发行验收。

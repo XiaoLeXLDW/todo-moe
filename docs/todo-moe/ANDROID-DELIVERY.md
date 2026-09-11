@@ -44,6 +44,8 @@ Windows 本机已观察到 Bun 1.3.5 的缓存 HTTP 304 等待和重复补丁问
 
 脚本不执行 `prebuild --clean`，发现未带 Todo Moe 生成标记的现有 android/ 时停止，保护原生修改。应把可维护的原生改动放进 `modules/` 或 config plugin，并在干净工作树/新的检出重建。曾失败的首次 prebuild 需要先检查并保全 android/，再选择新的检出重建。不要直接删除未知 native 修改。
 
+2026-09-12已实测Dev→Stable→Dev顺序切换。RN设置缓存不包含渠道环境变量，旧JSON会让生成入口引用上一渠道BuildConfig；脚本现校验生成标记及路径边界，备份后仅刷新固定autolinking.json，并在构建后验证包名。产物按AGP output-metadata.json收集，避免同目录旧APK混入。原生插件会调整依赖中的scheme，因此两渠道不得并行共享可变node_modules；当前只顺序构建。Stable无签名成品的签名块/JAR签名项也已单独核验，见[收尾记录](FOLLOWUP-20260912.md)。
+
 连续升级测试用 versionCode 1、2、3 构建 A/B/C，并保留同一测试签名。用户明确安装授权后再运行 `adb install -r <APK>`，不能用卸载清数据掩盖升级失败，也不能加入降级参数。本脚本不会安装手机、连接云端或修改真实任务。本轮用户选择暂不启用数据同步；以后若选择启用，Dev必须使用独立测试同步目录，包名不同不能证明云端隔离。
 
 ## 工作流与稳定发布
