@@ -59,6 +59,7 @@ interface QuickCaptureSheetBodyProps {
   insetsBottom: number;
   inputRef: RefObject<TextInput | null>;
   keyboardAvoidingEnabled?: boolean;
+  /** Legacy caller input; Android now uses its dialog window's native resize. */
   androidKeyboardInset?: number;
   noteValue: string;
   onNoteChange: (value: string) => void;
@@ -122,7 +123,6 @@ export function QuickCaptureSheetBody({
   insetsBottom,
   inputRef,
   keyboardAvoidingEnabled = true,
-  androidKeyboardInset = 0,
   noteValue,
   onNoteChange,
   onOpenAreaPicker,
@@ -180,15 +180,11 @@ export function QuickCaptureSheetBody({
   // Drop the trailing ellipsis here so the Custom chip is narrow enough to sit on the preset row;
   // the shared recurrence.custom string (used elsewhere) keeps its "…".
   const customDateLabel = t('recurrence.custom').replace(/[\s.…]+$/u, '');
-  // iOS resizes the modal via padding behavior; Android keeps the keyboard out
-  // of the way with a measured bottom inset (see android-keyboard-frame) because
-  // the transparent Android modal window does not resize for the keyboard. The
-  // lift is gated on keyboardAvoidingEnabled so the tall expanded sheet stays
-  // anchored to the bottom (its header cannot be pushed off the top of screen).
+  // Android's RN Modal already sets ADJUST_RESIZE. Keep its own decor fitting
+  // system/IME insets instead of combining an edge-to-edge dialog with keyboard
+  // coordinates emitted by the separate Activity root. That combination left
+  // Save underneath the IME on Android 15. iOS retains its padding behavior.
   const keyboardAvoidingBehavior = Platform.OS === 'ios' ? 'padding' : undefined;
-  const androidKeyboardLift = Platform.OS === 'android' && keyboardAvoidingEnabled && androidKeyboardInset > 0
-    ? { paddingBottom: androidKeyboardInset }
-    : null;
 
   // "Add to today's focus" is a task property, not a title-entry control, so it lives
   // with the Contexts/Area/Project chips (here) instead of next to the mic. The mic
@@ -231,8 +227,8 @@ export function QuickCaptureSheetBody({
       // Transparent Android modal animations can blend stale frames on some tablet GPUs.
       animationType={Platform.OS === 'android' ? 'none' : 'slide'}
       hardwareAccelerated={Platform.OS === 'android'}
-      navigationBarTranslucent={Platform.OS === 'android'}
-      statusBarTranslucent={Platform.OS === 'android'}
+      navigationBarTranslucent={false}
+      statusBarTranslucent={false}
       accessibilityViewIsModal
       onRequestClose={saving ? () => undefined : (handleRequestClose ?? handleClose)}
     >
@@ -249,8 +245,9 @@ export function QuickCaptureSheetBody({
         />
         <KeyboardAvoidingView
           behavior={keyboardAvoidingBehavior}
+          enabled={Platform.OS !== 'android' && keyboardAvoidingEnabled}
           keyboardVerticalOffset={0}
-          style={[styles.keyboardAvoiding, androidKeyboardLift]}
+          style={styles.keyboardAvoiding}
           accessibilityElementsHidden={contentAccessibilityHidden}
           importantForAccessibility={contentAccessibilityHidden ? 'no-hide-descendants' : 'auto'}
         >
@@ -656,8 +653,8 @@ export function QuickCaptureSheetBody({
           {/* Toasts fired from inside the sheet (e.g. the speech-not-configured notice)
               render behind the native modal window without a viewport here, so the user
               only saw them after closing the sheet (#886, #834). It sits inside the
-              keyboard-avoiding view on purpose: that container's bottom padding is the
-              keyboard, so the toast lands above it instead of behind it. */}
+              keyboard-avoiding view on purpose: iOS pads it and Android resizes the
+              dialog window, so the toast lands above the keyboard. */}
           <ToastViewport />
         </KeyboardAvoidingView>
         {children}

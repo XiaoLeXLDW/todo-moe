@@ -5,6 +5,7 @@ import { type Language, getSystemDefaultLanguage, loadTranslations, loadStoredLa
 import { logError } from '../lib/app-log';
 import { markStartupPhase, measureStartupPhase } from '../lib/startup-profiler';
 import { brandMobileText } from '../moe/brand-text';
+import { adaptMobileEntityTerminology } from '../moe/terminology';
 
 export type { Language };
 
@@ -84,7 +85,11 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     }, [hasLoadedFallback, hasLoadedLanguage, hasLoadedTranslations, isReady]);
 
     const t = (key: string): string => {
-        return brandMobileText(key, translationsMap[key] || fallbackTranslations[key] || key);
+        const template = translationsMap[key] || fallbackTranslations[key];
+        // Adapt only a resolved static template, before callers insert names or
+        // other user text. Unknown keys retain the existing unchanged fallback.
+        const text = template ? adaptMobileEntityTerminology(key, template, language) : key;
+        return brandMobileText(key, text);
     };
 
     return (

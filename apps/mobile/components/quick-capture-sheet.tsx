@@ -54,7 +54,7 @@ import { useThemeColors } from '@/hooks/use-theme-colors';
 import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { useToast } from '@/contexts/toast-context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAndroidKeyboardInset, useKeyboardInset } from '../lib/use-android-keyboard-inset';
+import { useKeyboardInset } from '../lib/use-android-keyboard-inset';
 import { logError, logWarn } from '../lib/app-log';
 import { showInvalidDateCommandToast } from '@/lib/quick-add-toast';
 import { createMobileRecoverySnapshot } from '../lib/recovery-snapshot';
@@ -256,10 +256,10 @@ export function QuickCaptureSheet({
   const [showPriorityPicker, setShowPriorityPicker] = useState(false);
   const [optionsExpanded, setOptionsExpanded] = useState(false);
   const [androidKeyboardAvoidingEnabled, setAndroidKeyboardAvoidingEnabled] = useState(true);
-  const androidKeyboardInset = useAndroidKeyboardInset(visible);
   // The picker overlays render outside the KeyboardAvoidingView, so iOS needs
-  // the measured inset too — only the sheet body is keyboard-avoided (#891).
-  const overlayKeyboardInset = useKeyboardInset(visible);
+  // the measured inset too (#891). Android's entire dialog now resizes for its
+  // own IME; subtracting the Activity keyboard frame again would double-lift it.
+  const overlayKeyboardInset = useKeyboardInset(visible && Platform.OS === 'ios');
   const [addAnother, setAddAnother] = useState(false);
   const [focusNewTask, setFocusNewTask] = useState(false);
   const projectsRef = useRef(projects);
@@ -1168,7 +1168,6 @@ export function QuickCaptureSheet({
         insetsBottom={insets.bottom}
         inputRef={inputRef}
         keyboardAvoidingEnabled={androidKeyboardAvoidingEnabled}
-        androidKeyboardInset={androidKeyboardInset}
         noteValue={noteValue}
         onNoteChange={setNoteValue}
         onOpenAreaPicker={() => setShowAreaPicker(true)}

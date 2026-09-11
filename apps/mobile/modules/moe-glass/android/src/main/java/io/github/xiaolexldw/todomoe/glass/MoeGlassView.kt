@@ -7,7 +7,6 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.RenderEffect
 import android.graphics.RenderNode
@@ -201,42 +200,54 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
   private fun drawEffect(canvas: Canvas) {
     val image = bitmap ?: return
     val node = (effectNode as? RenderNode) ?: RenderNode("TodoMoeGlass").also { effectNode = it }
-    node.setPosition(0, 0, width, height)
-    val key = "$mode:$width:$height:$reducedMotion"
+    // Keep the filter input at the sampled resolution. Expanding the bitmap
+    // before blurring pays for full-size pixels that the sampler never had.
+    val scaleX = image.width.toFloat() / width
+    val scaleY = image.height.toFloat() / height
+    node.setPosition(0, 0, image.width, image.height)
+    val key = "$mode:$width:$height:${image.width}:${image.height}:$reducedMotion"
     if (key != effectKey) {
       val radius = 12f * resources.displayMetrics.density
-      val blur = RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP)
+      val blur = RenderEffect.createBlurEffect(radius * scaleX, radius * scaleY, Shader.TileMode.CLAMP)
       val effect = if (mode == "liquid" && !reducedMotion && Build.VERSION.SDK_INT >= 33) {
-        try { RenderEffect.createChainEffect(liquidEffect(), blur) } catch (_: RuntimeException) { blur }
+        try { RenderEffect.createChainEffect(liquidEffect(image.width, image.height, scaleX, scaleY), blur) } catch (_: RuntimeException) { blur }
       } else blur
       node.setRenderEffect(effect)
       effectKey = key
     }
-    val recording = node.beginRecording(width, height)
+    val recording = node.beginRecording(image.width, image.height)
     paint.color = Color.WHITE
-    recording.drawBitmap(image, Rect(0, 0, image.width, image.height), bounds, paint)
+    recording.drawBitmap(image, 0f, 0f, paint)
     node.endRecording()
-    canvas.drawRenderNode(node)
+    val count = canvas.save()
+    try {
+      canvas.scale(1f / scaleX, 1f / scaleY)
+      canvas.drawRenderNode(node)
+    } finally {
+      canvas.restoreToCount(count)
+    }
   }
 
   @TargetApi(33)
-  private fun liquidEffect(): RenderEffect {
+  private fun liquidEffect(sampleWidth: Int, sampleHeight: Int, scaleX: Float, scaleY: Float): RenderEffect {
     // A static edge lens: content moves behind it, the lens itself never runs
     // a clock. System reduced motion selects the plain blur path instead.
     val shader = RuntimeShader("""
       uniform shader backdrop;
       uniform float2 size;
+      uniform float2 refraction;
       half4 main(float2 p) {
         float2 center = size * 0.5;
         float2 n = (p - center) / max(center, float2(1.0));
         float edge = pow(clamp(max(abs(n.x), abs(n.y)), 0.0, 1.0), 5.0);
-        float2 sampleAt = clamp(p - n * edge * 9.0, float2(0.0), size);
+        float2 sampleAt = clamp(p - n * edge * refraction, float2(0.0), size);
         half4 color = backdrop.eval(sampleAt);
         half light = half(edge * 0.045);
         return half4(min(color.rgb + half3(light), half3(1.0)), color.a);
       }
     """.trimIndent())
-    shader.setFloatUniform("size", width.toFloat(), height.toFloat())
+    shader.setFloatUniform("size", sampleWidth.toFloat(), sampleHeight.toFloat())
+    shader.setFloatUniform("refraction", 9f * scaleX, 9f * scaleY)
     return RenderEffect.createRuntimeShaderEffect(shader, "backdrop")
   }
 }

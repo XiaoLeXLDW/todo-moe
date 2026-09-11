@@ -321,11 +321,11 @@ describe('Quick capture modal composition', () => {
     );
     expect(backdrop.props.accessibilityElementsHidden).toBe(true);
     expect(backdrop.props.importantForAccessibility).toBe('no-hide-descendants');
-    expect(modal.props.statusBarTranslucent).toBe(true);
+    expect(modal.props.statusBarTranslucent).toBe(false);
     expect(modal.props.accessibilityViewIsModal).toBe(true);
   });
 
-  it('lifts the Android sheet by the measured keyboard inset instead of resizing', () => {
+  it('lets Android resize the native dialog and never double-counts an Activity keyboard frame', () => {
     let tree!: ReturnType<typeof create>;
     const originalPlatformOs = Platform.OS;
 
@@ -387,8 +387,16 @@ describe('Quick capture modal composition', () => {
     }
 
     const kav = tree.root.findByType(KeyboardAvoidingView);
+    const modal = tree.root.findByType(Modal);
     expect(kav.props.behavior).toBeUndefined();
-    expect(flattenStyle(kav.props.style).paddingBottom).toBe(280);
+    // A native Modal has its own window. Retaining the Activity's keyboard
+    // padding after enabling dialog resize would subtract the IME twice.
+    expect({
+      fitsNavigationBar: modal.props.navigationBarTranslucent === false,
+      fitsStatusBar: modal.props.statusBarTranslucent === false,
+      manualKeyboardInset: flattenStyle(kav.props.style).paddingBottom ?? 0,
+      jsKeyboardAvoidance: kav.props.enabled,
+    }).toEqual({ fitsNavigationBar: true, fitsStatusBar: true, manualKeyboardInset: 0, jsKeyboardAvoidance: false });
   });
 
   it('lifts the picker overlay above the keyboard by the measured inset', () => {

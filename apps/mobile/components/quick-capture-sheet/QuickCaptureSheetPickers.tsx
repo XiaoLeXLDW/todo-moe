@@ -114,8 +114,8 @@ export function QuickCaptureSheetPickers({
 }: QuickCaptureSheetPickersProps) {
   const showDateLayer = pickerLayer !== 'overlay';
   const showOverlayLayer = pickerLayer !== 'date';
-  // Center the picker card in the space above the keyboard so its input/list are
-  // not hidden behind the keyboard inside the non-resizing Android modal.
+  // iOS pickers sit outside the body's KeyboardAvoidingView, so they need this
+  // inset. Android's dialog already resizes; its caller passes zero here.
   const overlayStyle = overlayKeyboardInset > 0
     ? [styles.overlay, { paddingBottom: overlayKeyboardInset }]
     : styles.overlay;
