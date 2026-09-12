@@ -5,6 +5,7 @@ import { CalendarDays, Folder, Inbox, Mic, Plus } from 'lucide-react-native';
 import { AppState, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import { runOnUISync } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Task } from '@mindwtr/core';
 import { AppPressable } from '../components/app-pressable';
@@ -166,8 +167,18 @@ export function MoeTabBar({ state, navigation, tabBarBottomInset, openQuickCaptu
                   const Icon = name === 'focus' ? CalendarDays : name === 'projects' ? Folder : Inbox;
                   return (
                     <Pressable key={name} accessibilityRole="tab" accessibilityState={{ selected: focused }} accessibilityLabel={moeTabLabel(name, chinese)}
+                      accessibilityActions={[{ name: 'activate' }]}
+                      onAccessibilityAction={({ nativeEvent }) => { if (nativeEvent.actionName === 'activate') selectTab(index); }}
                       testID={`moe-tab-${name}`} style={styles.tab}
-                      onPressIn={() => { suppressTap.value = false; press.value = reduced ? 0 : withTiming(1, { duration: MOE_VISUAL.motion.pressMs }); }}
+                      onPressIn={() => {
+                        // Pressability may deliver press-in and press in one JS turn.
+                        // Clear the previous pointer's gate on UI before press reads it.
+                        runOnUISync((isDragging, blockedTap) => {
+                          'worklet';
+                          if (!isDragging.value) blockedTap.value = false;
+                        }, dragging, suppressTap);
+                        press.value = reduced ? 0 : withTiming(1, { duration: MOE_VISUAL.motion.pressMs });
+                      }}
                       onPressOut={() => { if (!dragging.value) press.value = withTiming(0, { duration: MOE_VISUAL.motion.settleMs }); }}
                       onPress={() => { if (!suppressTap.value) selectTab(index); }}
                       onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}>

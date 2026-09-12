@@ -1587,6 +1587,31 @@ describe('QuickCaptureSheet save handling', () => {
     act(() => tree.unmount());
   });
 
+  it('reissues the native focus command when JS still remembers a now-unfocused input', async () => {
+    vi.useFakeTimers(); const onClose = vi.fn(); let tree!: ReturnType<typeof create>;
+    await act(async () => { tree = create(<QuickCaptureSheet visible openRequestId={1} initialValue="953022" onClose={onClose} />); });
+    const body = () => tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetBody')[0];
+    // RN TextInputState.focusTextInput returns early when its JS registry still
+    // holds this field. Native focus loss alone need not clear that registry yet.
+    let jsRemembersFocus = true;
+    const nativeFocus = vi.fn(); const order: string[] = [];
+    body().props.inputRef.current = {
+      blur: () => { order.push('blur'); jsRemembersFocus = false; },
+      focus: () => {
+        order.push('focus');
+        if (jsRemembersFocus) return;
+        jsRemembersFocus = true; nativeFocus();
+      },
+    };
+    act(() => body().props.handleClose());
+    act(() => findBulkConfirm(tree)?.props.onCancel());
+    expect(nativeFocus).toHaveBeenCalledOnce();
+    expect(order).toEqual(['blur', 'focus']);
+    expect(body().props.value).toBe('953022'); expect(onClose).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+    act(() => tree.unmount());
+  });
+
   it.each(['hidden', 'reopened', 'background', 'busy'])('does not refocus a discarded-confirmation callback after %s', async (reason) => {
     vi.useFakeTimers(); const onClose = vi.fn(); let tree!: ReturnType<typeof create>;
     await act(async () => { tree = create(<QuickCaptureSheet visible openRequestId={1} initialValue="Original draft" onClose={onClose} />); });

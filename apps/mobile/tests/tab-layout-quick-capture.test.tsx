@@ -10,6 +10,47 @@ import TabLayout from '../app/(drawer)/(tabs)/_layout';
 import { MoeTabBar } from '../moe/MoeTabBar';
 
 const panCallbacks = vi.hoisted(() => ({ current: {} as Record<string, (...args: any[]) => void> }));
+const sharedRuntime = vi.hoisted(() => {
+  const state = { onUI: false, deferJSWrites: false, pending: [] as Array<() => void> };
+  const onUI = <T,>(callback: () => T): T => {
+    const previous = state.onUI;
+    state.onUI = true;
+    try { return callback(); } finally { state.onUI = previous; }
+  };
+  const onJS = <T,>(callback: () => T): T => {
+    const previous = state.onUI;
+    state.onUI = false;
+    try { return callback(); } finally { state.onUI = previous; }
+  };
+  return { state, onUI, onJS, flush: () => onUI(() => { state.pending.splice(0).forEach(write => write()); }) };
+});
+
+vi.mock('react-native-reanimated', async importOriginal => {
+  const original = await importOriginal<typeof import('react-native-reanimated')>();
+  const react = await import('react');
+  return {
+    ...original,
+    useSharedValue: <T,>(initial: T) => {
+      const ref = react.useRef<{ value: T } | null>(null);
+      if (!ref.current) {
+        let current = initial;
+        ref.current = {
+          get value() { return current; },
+          set value(next: T) {
+            if (sharedRuntime.state.onUI || !sharedRuntime.state.deferJSWrites) current = next;
+            else sharedRuntime.state.pending.push(() => { current = next; });
+          },
+        };
+      }
+      return ref.current;
+    },
+    runOnJS: (callback: (...args: unknown[]) => unknown) => (...args: unknown[]) => sharedRuntime.onJS(() => callback(...args)),
+  };
+});
+vi.mock('react-native-worklets', async importOriginal => ({
+  ...await importOriginal<typeof import('react-native-worklets')>(),
+  runOnUISync: (callback: (...args: unknown[]) => unknown, ...args: unknown[]) => sharedRuntime.onUI(() => callback(...args)),
+}));
 
 vi.mock('@/moe/MoeCelebration', () => ({ MoeCelebration: () => null }));
 vi.mock('@/moe/MoeSettings', () => ({ MoeSettings: (props: any) => React.createElement('MoeSettings', props) }));
@@ -21,7 +62,7 @@ vi.mock('react-native-gesture-handler', () => ({
     const gesture: Record<string, (...args: unknown[]) => unknown> = {};
     for (const name of ['enabled', 'activeOffsetX', 'failOffsetY', 'onStart', 'onUpdate', 'onEnd', 'onFinalize']) {
       gesture[name] = (handler) => {
-        if (typeof handler === 'function') panCallbacks.current[name] = handler as (...args: any[]) => void;
+        if (typeof handler === 'function') panCallbacks.current[name] = (...args) => sharedRuntime.onUI(() => handler(...args));
         return gesture;
       };
     }
@@ -351,6 +392,9 @@ const getMoreSheetMenu = (tree: ReturnType<typeof create>) => {
 
 describe('mobile tab quick capture', () => {
   beforeEach(() => {
+    sharedRuntime.state.onUI = false;
+    sharedRuntime.state.deferJSWrites = false;
+    sharedRuntime.state.pending.length = 0;
     mockRouterPush.mockClear();
     mockRouteQuickCapture.mockClear();
     tabProviderValue.current = null;
@@ -574,6 +618,80 @@ describe('mobile tab quick capture', () => {
     });
     expect(dispatch).toHaveBeenCalledTimes(1);
     expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ name: 'inbox' }) }));
+  });
+
+  it.each([false, true])('accepts the first zero-gap pointer tap after a drag finishes with success=%s', succeeded => {
+    sharedRuntime.state.deferJSWrites = true;
+    let tree!: ReturnType<typeof create>;
+    act(() => { tree = create(<TabLayout />); });
+    act(() => tree.root.findAll(node => String(node.type) === 'View' && node.props.testID === 'moe-tab-gesture-surface')[0].props.onLayout({ nativeEvent: { layout: { width: 300 } } }));
+    sharedRuntime.flush();
+    const dispatch = tree.root.findByType(MoeTabBar).props.navigation.dispatch;
+    act(() => {
+      panCallbacks.current.onStart();
+      panCallbacks.current.onEnd({ x: 280, y: 32 }, succeeded);
+      panCallbacks.current.onFinalize({}, succeeded);
+    });
+    expect(dispatch).toHaveBeenCalledTimes(succeeded ? 1 : 0);
+    dispatch.mockClear();
+    const tab = tree.root.findAll(node => String(node.type) === 'Pressable' && node.props.testID === 'moe-tab-projects')[0];
+    act(() => { tab.props.onPressIn(); tab.props.onPress(); });
+    // Deliberately do not flush JS writes between Pressability's callbacks.
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ name: 'projects' }) }));
+    sharedRuntime.flush();
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    act(() => tree.unmount());
+  });
+
+  it('does not turn a live pan or its trailing press into a second navigation', () => {
+    sharedRuntime.state.deferJSWrites = true;
+    let tree!: ReturnType<typeof create>;
+    act(() => { tree = create(<TabLayout />); });
+    act(() => tree.root.findAll(node => String(node.type) === 'View' && node.props.testID === 'moe-tab-gesture-surface')[0].props.onLayout({ nativeEvent: { layout: { width: 300 } } }));
+    sharedRuntime.flush();
+    const dispatch = tree.root.findByType(MoeTabBar).props.navigation.dispatch;
+    const tab = getTabButton(tree, 'Lists');
+    act(() => {
+      panCallbacks.current.onStart();
+      tab.props.onPressIn();
+      sharedRuntime.flush();
+      tab.props.onPress();
+    });
+    expect(dispatch).not.toHaveBeenCalled();
+    act(() => {
+      panCallbacks.current.onEnd({ x: 280, y: 32 }, true);
+      panCallbacks.current.onFinalize({}, true);
+      tab.props.onPress();
+    });
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ name: 'inbox' }) }));
+    act(() => tree.unmount());
+  });
+
+  it('activates a tab accessibly after pointer cancellation without needing press-in to clear its gate', () => {
+    sharedRuntime.state.deferJSWrites = true;
+    let tree!: ReturnType<typeof create>;
+    act(() => { tree = create(<TabLayout />); });
+    act(() => tree.root.findAll(node => String(node.type) === 'View' && node.props.testID === 'moe-tab-gesture-surface')[0].props.onLayout({ nativeEvent: { layout: { width: 300 } } }));
+    sharedRuntime.flush();
+    const { dispatch, emit } = tree.root.findByType(MoeTabBar).props.navigation;
+    act(() => {
+      panCallbacks.current.onStart();
+      panCallbacks.current.onEnd({ x: 280, y: 32 }, false);
+      panCallbacks.current.onFinalize({}, false);
+    });
+    const tab = getTabButton(tree, 'Lists');
+    expect(tab.props.accessibilityRole).toBe('tab');
+    expect(tab.props.accessibilityState).toEqual({ selected: false });
+    expect(tab.props.accessibilityActions).toContainEqual({ name: 'activate' });
+    act(() => tab.props.onAccessibilityAction({ nativeEvent: { actionName: 'activate' } }));
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ name: 'projects' }) }));
+    emit.mockReturnValueOnce({ defaultPrevented: true });
+    act(() => tab.props.onAccessibilityAction({ nativeEvent: { actionName: 'activate' } }));
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    act(() => tree.unmount());
   });
 
   it('keeps capture a separate action with a generous square touch target', () => {

@@ -746,7 +746,11 @@ export function QuickCaptureSheet({
       || saving || recording || recordingBusy
       || activeSubmissionSessionRef.current !== resumeTitleFocusSession
       || submissionCoordinatorRef.current.isSubmitting(resumeTitleFocusSession)) return;
-    inputRef.current?.focus();
+    // Native focus can be lost before TextInputState's JS registry catches up.
+    // Clear that cached ownership so focus() actually sends a native command.
+    const input = inputRef.current;
+    input?.blur();
+    input?.focus();
   }, [discardDraftOpen, recording, recordingBusy, resumeTitleFocusSession, saving, visible]);
 
   const formatBulkConfirmTitle = useCallback((count: number) => (
