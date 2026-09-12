@@ -9,6 +9,7 @@ import { useReducedMotion } from '../hooks/use-reduced-motion';
 import { useMoePreferences, setMoePreferences, type MoePreferences } from './preferences';
 import { glassCapabilities } from './glass/GlassSurface';
 import { getMobileAppName } from './brand-text';
+import { MOE_VISUAL } from './visual-system';
 
 export function MoeSettings({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const tc = useThemeColors();
@@ -82,8 +83,8 @@ export function MoeSettings({ visible, onClose }: { visible: boolean; onClose: (
   );
 }
 const styles = StyleSheet.create({
-  root: { flex: 1 }, header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 }, heading: { flex: 1, fontSize: 22, fontWeight: '700' },
-  close: { minHeight: 48, minWidth: 64, alignItems: 'center', justifyContent: 'center' }, body: { padding: 20, paddingBottom: 48, gap: 12 },
+  root: { flex: 1 }, header: { width: '100%', maxWidth: MOE_VISUAL.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', paddingHorizontal: MOE_VISUAL.pageGutter }, heading: { flex: 1, fontSize: 22, fontWeight: '700' },
+  close: { minHeight: 48, minWidth: 64, alignItems: 'center', justifyContent: 'center' }, body: { width: '100%', maxWidth: MOE_VISUAL.contentMaxWidth, alignSelf: 'center', padding: MOE_VISUAL.pageGutter, paddingBottom: 48, gap: 12 },
   section: { paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth }, title: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, choice: { minHeight: 48, minWidth: 80, borderRadius: 16, paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center' },
   toggle: { flexDirection: 'row', minHeight: 56, alignItems: 'center', gap: 12 }, toggleText: { flex: 1, fontSize: 16 },

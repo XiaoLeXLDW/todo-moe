@@ -4,7 +4,7 @@ export const styles = StyleSheet.create({
     taskItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 10,
+        paddingVertical: 12,
         paddingHorizontal: 16,
         borderRadius: 14,
         marginBottom: 6,
@@ -45,9 +45,9 @@ export const styles = StyleSheet.create({
     taskTitle: {
         flex: 1,
         minWidth: 0,
-        fontSize: 15,
+        fontSize: 16,
         fontWeight: '500',
-        lineHeight: 20,
+        lineHeight: 23,
     },
     taskTitleFlex: {
         flex: 1,

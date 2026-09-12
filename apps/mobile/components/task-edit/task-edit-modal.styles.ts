@@ -1,9 +1,10 @@
 import { StyleSheet } from 'react-native';
+import { MOE_VISUAL } from '../../moe/visual-system';
 
 export const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f2f2f7' },
     saveBtn: { fontWeight: '600' },
-    content: { padding: 20, flex: 1 },
+    content: { padding: MOE_VISUAL.pageGutter, flex: 1, width: '100%', maxWidth: MOE_VISUAL.contentMaxWidth, alignSelf: 'center' },
     contentContainer: { paddingBottom: 32, flexGrow: 1 },
     formGroup: { marginBottom: 16 },
     label: { fontSize: 14, color: '#666', marginBottom: 8, textTransform: 'uppercase' },
@@ -24,7 +25,7 @@ export const styles = StyleSheet.create({
     },
     input: {
         padding: 12,
-        borderRadius: 10,
+        borderRadius: 16,
         fontSize: 16,
         borderWidth: 1,
         borderColor: 'transparent',
@@ -40,7 +41,7 @@ export const styles = StyleSheet.create({
     dateBtn: {
         backgroundColor: '#fff',
         padding: 12,
-        borderRadius: 10,
+        borderRadius: 16,
         borderWidth: 1,
         borderColor: '#e5e5e5',
     },
@@ -62,7 +63,7 @@ export const styles = StyleSheet.create({
     },
     compactFieldRow: {
         minHeight: 44,
-        borderRadius: 10,
+        borderRadius: 16,
         borderWidth: 1,
         paddingHorizontal: 12,
         paddingVertical: 10,

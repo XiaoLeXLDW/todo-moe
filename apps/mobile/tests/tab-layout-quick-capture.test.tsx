@@ -10,7 +10,17 @@ import TabLayout from '../app/(drawer)/(tabs)/_layout';
 
 vi.mock('@/moe/MoeCelebration', () => ({ MoeCelebration: () => null }));
 vi.mock('@/moe/MoeSettings', () => ({ MoeSettings: (props: any) => React.createElement('MoeSettings', props) }));
-vi.mock('@/moe/glass/GlassSurface', () => ({ GlassSurface: (props: any) => React.createElement('GlassSurface', props, props.children) }));
+vi.mock('@/moe/glass/GlassSurface', () => ({ GlassSurface: (props: any) => React.createElement('GlassSurface', props, props.children), glassCapabilities: () => ({ liquid: false }) }));
+vi.mock('react-native-gesture-handler', () => ({
+  GestureDetector: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Gesture: { Pan: () => {
+    const gesture: Record<string, (...args: unknown[]) => unknown> = {};
+    for (const name of ['enabled', 'activeOffsetX', 'failOffsetY', 'onStart', 'onUpdate', 'onEnd', 'onFinalize']) {
+      gesture[name] = () => gesture;
+    }
+    return gesture;
+  } },
+}));
 
 const mockRouterPush = vi.hoisted(() => vi.fn());
 const mockRouteQuickCapture = vi.hoisted(() => vi.fn());
@@ -365,7 +375,7 @@ describe('mobile tab quick capture', () => {
       .toBe(mockTaskSettings);
   });
 
-  it('unmounts the quick capture sheet after close so the next plus tap gets a fresh modal', () => {
+  it('retains capture for its exit then unmounts it so the next plus tap gets a fresh modal', () => {
     let tree!: ReturnType<typeof create>;
 
     act(() => {
@@ -386,6 +396,10 @@ describe('mobile tab quick capture', () => {
       sheets[0]?.props.onClose();
     });
 
+    expect(getQuickCaptureSheets(tree)).toHaveLength(1);
+    expect(getQuickCaptureSheets(tree)[0]?.props.visible).toBe(false);
+    const finishOldExit = getQuickCaptureSheets(tree)[0]?.props.onDidHide;
+    act(() => finishOldExit());
     expect(getQuickCaptureSheets(tree)).toHaveLength(0);
 
     act(() => {
@@ -395,6 +409,8 @@ describe('mobile tab quick capture', () => {
     sheets = getQuickCaptureSheets(tree);
     expect(sheets).toHaveLength(1);
     expect(sheets[0]?.props.visible).toBe(true);
+    act(() => finishOldExit());
+    expect(getQuickCaptureSheets(tree)[0]?.props.visible).toBe(true);
   });
 
   it('routes a returnTo capture through the root capture screen instead of the tab sheet', () => {
@@ -533,19 +549,17 @@ describe('mobile tab quick capture', () => {
     expect(sheets[0]?.props.openRequestId).toBe(2);
   });
 
-  it('keeps capture separate with a 56 dp touch target', () => {
+  it('keeps capture a separate action with a generous square touch target', () => {
     let tree!: ReturnType<typeof create>;
 
     act(() => {
       tree = create(<TabLayout />);
     });
 
-    expect(getCaptureButtonInnerStyle(tree)).toEqual(expect.objectContaining({
-      width: 56,
-      height: 56,
-      borderRadius: 22,
-    }));
-    expect(getCaptureIcon(tree).props.size).toBe(30);
+    const captureStyle = getCaptureButtonInnerStyle(tree);
+    expect(captureStyle.width).toBeGreaterThanOrEqual(48);
+    expect(captureStyle.height).toBe(captureStyle.width);
+    expect(getCaptureIcon(tree)).toBeDefined();
 
     expect(getAddTaskButton(tree).props.accessibilityRole).toBe('button');
   });

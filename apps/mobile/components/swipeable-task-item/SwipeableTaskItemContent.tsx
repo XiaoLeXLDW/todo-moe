@@ -1,7 +1,7 @@
 import React, { type ReactNode, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CircleDot, History, Hourglass, ListChecks, Repeat } from 'lucide-react-native';
-import { useThemeTokens } from '../../hooks/use-theme-tokens';
+import { MOE_VISUAL } from '../../moe/visual-system';
 import { useStatusColors } from '../../hooks/use-status-colors';
 import {
     getInlineMarkdownPreview,
@@ -484,15 +484,13 @@ export function SwipeableTaskItemContent({
         );
     }
 
-    const { isMaterial, shape } = useThemeTokens();
-
     return (
         <AppPressable
             style={[
                 styles.taskItem,
-                isMaterial ? { borderRadius: shape.large } : undefined,
+                { borderRadius: MOE_VISUAL.cardRadius },
                 { backgroundColor: tc.taskItemBg },
-                { borderWidth: 1, borderColor: tc.border },
+                { borderWidth: StyleSheet.hairlineWidth, borderColor: tc.border },
                 isAvailableNextAction && !selectionMode && {
                     backgroundColor: isDark ? 'rgba(59, 130, 246, 0.08)' : 'rgba(59, 130, 246, 0.05)',
                     borderColor: isDark ? 'rgba(59, 130, 246, 0.34)' : 'rgba(59, 130, 246, 0.24)',

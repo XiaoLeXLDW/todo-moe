@@ -376,12 +376,14 @@ export default function TabLayout() {
   useToastBottomOffset(tabBarHeight + tabBarBottomOffset);
   const [captureState, setCaptureState] = useState<{
     visible: boolean;
+    presented: boolean;
     openRequestId: number;
     initialValue?: string;
     initialProps?: Partial<Task> | null;
     autoRecord?: boolean;
   }>({
     visible: false,
+    presented: false,
     openRequestId: 0,
     initialValue: '',
     initialProps: null,
@@ -413,6 +415,7 @@ export default function TabLayout() {
     beginCaptureProfile();
     setCaptureState((prev) => ({
       visible: true,
+      presented: true,
       openRequestId: prev.openRequestId + 1,
       initialValue: options?.initialValue ?? '',
       initialProps: withSelectedArea(options?.initialProps) ?? null,
@@ -422,13 +425,13 @@ export default function TabLayout() {
 
   const closeQuickCapture = useCallback(() => {
     endCaptureProfile();
-    setCaptureState((prev) => ({
-      visible: false,
-      openRequestId: prev.openRequestId,
-      initialValue: '',
-      initialProps: null,
-      autoRecord: false,
-    }));
+    setCaptureState((prev) => ({ ...prev, visible: false }));
+  }, []);
+  const finishQuickCaptureExit = useCallback((openRequestId: number) => {
+    setCaptureState((prev) => {
+      if (prev.visible || prev.openRequestId !== openRequestId) return prev;
+      return { ...prev, presented: false, initialValue: '', initialProps: null, autoRecord: false };
+    });
   }, []);
   const closeMoreSheet = useCallback(() => setMoreSheetVisible(false), []);
   const toggleMoreSheet = useCallback(() => {
@@ -462,6 +465,7 @@ export default function TabLayout() {
             openQuickCapture={openQuickCapture}
             closeMoreSheet={closeMoreSheet}
             defaultAutoRecord={defaultAutoRecord}
+            captureVisible={captureState.visible}
           />
         )}
         screenOptions={{
@@ -472,7 +476,7 @@ export default function TabLayout() {
         headerTitleAlign: 'center',
         headerShadowVisible: false,
         headerStyle: {
-          backgroundColor: tc.cardBg,
+          backgroundColor: tc.bg,
           borderBottomWidth: 0,
         },
         headerBackground: () => (
@@ -480,7 +484,7 @@ export default function TabLayout() {
             style={[
               StyleSheet.absoluteFillObject,
               {
-                backgroundColor: tc.cardBg,
+                backgroundColor: tc.bg,
                 borderBottomWidth: StyleSheet.hairlineWidth,
                 borderBottomColor: tc.border,
               },
@@ -612,16 +616,15 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
-    {captureState.visible && (
-      <QuickCaptureSheet
-        visible
+    {captureState.presented && <QuickCaptureSheet
+        visible={captureState.visible}
         openRequestId={captureState.openRequestId}
         initialValue={captureState.initialValue}
         initialProps={captureState.initialProps ?? undefined}
         autoRecord={captureState.autoRecord}
         onClose={closeQuickCapture}
-      />
-    )}
+        onDidHide={() => finishQuickCaptureExit(captureState.openRequestId)}
+      />}
     <MoeCelebration />
     {moeSettingsVisible && <MoeSettings visible onClose={() => setMoeSettingsVisible(false)} />}
     <MoreNavigationSheet
