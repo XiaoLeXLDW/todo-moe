@@ -1,6 +1,37 @@
 # Android 玻璃实现与验证
 
-实现路径：`apps/mobile/modules/moe-glass`（原创 Kotlin/AGSL）和 `apps/mobile/moe/glass`。已在MIX Fold 2 / Android 15观察到背景随滚动经过玻璃、前景文字清晰；vc3完成三模式各三轮lab对照，仅在下述限定近似口径中通过预算。完整设备矩阵与v1.0尚未放行，详情见 [真机记录](DEVICE-VALIDATION-20260911.md)。
+当前 T02 路线为 `apps/mobile/modules/moe-glass` 的 Expo View/Kotlin/AGSL 适配，不引入 Compose/Miuix。圆角 SDF、梯度、circle-map 折射和七采样色散来自已固定来源的 LanMoe/SukiSU lens；JS/RN 继续拥有前景、手势与导航。**本轮渲染器尚待候选 APK 和设备效果/性能验证；下文 vc3 的旧实现数据不能证明新实现通过。** 完整设备矩阵与 v1.0 也未由此次代码实现放行。
+
+## T02 原生契约
+
+| Prop | 含义与原生边界 |
+|---|---|
+| `lensState` | 原子 8 元素数组 `[enabled, centerX, centerY, width, height, press, velocityX, velocityY]`。位置和尺寸按本 GlassSurface 的 layout 宽高归一化到 0..1；UI 内边距应在归一化前计入。速度单位为该框宽/高每秒，原生截断到 -4..4；press 截断到 0..1。长度不为 8 或出现 NaN/Infinity 会禁用整个 lens。0 尺寸不创建透镜区域。 |
+| `cornerRadius` | 原生外框圆角，dp；默认 28，输入限制 0..128，绘制再限制为短边一半。 |
+| `samplingEnabled` | 默认 true。false 移除 pre-draw 采样观察者并保留最后双缓冲供键盘淡出；后续 optics props 仍可重绘静态背景。窗口隐藏、卸载、尺寸/密度变化或 mode=off 会释放缓冲。 |
+| `mode/dark/reducedMotion` | 延续原接口。API 31–32 使用模糊；API 33+ 才构造 RuntimeShader。减少动画使用柔和路径；失效保留 RN 前景和触控。 |
+
+JS 可用 UI 线程 `useAnimatedProps` 一次发送 lensState。原生不计算业务选中项、不驱动手势/弹簧、不读取任务。每次实际变化只标记 optics dirty，下一 draw 更新 uniforms 并重建轻量 RenderEffect；编译好的 RuntimeShader 持续复用。RenderEffect/Skia 保存 shader builder 的副本，所以仅修改 uniforms 而复用旧 RenderEffect 不足以更新画面。
+
+背景先做 saturation 1.5、4dp blur，再做 24/24dp 外框折射与 10/14dp 移动透镜。移动区域保留 35% idle 折射，press 增强深度和色散；速度最多造成 10% 光学区域形变。分析式边缘高光和内阴影为 Todo Moe 适配。此次没有复制 CombinedBackdrop 的着色/放大标签副本、BloomStroke 双光源或重力传感器，**不声称整套 SukiSU 逐像素复现**。
+
+## 采样坐标和生命周期
+
+采样在 UI native pre-draw 中完成。40dp 外扩为折射和模糊提供边缘像素；双缓冲每个方向最多 768 像素，采样倍率不超过 0.35。每次 root draw 跳过所有 MoeGlassView 整组，避免采到自己的玻璃、图标或文本。像素与上次相同时不再 invalidate；没有 JS 截图、循环定时器或持续 Choreographer 回调。多个 surface 目前各自有区域双缓冲，不能据此声称没有重复 root-draw 成本；T08 应测实际多 surface 场景。
+
+普通 RN 层级绘制自己的 root。若 surface 的 root 与当前 Activity decor 不同（RN Modal/Dialog），先绘 Activity，再叠本 dialog root 内的非 glass 内容。两层分别使用 `transformMatrixToGlobal`，经 glass 的逆矩阵映射到本地，再加 padding 和下采样倍率，包含窗口偏移、滚动和 View 变换。并监听两个 root 的 pre-draw。
+
+这只覆盖 **当前 Activity + 当前 dialog 前景**：其他堆叠 Dialog/Popup 独立窗口、系统键盘/WindowManager dim 合成层、SurfaceView/视频和不能画入软件 Canvas 的硬件内容不在此来源链中。透明 RN scrim 若属于当前 dialog 的 View 树则可采入；系统合成 dim 不可冒充已覆盖。采样异常/内存不足回退实底，GPU shader 异常回退 blur；每个 view 首次失效使用 `Log.w("MoeGlass", 固定原因)`，不输出像素、任务或异常载荷。不能把这类 fallback 的截图当作 shader 成功。该坐标实现仍须通过键盘、Modal、折叠/旋转的真机检查。
+
+## 来源与当前验证边界
+
+固定来源是 [SukiSU Lens.kt / 9fbe8fe8ca90c62c259c5894bf96d02ac31209b9](https://github.com/SukiSU-Ultra/SukiSU-Ultra/blob/9fbe8fe8ca90c62c259c5894bf96d02ac31209b9/manager/app/src/main/java/com/sukisu/ultra/ui/component/liquid/Lens.kt)，该文件明确标注 Apache-2.0 的 Kyant0/AndroidLiquidGlass / compose-miuix-ui 祖先。读取的 LanMoe 参考源码未修改。改动声明、NOTICE 与完整许可证随模块放在 `android/src/main/assets/moe-glass/`，可由 Android assets 合并入候选 APK。
+
+原生单测复用本仓库已有 JUnit 4.13.2，覆盖 8 值原子契约、超范围/非有限输入、禁用及重复值稳定性。定向 `:moe-glass:compileReleaseKotlin :moe-glass:testReleaseUnitTest` 已通过，5 项 JVM 测试无失败；本地报告在模块 `android/build/test-results/testReleaseUnitTest/`，编译日志在 `android/build/verification/`。Kotlin 编译和单测不验证 AGSL 在手机 GPU 的输出。新 renderer 的 APK、shader 实际执行、移动透镜画面、Modal 和 T08 性能证据由本轮候选记录另填。
+
+## 以下是旧渲染器 vc2/vc3 历史证据
+
+旧实现已在 MIX Fold 2 / Android 15 观察到背景随滚动经过玻璃、前景文字清晰；vc3 三模式各三轮 lab 对照只在下述限定近似口径中通过预算，详见 [真机记录](DEVICE-VALIDATION-20260911.md)。
 
 | 能力 | 路径 | 当前证据边界 |
 |---|---|---|
@@ -11,7 +42,7 @@
 
 背景采用按底栏尺寸限制的双缓冲降采样，在尺寸改变、卸载或窗口隐藏时释放。vc3在采样尺寸内执行模糊/折射后再放大，保留视觉半径与位移。采样排除整个玻璃GroupView，只有像素变化才触发重绘，避免静止场景自激。没有JS定时截图或任务状态副本。SurfaceView/视频不在此路线内；硬件图像无法采样时回退实底。“API支持”和本次单机观察都不证明所有设备可用。
 
-没有采用 SukiSU、Miuix 或 AndroidLiquidGlass 的代码和素材；用户先前使用成功的工程尚未提供。当前源码按本 fork 的 AGPL-3.0-only 保留。Android 原生 API 参考：[RenderEffect](https://developer.android.com/reference/android/graphics/RenderEffect)、[RuntimeShader](https://developer.android.com/reference/android/graphics/RuntimeShader)；桥接参考 [Expo Native View](https://docs.expo.dev/modules/native-view-tutorial/)。
+上述 vc3 历史实现没有采用 SukiSU、Miuix 或 AndroidLiquidGlass 代码；这项历史描述不适用于当前 T02。当前改编来源和许可见本文前段。Android 原生 API 参考：[RenderEffect](https://developer.android.com/reference/android/graphics/RenderEffect)、[RuntimeShader](https://developer.android.com/reference/android/graphics/RuntimeShader)；桥接参考 [Expo Native View](https://docs.expo.dev/modules/native-view-tutorial/)。
 
 ## 同场景验证
 

@@ -5,7 +5,7 @@ import { GlassSurface } from './GlassSurface';
 
 vi.mock('react-native', () => ({
     Platform: { OS: 'android', Version: 33 },
-    View: 'View',
+    View: 'View', Text: 'Text', FlatList: 'FlatList', ScrollView: 'ScrollView',
     StyleSheet: { create: (styles: unknown) => styles, absoluteFillObject: {}, hairlineWidth: 1 },
 }));
 vi.mock('expo-modules-core', () => ({
