@@ -61,6 +61,12 @@ const SECTION_KEYS = new Set([
   'viewSections.rename', 'viewSections.manageHint', 'viewSections.nameHint', 'viewSections.updateFailed',
 ]);
 
+const INBOX_KEYS = new Set([
+  'nav.inbox', 'tab.inbox', 'list.inbox', 'status.inbox', 'keybindings.goInbox',
+  'inbox.title', 'inbox.processButton', 'inbox.addPlaceholder', 'inbox.empty', 'inbox.emptyAddHint',
+  'archived.restoreToInbox', 'taskEdit.duplicateDoneBody',
+]);
+
 export function adaptMobileEntityTerminology(key: string, template: string, language: string): string {
   // Core uses zh at runtime and zh-Hans as its locale source filename.
   if (language !== 'zh' && language !== 'zh-Hans' && language !== 'zh-Hant') return template;
@@ -71,11 +77,13 @@ export function adaptMobileEntityTerminology(key: string, template: string, lang
   const project = PROJECT_KEYS.has(key);
   const area = AREA_KEYS.has(key);
   const section = SECTION_KEYS.has(key);
-  if (!project && !area && !section) return template;
+  const inbox = INBOX_KEYS.has(key);
+  if (!project && !area && !section && !inbox) return template;
   const traditional = language === 'zh-Hant';
   // Keep interpolation placeholders intact, including a future localized name.
   // Components substitute actual user values only after LanguageContext.t().
-  return template.replace(/\{\{[^}]*\}\}|项目|項目|專案|领域|領域|区域|區域|分区|分區|分节|分節|区段|區段/g, (token) => {
+  return template.replace(/\{\{[^}]*\}\}|项目|項目|專案|领域|領域|区域|區域|分区|分區|分节|分節|区段|區段|收集箱|收集匣/g, (token) => {
+    if (inbox && /^(收集箱|收集匣)$/.test(token)) return traditional ? '收件匣' : '收件箱';
     if (project && /^(项目|項目|專案)$/.test(token)) return traditional ? '清單' : '清单';
     if (area && /^(领域|領域|区域|區域)$/.test(token)) return traditional ? '文件夾' : '文件夹';
     if (section && /^(分区|分區|分节|分節|区段|區段)$/.test(token)) return traditional ? '分組' : '分组';

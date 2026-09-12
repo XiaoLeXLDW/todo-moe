@@ -58,6 +58,7 @@ import { useMoeTabInset } from '@/moe/tab-insets';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { animateMoeListMutation } from '@/moe/motion';
 import { MOE_VISUAL } from '@/moe/visual-system';
+import { MoeFolderIcon } from '@/moe/MoeFolderIcon';
 
 type ProjectTaskSortBy = TaskSortBy;
 const EMPTY_PROJECT_TASKS: Task[] = [];
@@ -633,9 +634,7 @@ export default function ProjectsScreen() {
                 ]}
               />
             ) : null}
-            {item.icon ? (
-              <Text style={[styles.collapsibleAreaIcon, { color: tc.secondaryText }]}>{item.icon}</Text>
-            ) : null}
+            <MoeFolderIcon icon={item.icon} color={item.color || tc.secondaryText} />
             <Text style={[styles.collapsibleAreaHeaderText, { color: tc.text }]} numberOfLines={2}>
               {item.title}
             </Text>
@@ -1112,6 +1111,7 @@ export default function ProjectsScreen() {
       />
 
       <ProjectDetailModal
+        areaIcon={selectedProject?.areaId ? areaById.get(selectedProject.areaId)?.icon : undefined}
         areaName={selectedProjectAreaName}
         attachments={attachments}
         notes={notesEditor}

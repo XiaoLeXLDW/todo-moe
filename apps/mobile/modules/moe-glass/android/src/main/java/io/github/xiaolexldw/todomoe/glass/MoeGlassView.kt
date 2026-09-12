@@ -8,6 +8,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
+import android.graphics.LinearGradient
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
@@ -23,7 +24,10 @@ import android.view.ViewTreeObserver
 import expo.modules.kotlin.AppContext
 import expo.modules.kotlin.views.ExpoView
 import kotlin.math.ceil
+import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sqrt
 
 /** RN keeps foreground layout/touches. Native samples only during real pre-draw
  * traversals, excludes glass groups, and never owns an animation clock or task. */
@@ -48,6 +52,10 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
   private var sampleScale = 1f
   private var samplePadding = 0f
   private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+  private val lensRimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+  private val lensRimBounds = RectF()
+  private var lensRimRadius = 0f
+  private var lensRimDirty = true
   private val bounds = RectF()
   private val clip = Path()
   private val glassToScreen = Matrix()
@@ -84,6 +92,7 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
   fun setDark(value: Boolean) {
     if (dark == value) return
     dark = value
+    lensRimDirty = true
     effectDirty = true
     invalidate()
   }
@@ -105,6 +114,7 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
     val next = GlassLensState.from(values)
     if (lens == next) return
     lens = next
+    lensRimDirty = true
     effectDirty = true
     // UI-thread animatedProps update only optics. No JS capture or native timer.
     if (mode == "liquid" && !reducedMotion && Build.VERSION.SDK_INT >= 33) invalidate()
@@ -192,6 +202,8 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
     if (Build.VERSION.SDK_INT >= 31) (effectNode as? RenderNode)?.discardDisplayList()
     effectNode = null
     runtimeShader = null
+    lensRimPaint.shader = null
+    lensRimDirty = true
     effectDirty = true
   }
 
@@ -279,12 +291,49 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
       else -> Color.argb(88, 255, 253, 255)
     }
     canvas.drawRect(bounds, paint)
+    if (hasGlass && mode == "liquid" && !reducedMotion && !liquidFailed && Build.VERSION.SDK_INT >= 33 && lens.enabled) {
+      drawLensRim(canvas)
+    }
     paint.style = Paint.Style.STROKE
     paint.strokeWidth = resources.displayMetrics.density
     paint.color = if (dark) Color.argb(76, 255, 255, 255) else Color.argb(205, 255, 255, 255)
     canvas.drawPath(clip, paint)
     paint.style = Paint.Style.FILL
     canvas.restoreToCount(count)
+  }
+
+  /** Keep the critical edge in full-resolution Canvas. The softer AGSL rim,
+   * refraction and inner shadow remain underneath; RN foreground draws later. */
+  private fun drawLensRim(canvas: Canvas) {
+    if (lensRimDirty) {
+      val density = resources.displayMetrics.density
+      // Exactly GlassLensShader's max(lensRect.zw / 2, pixel), velocity stretch
+      // and min(halfSize) capsule radius, converted back from sampled pixels.
+      val minHalf = (density * sampleScale).coerceAtLeast(0.25f) / sampleScale
+      val halfWidth = max(lens.width * width * 0.5f, minHalf) * (1f + min(abs(lens.velocityX) * 0.025f, 0.10f))
+      val halfHeight = max(lens.height * height * 0.5f, minHalf) * (1f + min(abs(lens.velocityY) * 0.025f, 0.10f))
+      val centerX = lens.centerX * width
+      val centerY = lens.centerY * height
+      lensRimPaint.strokeWidth = max(1f, density * 0.75f)
+      val inset = lensRimPaint.strokeWidth * 0.5f
+      lensRimBounds.set(centerX - halfWidth + inset, centerY - halfHeight + inset,
+        centerX + halfWidth - inset, centerY + halfHeight - inset)
+      lensRimRadius = (min(halfWidth, halfHeight) - inset).coerceAtLeast(0f)
+      val lightX = -0.65f + lens.velocityX * 0.06f
+      val lightY = -0.85f + lens.velocityY * 0.06f
+      val lightLength = sqrt(lightX * lightX + lightY * lightY).coerceAtLeast(0.0001f)
+      val span = max(halfWidth, halfHeight)
+      val dx = lightX / lightLength * span
+      val dy = lightY / lightLength * span
+      val primaryAlpha = (if (dark) 102f + lens.press * 38f else 210f + lens.press * 30f).toInt()
+      val secondary = if (dark) Color.argb((54f + lens.press * 22f).toInt(), 255, 255, 255)
+        else Color.argb(30, 35, 40, 52)
+      lensRimPaint.shader = LinearGradient(centerX + dx, centerY + dy, centerX - dx, centerY - dy,
+        intArrayOf(Color.argb(primaryAlpha, 255, 255, 255), Color.argb(if (dark) 16 else 34, 255, 255, 255), secondary),
+        floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP)
+      lensRimDirty = false
+    }
+    canvas.drawRoundRect(lensRimBounds, lensRimRadius, lensRimRadius, lensRimPaint)
   }
 
   @TargetApi(31)

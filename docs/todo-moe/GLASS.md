@@ -15,6 +15,8 @@ JS 可用 UI 线程 `useAnimatedProps` 一次发送 lensState。原生不计算�
 
 背景先做 saturation 1.5、4dp blur，再做 24/24dp 外框折射与 10/14dp 移动透镜。移动区域保留 35% idle 折射，press 增强深度和色散；速度最多造成 10% 光学区域形变。分析式边缘高光和内阴影为 Todo Moe 适配。此次没有复制 CombinedBackdrop 的着色/放大标签副本、BloomStroke 双光源或重力传感器，**不声称整套 SukiSU 逐像素复现**。
 
+vc20 截图 219/222/241 已观察到透镜轮廓比外框偏软。下一候选在同一 `MoeGlassView.onDraw`、AGSL/tint 之后补约 0.75dp 的全分辨率方向性细 stroke；矩形、速度 stretch、最小尺寸与 capsule 半径严格沿用 shader 几何。只补关键轮廓，不增加厚 fill，不提高整块 shader 或采样分辨率。渐变在 optics 改变时缓存更新，RN 前景仍在其上。vc21 的实际精度、明暗层次和拖动对齐仍待实机复测。
+
 ## 采样坐标和生命周期
 
 采样在 UI native pre-draw 中完成。40dp 外扩为折射和模糊提供边缘像素；双缓冲每个方向最多 768 像素，采样倍率不超过 0.35。每次 root draw 跳过所有 MoeGlassView 整组，避免采到自己的玻璃、图标或文本。像素与上次相同时不再 invalidate；没有 JS 截图、循环定时器或持续 Choreographer 回调。多个 surface 目前各自有区域双缓冲，不能据此声称没有重复 root-draw 成本；T08 应测实际多 surface 场景。

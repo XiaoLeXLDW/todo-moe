@@ -6,6 +6,7 @@ import { adaptMobileEntityTerminology } from './terminology';
 
 describe('Chinese mobile entity terminology', () => {
   it.each([
+    ['status.inbox', '收件箱'], ['inbox.processButton', '处理收件箱'],
     ['projects.addPlaceholder', '添加新清单...'], ['projects.empty', '还没有清单'],
     ['projects.areaFilter', '文件夹筛选'], ['projects.allAreas', '所有文件夹'],
     ['projects.emptyHintFiltered', '可切换文件夹筛选或在此文件夹创建清单。'],

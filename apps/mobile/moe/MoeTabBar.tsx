@@ -111,8 +111,8 @@ export function MoeTabBar({ state, navigation, tabBarBottomInset, openQuickCaptu
       center.value = clampLensCenter(event.x, width.value, TAB_COUNT, BAR.inset);
       velocity.value = reduced ? 0 : Math.max(-3, Math.min(3, event.velocityX / width.value));
     })
-    .onEnd((event) => {
-      if (!dragging.value) return;
+    .onEnd((event, succeeded) => {
+      if (!succeeded || !dragging.value) return;
       const index = lensSlotAt(event.x, width.value, TAB_COUNT, BAR.inset);
       const destination = lensSlotCenter(index, width.value, TAB_COUNT, BAR.inset);
       center.value = reduced ? destination : withSpring(destination, SPRING);
@@ -151,7 +151,7 @@ export function MoeTabBar({ state, navigation, tabBarBottomInset, openQuickCaptu
       <Animated.View style={[styles.shell, shellStyle]} pointerEvents={unavailable ? 'none' : 'auto'}
         accessibilityElementsHidden={unavailable} importantForAccessibility={unavailable ? 'no-hide-descendants' : 'auto'}>
         <GestureDetector gesture={pan}>
-          <View style={styles.barFrame} onLayout={(event) => setMeasuredWidth(event.nativeEvent.layout.width)} collapsable={false}>
+          <View testID="moe-tab-gesture-surface" style={styles.barFrame} onLayout={(event) => setMeasuredWidth(event.nativeEvent.layout.width)} collapsable={false}>
             <GlassSurface mode={preferences.glass} dark={isDark} reducedMotion={reduced} samplingEnabled={!unavailable}
               cornerRadius={BAR.height / 2} lens={lens} style={styles.glass}>
               <Animated.View pointerEvents="none" style={[styles.lens, lensStyle, {

@@ -25,6 +25,7 @@ import { ArrowRight, Check, RotateCcw, Trash2 } from 'lucide-react-native';
 import { moeHaptic } from '../moe/haptics';
 import { beginMoeCompletion, cancelMoeCompletion, finishMoeCompletion, publishListCompleted } from '../moe/completion';
 import { MoeCompletionRow, useMoeCompletionRow } from '../moe/MoeCompletionRow';
+import type { FeedbackAppearance } from '../moe/MoeCompletionFeedbackState';
 import { ThemeColors } from '../hooks/use-theme-colors';
 import { useStatusColors } from '../hooks/use-status-colors';
 import { useToast } from '../contexts/toast-context';
@@ -298,6 +299,7 @@ function SwipeableTaskItemInner({
     const [showStatusMenu, setShowStatusMenu] = useState(false);
     const [completionPending, setCompletionPending] = useState(false);
     const rowTransition = useMoeCompletionRow(task.id, task.status === 'done');
+    const completionAppearance = useRef<FeedbackAppearance | null>(null);
     const { arm: armRowExit, cancel: cancelRowExit, settle: settleRowExit } = rowTransition;
     const [projectNextActionPrompt, setProjectNextActionPrompt] = useState<ProjectNextActionPromptState | null>(null);
     const [projectNextActionTitle, setProjectNextActionTitle] = useState('');
@@ -359,13 +361,14 @@ function SwipeableTaskItemInner({
         setCompletionPending(status === 'done');
         const previousStatus = task.status;
         const wasFocusedToday = task.isFocusedToday === true;
-        if (status === 'done') armRowExit(operation.id);
+        if (status === 'done') armRowExit(operation.id, completionAppearance.current ? { title: task.title, appearance: completionAppearance.current } : undefined);
         else cancelRowExit();
         void settleStoreAction(() => onStatusChange(status))
             .then((outcome) => {
                 const after = moeCompletionSnapshot();
-                settleRowExit(operation.id, outcome.ok && after.tasks.some((item) => item.id === task.id && item.status === 'done' && !item.deletedAt));
+                const currentOperation = settleRowExit(operation.id, outcome.ok && after.tasks.some((item) => item.id === task.id && item.status === 'done' && !item.deletedAt));
                 const celebration = finishMoeCompletion(operation, outcome.ok && status === 'done', after);
+                if (status === 'done' && !currentOperation) return;
                 setCompletionPending(false);
                 if (!outcome.ok) {
                     showActionFailure(outcome.message);
@@ -415,7 +418,7 @@ function SwipeableTaskItemInner({
         if (!mode || interactionDisabled) return;
         const operation = beginMoeCompletion(task.id, moeCompletionSnapshot(), mode === 'complete');
         if (!operation) return;
-        if (mode === 'complete') armRowExit(operation.id);
+        if (mode === 'complete') armRowExit(operation.id, completionAppearance.current ? { title: task.title, appearance: completionAppearance.current } : undefined);
         else cancelRowExit();
         const updates: Partial<Task> = mode === 'complete'
             ? { status: 'done', completedAt: iso }
@@ -426,8 +429,9 @@ function SwipeableTaskItemInner({
         void settleStoreAction(() => updateTask(task.id, updates))
             .then((outcome) => {
                 const after = moeCompletionSnapshot();
-                settleRowExit(operation.id, outcome.ok && after.tasks.some((item) => item.id === task.id && item.status === 'done' && !item.deletedAt));
+                const currentOperation = settleRowExit(operation.id, outcome.ok && after.tasks.some((item) => item.id === task.id && item.status === 'done' && !item.deletedAt));
                 const celebration = finishMoeCompletion(operation, outcome.ok && mode === 'complete', after);
+                if (mode === 'complete' && !currentOperation) return;
                 if (!outcome.ok) {
                     showActionFailure(outcome.message);
                     return;
@@ -438,7 +442,7 @@ function SwipeableTaskItemInner({
                     openProjectNextActionPromptIfNeeded(task.id);
                 }
             });
-    }, [armRowExit, cancelRowExit, completedAtPicker, interactionDisabled, openProjectNextActionPromptIfNeeded, settleRowExit, showActionFailure, task.id, task.status, timeSpentEnabled, updateTask]);
+    }, [armRowExit, cancelRowExit, completedAtPicker, interactionDisabled, openProjectNextActionPromptIfNeeded, settleRowExit, showActionFailure, task.id, task.status, task.title, timeSpentEnabled, updateTask]);
 
     const handlePromoteProjectNextAction = useCallback((nextTaskId: string) => {
         if (interactionDisabled || isProjectNextActionSubmitting) return;
@@ -767,6 +771,8 @@ function SwipeableTaskItemInner({
             onPress={handlePress}
             onComplete={() => handleStatusChange(task.status === 'done' ? 'inbox' : 'done')}
             completionPending={completionPending}
+            completionMeasureRefs={rowTransition.measurementRefs}
+            completionAppearanceRef={completionAppearance}
             onProjectPress={onProjectPress}
             onTagPress={onTagPress}
             projectDeadlineLabel={projectDeadlineLabel}

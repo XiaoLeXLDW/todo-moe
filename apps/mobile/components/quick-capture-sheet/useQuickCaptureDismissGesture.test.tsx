@@ -23,11 +23,14 @@ beforeEach(() => {
 });
 afterEach(() => { act(() => tree?.unmount()); expect(listeners.size).toBe(0); vi.restoreAllMocks(); });
 
-it('claims only a downward header drag and requests the existing close immediately over the threshold', () => {
+it('claims the non-interactive header on DOWN and closes only over the downward threshold', () => {
   const dismiss = vi.fn();
   vi.spyOn(Animated, 'spring').mockReturnValue({ start: vi.fn(), stop: vi.fn(), reset: vi.fn() });
   act(() => { tree = create(<Harness dismiss={dismiss} />); });
-  expect(callbacks.onStartShouldSetPanResponder?.(event, gesture(0))).toBe(false);
+  expect(callbacks.onStartShouldSetPanResponder?.(event, gesture(0))).toBe(true);
+  expect(callbacks.onStartShouldSetPanResponderCapture?.(event, gesture(0))).toBe(true);
+  act(() => callbacks.onPanResponderRelease?.(event, gesture(0)));
+  expect(dismiss).not.toHaveBeenCalled();
   expect(callbacks.onMoveShouldSetPanResponder?.(event, gesture(4))).toBe(false);
   expect(callbacks.onMoveShouldSetPanResponder?.(event, gesture(8, 20))).toBe(false);
   expect(callbacks.onMoveShouldSetPanResponder?.(event, gesture(12, 2))).toBe(true);
@@ -40,12 +43,15 @@ it('cancelled or insufficient drags return without closing or waiting on busines
   act(() => { tree = create(<Harness dismiss={dismiss} />); });
   act(() => callbacks.onPanResponderRelease?.(event, gesture(40)));
   act(() => callbacks.onPanResponderTerminate?.(event, gesture(120)));
-  expect(spring).toHaveBeenCalledTimes(2); expect(dismiss).not.toHaveBeenCalled();
+  act(() => callbacks.onPanResponderRelease?.(event, gesture(100, 200)));
+  expect(spring).toHaveBeenCalledTimes(3); expect(dismiss).not.toHaveBeenCalled();
 });
 
 it('disabled, hidden and background states cannot dismiss; reduced motion settles without springs', () => {
   const dismiss = vi.fn(); const spring = vi.spyOn(Animated, 'spring');
   act(() => { tree = create(<Harness enabled={false} reduced dismiss={dismiss} />); });
+  expect(callbacks.onStartShouldSetPanResponder?.(event, gesture(0))).toBe(false);
+  expect(callbacks.onStartShouldSetPanResponderCapture?.(event, gesture(0))).toBe(false);
   expect(callbacks.onMoveShouldSetPanResponder?.(event, gesture(100))).toBe(false);
   act(() => callbacks.onPanResponderRelease?.(event, gesture(100)));
   expect(dismiss).not.toHaveBeenCalled(); expect(spring).not.toHaveBeenCalled();
@@ -54,6 +60,7 @@ it('disabled, hidden and background states cannot dismiss; reduced motion settle
   const setValue = vi.spyOn(handle.offset, 'setValue');
   act(() => listeners.forEach((listener) => listener('background')));
   expect(setValue).toHaveBeenLastCalledWith(0);
+  expect(callbacks.onStartShouldSetPanResponderCapture?.(event, gesture(0))).toBe(false);
   act(() => callbacks.onPanResponderRelease?.(event, gesture(100)));
   expect(dismiss).not.toHaveBeenCalled();
   act(() => tree.update(<Harness enabled={false} presented={false} reduced dismiss={dismiss} />));

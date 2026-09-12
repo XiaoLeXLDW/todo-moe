@@ -7,6 +7,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Index from '../app/index';
 import { unstable_settings as drawerLayoutSettings } from '../app/(drawer)/_layout';
 import TabLayout from '../app/(drawer)/(tabs)/_layout';
+import { MoeTabBar } from '../moe/MoeTabBar';
+
+const panCallbacks = vi.hoisted(() => ({ current: {} as Record<string, (...args: any[]) => void> }));
 
 vi.mock('@/moe/MoeCelebration', () => ({ MoeCelebration: () => null }));
 vi.mock('@/moe/MoeSettings', () => ({ MoeSettings: (props: any) => React.createElement('MoeSettings', props) }));
@@ -14,9 +17,13 @@ vi.mock('@/moe/glass/GlassSurface', () => ({ GlassSurface: (props: any) => React
 vi.mock('react-native-gesture-handler', () => ({
   GestureDetector: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   Gesture: { Pan: () => {
+    panCallbacks.current = {};
     const gesture: Record<string, (...args: unknown[]) => unknown> = {};
     for (const name of ['enabled', 'activeOffsetX', 'failOffsetY', 'onStart', 'onUpdate', 'onEnd', 'onFinalize']) {
-      gesture[name] = () => gesture;
+      gesture[name] = (handler) => {
+        if (typeof handler === 'function') panCallbacks.current[name] = handler as (...args: any[]) => void;
+        return gesture;
+      };
     }
     return gesture;
   } },
@@ -547,6 +554,26 @@ describe('mobile tab quick capture', () => {
     sheets = getQuickCaptureSheets(tree);
     expect(sheets).toHaveLength(1);
     expect(sheets[0]?.props.openRequestId).toBe(2);
+  });
+
+  it('does not navigate for a cancelled active drag, but commits one successful release', () => {
+    let tree!: ReturnType<typeof create>;
+    act(() => { tree = create(<TabLayout />); });
+    act(() => tree.root.findAll((node) => String(node.type) === 'View' && node.props.testID === 'moe-tab-gesture-surface')[0].props.onLayout({ nativeEvent: { layout: { width: 300 } } }));
+    const dispatch = tree.root.findByType(MoeTabBar).props.navigation.dispatch;
+    act(() => {
+      panCallbacks.current.onStart();
+      panCallbacks.current.onEnd({ x: 280, y: 32 }, false);
+      panCallbacks.current.onFinalize({}, false);
+    });
+    expect(dispatch).not.toHaveBeenCalled();
+    act(() => {
+      panCallbacks.current.onStart();
+      panCallbacks.current.onEnd({ x: 280, y: 32 }, true);
+      panCallbacks.current.onFinalize({}, true);
+    });
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ name: 'inbox' }) }));
   });
 
   it('keeps capture a separate action with a generous square touch target', () => {

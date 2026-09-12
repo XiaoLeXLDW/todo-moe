@@ -1,0 +1,123 @@
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import { Animated as NativeAnimated, AppState, StyleSheet, Text, View } from 'react-native';
+import Animated, { measure, useAnimatedRef, type AnimatedRef } from 'react-native-reanimated';
+import { runOnUISync } from 'react-native-worklets';
+import { Check } from 'lucide-react-native';
+import { NavigationContext } from '@react-navigation/core';
+import { createCompletionFeedbackStore, feedbackGeometry, type CompletionFeedback, type FeedbackAppearance } from './MoeCompletionFeedbackState';
+
+export type CompletionMeasureRefs = { row: AnimatedRef<View>; title: AnimatedRef<Text>; check: AnimatedRef<View> };
+export type CompletionFeedbackDetails = { title: string; appearance: FeedbackAppearance };
+type FeedbackStore = ReturnType<typeof createCompletionFeedbackStore>;
+type FeedbackHost = { store: FeedbackStore; hostRef: AnimatedRef<View>; available: () => boolean };
+const Context = createContext<FeedbackHost | null>(null);
+const noSubscribe = () => () => {};
+const falseSnapshot = () => false;
+
+export function useMoeCompletionFeedbackActive() {
+    const host = useContext(Context);
+    const getSnapshot = useCallback(() => Boolean(host?.store.getSnapshot().length), [host]);
+    return useSyncExternalStore(host?.store.subscribe ?? noSubscribe, getSnapshot, falseSnapshot);
+}
+
+/** One stable paint host per native window, outside the list's filtered cells. */
+export function MoeCompletionFeedbackHost({ children, active = true, scopeKey = '' }: {
+    children: React.ReactNode; active?: boolean; scopeKey?: string;
+}) {
+    const store = useMemo(createCompletionFeedbackStore, []);
+    const entries = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+    const hostRef = useAnimatedRef<View>();
+    const navigation = useContext(NavigationContext);
+    const ready = useRef(false);
+    const enabled = useRef(false);
+    useLayoutEffect(() => {
+        const updateEnabled = () => { enabled.current = active && AppState.currentState === 'active' && navigation?.isFocused() !== false; };
+        const leave = () => { enabled.current = false; store.clear(); };
+        updateEnabled();
+        store.clear();
+        const subscription = AppState.addEventListener('change', (state) => {
+            enabled.current = active && state === 'active' && navigation?.isFocused() !== false;
+            if (!enabled.current) store.clear();
+        });
+        const blur = navigation?.addListener('blur', leave);
+        const beforeRemove = navigation?.addListener('beforeRemove', leave);
+        const focus = navigation?.addListener('focus', updateEnabled);
+        return () => { enabled.current = false; subscription.remove(); blur?.(); beforeRemove?.(); focus?.(); store.clear(); };
+    }, [active, navigation, scopeKey, store]);
+    const host = useMemo(() => ({ store, hostRef, available: () => enabled.current && ready.current }), [hostRef, store]);
+    return (
+        <Context.Provider value={host}>
+            <View style={styles.host}>
+                {children}
+                <Animated.View ref={hostRef} collapsable={false} onLayout={() => { ready.current = true; }}
+                    testID="moe-completion-feedback-host"
+                    pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants"
+                    accessibilityElementsHidden style={styles.layer}>
+                    {entries.map((entry) => <FeedbackPaint key={`${entry.taskId}:${entry.operationId}`} entry={entry} />)}
+                </Animated.View>
+            </View>
+        </Context.Provider>
+    );
+}
+
+export function useMoeCompletionFeedback() {
+    const host = useContext(Context);
+    const row = useAnimatedRef<View>();
+    const title = useAnimatedRef<Text>();
+    const check = useAnimatedRef<View>();
+    const refs = useMemo(() => ({ row, title, check }), [check, row, title]);
+    const present = useCallback((taskId: string, operationId: number, details: CompletionFeedbackDetails, durationMs: number) => {
+        if (!host?.available() || AppState.currentState !== 'active') return false;
+        try {
+            const measured = runOnUISync((hostRef, rowRef, titleRef, checkRef) => {
+                'worklet';
+                const h = measure(hostRef); const r = measure(rowRef); const t = measure(titleRef); const c = measure(checkRef);
+                return h && r && t && c ? { host: h, row: r, title: t, check: c } : null;
+            }, host.hostRef, row, title, check);
+            if (!measured) return false;
+            const geometry = feedbackGeometry(measured.host, measured.row, measured.title, measured.check);
+            if (!geometry) return false;
+            return host.store.present({ operationId, taskId, title: details.title, appearance: details.appearance,
+                ...geometry, expiresAt: Date.now() + Math.min(340, Math.max(300, durationMs)) });
+        } catch { return false; }
+    }, [check, host, row, title]);
+    const cancel = useCallback((taskId: string, operationId?: number) => host?.store.cancel(taskId, operationId), [host]);
+    return { refs, present, cancel };
+}
+
+function FeedbackPaint({ entry }: { entry: CompletionFeedback }) {
+    const progress = useRef(new NativeAnimated.Value(0)).current;
+    const mark = useRef(new NativeAnimated.Value(0)).current;
+    useEffect(() => {
+        const duration = Math.max(1, entry.expiresAt - Date.now());
+        const animation = NativeAnimated.parallel([
+            NativeAnimated.timing(progress, { toValue: 1, duration, easing: (value) => value, useNativeDriver: true }),
+            NativeAnimated.timing(mark, { toValue: 1, duration: Math.min(150, duration), useNativeDriver: true }),
+        ]);
+        animation.start();
+        return () => { animation.stop(); progress.stopAnimation(); mark.stopAnimation(); };
+    }, [entry.expiresAt, mark, progress]);
+    const { appearance: a, row, titleRect, check } = entry;
+    return (
+        <NativeAnimated.View pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants"
+            testID={`moe-completion-feedback-${entry.operationId}`} style={[styles.paint, {
+                left: row.x, top: row.y, width: row.width, height: row.height,
+                backgroundColor: a.backgroundColor, borderColor: a.borderColor, borderWidth: a.borderWidth, borderRadius: a.borderRadius,
+                opacity: progress.interpolate({ inputRange: [0, 0.35, 1], outputRange: [1, 1, 0] }),
+                transform: [{ translateX: progress.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 0, 10] }) }],
+            }]}>
+            <NativeAnimated.Text numberOfLines={2} style={{ position: 'absolute', left: titleRect.x, top: titleRect.y,
+                width: titleRect.width, height: titleRect.height, color: a.textColor, fontSize: a.fontSize,
+                lineHeight: a.lineHeight, fontWeight: a.fontWeight, textAlign: a.textAlign, writingDirection: a.writingDirection,
+                textDecorationLine: 'line-through', opacity: mark.interpolate({ inputRange: [0, 1], outputRange: [1, 0.5] }),
+            }}>{entry.title}</NativeAnimated.Text>
+            <NativeAnimated.View style={{ position: 'absolute', left: check.x, top: check.y, width: check.width, height: check.height,
+                borderRadius: Math.min(9, check.height / 2), backgroundColor: a.checkColor,
+                alignItems: 'center', justifyContent: 'center', opacity: mark,
+                transform: [{ scale: mark.interpolate({ inputRange: [0, 0.65, 1], outputRange: [0.88, 1.12, 1] }) }],
+            }}><Check size={Math.min(check.width, check.height) * 0.67} color={a.checkForeground} strokeWidth={3} /></NativeAnimated.View>
+        </NativeAnimated.View>
+    );
+}
+
+const styles = StyleSheet.create({ host: { flex: 1 }, layer: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' }, paint: { position: 'absolute', overflow: 'hidden' } });

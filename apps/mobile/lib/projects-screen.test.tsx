@@ -535,6 +535,21 @@ describe('ProjectsScreen archived task inspection', () => {
 });
 
 describe('ProjectsScreen view state hydration', () => {
+  it('renders a folder icon identifier as artwork while preserving the folder title', async () => {
+    let tree!: ReturnType<typeof create>;
+    let header!: ReturnType<typeof create>;
+    await act(async () => { tree = create(<ProjectsScreen />); });
+    const list = tree.root.findByType(FlatList);
+    act(() => { header = create(list.props.renderItem({ item: {
+      type: 'area-header', key: 'travel', areaId: 'travel', title: '旅行 folder', icon: 'folder',
+      collapsed: false, sectionKind: 'active',
+    }, index: 0 })); });
+    const text = header.root.findAllByType(Text).map(node => node.props.children);
+    expect(text).toContain('旅行 folder');
+    expect(text).not.toContain('folder');
+    act(() => { header.unmount(); tree.unmount(); });
+  });
+
   it('does not render project rows before persisted collapsed areas are loaded', async () => {
     const deferred = createDeferred<string | null>();
     asyncStorageMock.getItem.mockReturnValue(deferred.promise);

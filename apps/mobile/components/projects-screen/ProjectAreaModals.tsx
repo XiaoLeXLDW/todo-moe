@@ -7,6 +7,7 @@ import { projectsScreenStyles as styles } from './projects-screen.styles';
 import { applyLiveProjectUpdate, getLiveMutableProject } from './project-meta-pickers';
 import { useAndroidKeyboardInset } from '../../lib/use-android-keyboard-inset';
 import { isActionFailure } from '../store-action-result';
+import { MoeFolderIcon } from '@/moe/MoeFolderIcon';
 
 type ThemeColors = {
     danger?: string;
@@ -201,7 +202,7 @@ export function ProjectAreaModals({
                                         onSetShowAreaPicker(false);
                                     }}
                                 >
-                                    <View style={[styles.areaDot, { backgroundColor: area.color || tc.tint }]} />
+                                    <MoeFolderIcon icon={area.icon} color={area.color || tc.tint} />
                                     <Text style={[styles.pickerRowText, { color: tc.text }]}>{area.name}</Text>
                                 </TouchableOpacity>
                             ))}
@@ -252,7 +253,7 @@ export function ProjectAreaModals({
                                         <View key={area.id} style={styles.areaManagerItem}>
                                             <View style={[styles.areaManagerRow, { borderColor: tc.border }]}>
                                                 <View style={styles.areaManagerInfo}>
-                                                    <View style={[styles.areaDot, { backgroundColor: area.color || tc.tint }]} />
+                                                    <MoeFolderIcon icon={area.icon} color={area.color || tc.tint} />
                                                     <Text style={[styles.areaManagerText, { color: tc.text }]} numberOfLines={2}>{area.name}</Text>
                                                 </View>
                                                 <View style={styles.areaManagerActions}>

@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
+import { MoeFolderIcon } from '@/moe/MoeFolderIcon';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
     type Attachment,
@@ -57,6 +58,7 @@ import { buildProjectStatusPalette, formatProjectDate } from './projects-screen.
 import type { useProjectAttachments } from './use-project-attachments';
 import type { useProjectNotesEditor } from './use-project-notes-editor';
 import { getAndroidKeyboardFrame } from '../../lib/android-keyboard-frame';
+import { MoeCompletionFeedbackHost } from '@/moe/MoeCompletionFeedback';
 
 const PROJECT_TASK_SORT_OPTIONS: TaskSortBy[] = ['default', 'due', 'start', 'review', 'timeEstimate', 'title', 'created', 'created-desc'];
 const PROJECT_SHOW_COMPLETED_STORAGE_KEY = 'mindwtr:view:project-detail:show-completed:v1';
@@ -67,6 +69,7 @@ type ProjectDetailModalProps = {
     onGettingStartedAction?: (action: GettingStartedAction) => void;
     onDismiss?: () => void;
     areaName: string;
+    areaIcon?: string;
     attachments: ReturnType<typeof useProjectAttachments>;
     notes: ReturnType<typeof useProjectNotesEditor>;
     onClose: () => void;
@@ -521,6 +524,7 @@ export function ProjectDetailModal({
     onGettingStartedAction,
     onDismiss,
     areaName,
+    areaIcon,
     attachments,
     notes,
     onClose,
@@ -1665,6 +1669,7 @@ export function ProjectDetailModal({
             {/* Android Modal content needs its own gesture root; the screen root does not cover Modal.
                 https://docs.swmansion.com/react-native-gesture-handler/docs/fundamentals/installation/#android */}
             <GestureHandlerRootView style={{ flex: 1 }}>
+                <MoeCompletionFeedbackHost active={overlayVisible} scopeKey={selectedProject?.id ?? ''}>
                 <KeyboardAccessoryHost backgroundColor={tc.bg}>
                     <SafeAreaView style={[styles.projectDetailRoot, { backgroundColor: tc.bg }]} edges={safeAreaEdges}>
                         <SandboxWorkspaceCue />
@@ -1725,7 +1730,7 @@ export function ProjectDetailModal({
                                         accessibilityRole="button" accessibilityLabel={`${t('projects.areaLabel')}: ${areaName}`}
                                         accessibilityState={{ disabled: isArchivedProject }}
                                         style={[styles.projectContainerChip, { borderColor: tc.border, backgroundColor: tc.filterBg }]}>
-                                        <Ionicons name="folder-outline" size={16} color={tc.secondaryText} />
+                                        <MoeFolderIcon icon={areaIcon} color={tc.secondaryText} />
                                         <Text style={[styles.projectContainerText, { color: tc.text }]} numberOfLines={2}>{areaName}</Text>
                                     </TouchableOpacity>
                                     {canManageProjectSections || selectedProjectSections.length > 0 ? (
@@ -1936,6 +1941,7 @@ export function ProjectDetailModal({
                         ) : null}
                     </SafeAreaView>
                 </KeyboardAccessoryHost>
+                </MoeCompletionFeedbackHost>
                 <ToastViewport />
                 {/* Last child so the alert covers the header and the toasts (#940). */}
                 <ThemedAlertHost />

@@ -39,7 +39,7 @@ export function MoeSettings({ visible, onClose }: { visible: boolean; onClose: (
       </View>
     </View>
   );
-  const toggle = (key: 'followSystem' | 'celebration', text: string) => (
+  const toggle = (key: 'followSystem' | 'celebration' | 'nextActionPrompt', text: string) => (
     <View style={[styles.toggle, { borderColor: tc.border }]}>
       <Text style={[styles.toggleText, { color: tc.text }]}>{text}</Text>
       <Switch accessibilityLabel={text} value={preferences[key]} onValueChange={(value) => save({ [key]: value })} />
@@ -65,6 +65,7 @@ export function MoeSettings({ visible, onClose }: { visible: boolean; onClose: (
           <Text style={[styles.note, { color: tc.secondaryText }]}>{label('同时尊重系统减少动画；保存和撤销无需等待动画。', 'System Reduce Motion is respected. Saving and Undo never wait for animation.')}</Text>
           {select('haptics', label('触感反馈', 'Haptics'), [['off', label('关闭', 'Off')], ['light', label('轻', 'Light')]])}
           {toggle('celebration', label('清单完成庆祝', 'Celebrate completed lists'))}
+          {toggle('nextActionPrompt', label('清单下一步提示', 'Suggest the next action after completion'))}
           {error ? <Text accessibilityRole="alert" style={{ color: tc.danger }}>{error}</Text> : null}
           {getAppIdentity().channel === 'development' ? (
             <Text style={[styles.note, { color: tc.warning }]}>{label('Dev 数据保存在独立应用中；云端空间不会自动隔离，请仅连接测试目标。', 'Dev uses separate app data. Cloud storage is not automatically isolated; connect only a test target.')}</Text>

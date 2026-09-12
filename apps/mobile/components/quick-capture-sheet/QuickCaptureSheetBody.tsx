@@ -203,7 +203,7 @@ export function QuickCaptureSheetBody({
     : (focusDisabled ? (focusNewTaskDisabledReason || addFocusLabel) : addFocusLabel);
   // Short visible label for the property chip; reuses the Focus screen title so it
   // stays translated everywhere without minting a new English-only string.
-  const focusChipLabel = tFallback(t, 'agenda.title', 'Focus');
+  const focusChipLabel = tFallback(t, 'agenda.todaysFocus', "Today's focus");
   // Drop the trailing ellipsis here so the Custom chip is narrow enough to sit on the preset row;
   // the shared recurrence.custom string (used elsewhere) keeps its "…".
   const customDateLabel = t('recurrence.custom').replace(/[\s.…]+$/u, '');
@@ -305,7 +305,7 @@ export function QuickCaptureSheetBody({
           >
             <SandboxWorkspaceCue />
             <View style={styles.headerRow}>
-              <View {...dismissGesture.panHandlers} style={styles.dragHandleArea} testID="quick-capture-drag-handle">
+              <View {...dismissGesture.panHandlers} pointerEvents="box-only" style={styles.dragHandleArea} testID="quick-capture-drag-handle">
               <View pointerEvents="none" accessible={false} style={[styles.dragHandle, { backgroundColor: tc.secondaryText }]} />
               <CompactText
                 style={[styles.title, { color: tc.text, flex: 0 }]}

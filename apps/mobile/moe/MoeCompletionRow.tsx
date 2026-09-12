@@ -1,11 +1,12 @@
 import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { Animated as NativeAnimated, AppState, type TextProps } from 'react-native';
+import { Animated as NativeAnimated, AppState, type TextProps, type Text } from 'react-native';
 import { NavigationContext } from '@react-navigation/core';
-import Animated, { LinearTransition, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { LinearTransition, useSharedValue, withTiming, type AnimatedRef } from 'react-native-reanimated';
 import { runOnUISync } from 'react-native-worklets';
 import { useReducedMotion } from '../hooks/use-reduced-motion';
 import { useMoePreferences } from './preferences';
 import { resolveMoeCompletionMotion } from './completion-motion';
+import { useMoeCompletionFeedback, type CompletionFeedbackDetails } from './MoeCompletionFeedback';
 
 // Bounded, short-lived visual identities only. No Task objects, rendered rows,
 // store data, business callbacks or timers are retained here.
@@ -36,6 +37,9 @@ export function useMoeCompletionRow(taskId: string, completed: boolean) {
     const navigation = useContext(NavigationContext);
     const mounted = useRef(true);
     const operation = useRef(0);
+    const undoneOperation = useRef<number | null>(null);
+    const feedbackOperation = useRef<number | null>(null);
+    const { refs: measurementRefs, present: presentFeedback, cancel: cancelFeedback } = useMoeCompletionFeedback();
     const restored = useRef<boolean | undefined>(undefined);
     if (restored.current === undefined) restored.current = takeRestore(taskId);
     const visual = useSharedValue({ operationId: 0, armed: false });
@@ -47,25 +51,42 @@ export function useMoeCompletionRow(taskId: string, completed: boolean) {
                 'worklet';
                 value.value = { operationId: nextId, armed: nextArmed };
             }, visual, operationId, armed);
+            return true;
         } catch {
             // An unavailable animation runtime must never block the store.
+            return false;
         }
     }, [visual]);
     const cancel = useCallback((operationId?: number, undo = false) => {
         if (operationId !== undefined && operation.current !== operationId) return;
+        if (undo) undoneOperation.current = operation.current;
+        cancelFeedback(taskId, operation.current);
         setVisual(operation.current, false);
         if (restores.get(taskId)?.operationId === operation.current) restores.delete(taskId);
-        if (undo && !mounted.current && AppState.currentState === 'active') markRestore(taskId, operation.current);
-    }, [setVisual, taskId]);
-    const arm = useCallback((operationId: number) => {
+        if (undo && feedbackOperation.current !== operation.current && !mounted.current && AppState.currentState === 'active') markRestore(taskId, operation.current);
+    }, [cancelFeedback, setVisual, taskId]);
+    const arm = useCallback((operationId: number, details?: CompletionFeedbackDetails) => {
         operation.current = operationId;
-        setVisual(operationId, !motion.reduced && AppState.currentState === 'active' && navigation?.isFocused() !== false);
-    }, [motion.reduced, navigation, setVisual]);
+        undoneOperation.current = null;
+        cancelFeedback(taskId);
+        const allowed = !motion.reduced && AppState.currentState === 'active' && navigation?.isFocused() !== false;
+        const painted = Boolean(allowed && details && presentFeedback(taskId, operationId, details, motion.exitMs));
+        feedbackOperation.current = painted ? operationId : null;
+        // Snapshot paint belongs to the stable host. Suppress this native old
+        // row immediately on removal, rather than keeping two visual copies.
+        if (!setVisual(operationId, allowed && !painted) && painted) {
+            cancelFeedback(taskId, operationId);
+            feedbackOperation.current = null;
+            setVisual(operationId, allowed);
+        }
+    }, [cancelFeedback, motion.exitMs, motion.reduced, navigation, presentFeedback, setVisual, taskId]);
     const settle = useCallback((operationId: number, succeeded: boolean) => {
+        if (operation.current !== operationId || undoneOperation.current === operationId) return false;
         // A successful promise can settle before React commits the filter's
         // unmount. Only a failed write disarms here; retained Done rows disarm
         // in their committed layout effect below.
         if (!succeeded) cancel(operationId);
+        return true;
     }, [cancel]);
     useLayoutEffect(() => {
         // A Done row still present (All/expanded Completed) must not animate a
@@ -109,7 +130,7 @@ export function useMoeCompletionRow(taskId: string, completed: boolean) {
             return { initialValues: { opacity: 0 }, animations: { opacity: withTiming(1, { duration: motion.enterMs }) } };
         };
     }, [motion.enterMs, motion.reduced]);
-    return { arm, cancel, settle, entering, exiting };
+    return { arm, cancel, settle, entering, exiting, measurementRefs };
 }
 
 export function MoeCompletionRow({ transition, children }: {
@@ -124,7 +145,7 @@ export function useMoeCompletionListLayout() {
 }
 
 /** Only this task row's title fades; its text and business status stay original. */
-export function MoeCompletionTitle({ completed, style, ...props }: TextProps & { completed: boolean }) {
+export function MoeCompletionTitle({ completed, measurementRef, style, ...props }: TextProps & { completed: boolean; measurementRef?: AnimatedRef<Text> }) {
     const motion = useCompletionMotion();
     const target = completed ? motion.finishedOpacity : 1;
     const opacity = useRef(new NativeAnimated.Value(target)).current;
@@ -138,5 +159,5 @@ export function MoeCompletionTitle({ completed, style, ...props }: TextProps & {
         });
         return () => { animation.stop(); subscription.remove(); };
     }, [motion.reduced, motion.textMs, opacity, target]);
-    return <NativeAnimated.Text {...props} style={[style, completed && { textDecorationLine: 'line-through' }, { opacity }]} />;
+    return <NativeAnimated.Text {...props} ref={measurementRef} style={[style, completed && { textDecorationLine: 'line-through' }, { opacity }]} />;
 }

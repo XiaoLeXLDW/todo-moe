@@ -5,10 +5,11 @@ export type MoePreferences = {
   motion: 'simple' | 'standard' | 'lively';
   haptics: 'off' | 'light';
   celebration: boolean;
+  nextActionPrompt: boolean;
 };
 
 export const DEFAULT_MOE_PREFERENCES: Readonly<MoePreferences> = Object.freeze({
-  theme: 'soft', followSystem: true, glass: 'soft', motion: 'standard', haptics: 'light', celebration: true,
+  theme: 'soft', followSystem: true, glass: 'liquid', motion: 'standard', haptics: 'light', celebration: true, nextActionPrompt: false,
 });
 
 /** Device presentation only: deliberately never added to the task/sync schema. */
@@ -19,10 +20,11 @@ export function parseMoePreferences(raw: unknown): MoePreferences {
   return {
     theme: oneOf(source.theme, ['soft', 'ink', 'family'], 'soft'),
     followSystem: typeof source.followSystem === 'boolean' ? source.followSystem : true,
-    glass: oneOf(source.glass, ['off', 'soft', 'liquid'], 'soft'),
+    glass: oneOf(source.glass, ['off', 'soft', 'liquid'], DEFAULT_MOE_PREFERENCES.glass),
     motion: oneOf(source.motion, ['simple', 'standard', 'lively'], 'standard'),
     haptics: oneOf(source.haptics, ['off', 'light'], 'light'),
     celebration: typeof source.celebration === 'boolean' ? source.celebration : true,
+    nextActionPrompt: typeof source.nextActionPrompt === 'boolean' ? source.nextActionPrompt : false,
   };
 }
 

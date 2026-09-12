@@ -17,7 +17,10 @@ export function useQuickCaptureDismissGesture({ enabled, presented, reduced, onD
       else Animated.spring(offset, { toValue: 0, ...MOE_VISUAL.motion.lensSpring, useNativeDriver: true }).start();
     };
     return PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
+      // The header has no tap action. Own DOWN before a Text child/native
+      // target can keep the move negotiation from reaching this handle.
+      onStartShouldSetPanResponder: () => current.current.enabled && active.current,
+      onStartShouldSetPanResponderCapture: () => current.current.enabled && active.current,
       onMoveShouldSetPanResponder: (_event, gesture) => current.current.enabled && active.current
         && gesture.dy > 6 && gesture.dy > Math.abs(gesture.dx) * 1.2,
       onPanResponderGrant: () => offset.stopAnimation(),
@@ -25,7 +28,8 @@ export function useQuickCaptureDismissGesture({ enabled, presented, reduced, onD
         if (current.current.enabled && active.current) offset.setValue(Math.max(0, Math.min(120, gesture.dy * 0.72)));
       },
       onPanResponderRelease: (_event, gesture) => {
-        if (current.current.enabled && active.current && (gesture.dy >= 72 || (gesture.dy >= 28 && gesture.vy > 0.85))) {
+        if (current.current.enabled && active.current && gesture.dy > Math.abs(gesture.dx) * 1.2
+          && (gesture.dy >= 72 || (gesture.dy >= 28 && gesture.vy > 0.85))) {
           // Same immediate close request as X/backdrop; dirty drafts still confirm.
           current.current.onDismiss();
         }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Keyboard, Platform } from 'react-native';
+import { Alert, AppState, Keyboard, Platform } from 'react-native';
 import { act, create } from 'react-test-renderer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -298,6 +298,7 @@ describe('QuickCaptureSheet save handling', () => {
   });
 
   beforeEach(() => {
+    AppState.currentState = 'active';
     addTask.mockReset();
     addTasks.mockReset();
     addProject.mockReset();
@@ -1569,6 +1570,40 @@ describe('QuickCaptureSheet save handling', () => {
       expect(date.props.showDatePicker).toBe(true);
       act(() => tree.unmount());
     });
+  });
+
+
+  it.each(['button', 'system-back'])('refocuses the current draft after cancelling discard via %s without a timer', async (method) => {
+    vi.useFakeTimers(); const onClose = vi.fn(); let tree!: ReturnType<typeof create>;
+    await act(async () => { tree = create(<QuickCaptureSheet visible openRequestId={1} initialValue="940020" onClose={onClose} />); });
+    const body = () => tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetBody')[0];
+    const focus = vi.fn(); body().props.inputRef.current = { focus, blur: vi.fn() };
+    act(() => body().props.handleClose());
+    expect(focus).not.toHaveBeenCalled();
+    act(() => { if (method === 'button') findBulkConfirm(tree)?.props.onCancel(); else body().props.handleRequestClose(); });
+    expect(focus).toHaveBeenCalledOnce();
+    expect(body().props.value).toBe('940020'); expect(onClose).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+    act(() => tree.unmount());
+  });
+
+  it.each(['hidden', 'reopened', 'background', 'busy'])('does not refocus a discarded-confirmation callback after %s', async (reason) => {
+    vi.useFakeTimers(); const onClose = vi.fn(); let tree!: ReturnType<typeof create>;
+    await act(async () => { tree = create(<QuickCaptureSheet visible openRequestId={1} initialValue="Original draft" onClose={onClose} />); });
+    const body = () => tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetBody')[0];
+    const focus = vi.fn(); body().props.inputRef.current = { focus, blur: vi.fn() };
+    act(() => body().props.handleClose());
+    const cancel = findBulkConfirm(tree)!.props.onCancel;
+    if (reason === 'hidden' || reason === 'reopened') act(() => tree.update(<QuickCaptureSheet visible={false} openRequestId={1} onClose={onClose} />));
+    if (reason === 'reopened') act(() => tree.update(<QuickCaptureSheet visible openRequestId={2} initialValue="New draft" onClose={onClose} />));
+    if (reason === 'background') AppState.currentState = 'background';
+    if (reason === 'busy') act(() => audioHookMock.params?.onSubmissionBusyChange(true));
+    act(() => cancel());
+    expect(focus).not.toHaveBeenCalled();
+    if (reason === 'reopened') expect(body().props.value).toBe('New draft');
+    if (reason === 'busy') { act(() => audioHookMock.params?.onSubmissionBusyChange(false)); expect(focus).not.toHaveBeenCalled(); }
+    act(() => tree.unmount()); AppState.currentState = 'active';
+    expect(vi.getTimerCount()).toBe(0);
   });
 
 });

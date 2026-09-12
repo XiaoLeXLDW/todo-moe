@@ -5,11 +5,13 @@ import { useReducedMotion } from '../hooks/use-reduced-motion';
 import type { ThemeColors } from '../hooks/use-theme-colors';
 import { useMoePreferences } from './preferences';
 import { resolveMoeCompletionMotion } from './completion-motion';
+import Reanimated, { type AnimatedRef } from 'react-native-reanimated';
 
 const CHECK_SIZE = 16;
 
-export function MoeCheckButton({ checked, disabled, label, onPress, tc }: {
+export function MoeCheckButton({ checked, disabled, label, onPress, tc, measurementRef }: {
   checked: boolean; disabled: boolean; label: string; onPress: () => void; tc: ThemeColors;
+  measurementRef?: AnimatedRef<View>;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
   const mark = useRef(new Animated.Value(checked ? 1 : 0)).current;
@@ -62,6 +64,7 @@ export function MoeCheckButton({ checked, disabled, label, onPress, tc }: {
       onPressOut={release}
       onPress={(event) => { event.stopPropagation(); if (!disabled) onPress(); }} style={styles.target}>
       <Animated.View style={{ transform: [{ scale }] }}>
+        <Reanimated.View ref={measurementRef} collapsable={false}>
         <Animated.View style={[styles.circle, { borderColor: checked ? tc.success : tc.secondaryText }]}>
           <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.fill, { backgroundColor: tc.success, opacity: mark }]} />
           <View pointerEvents="none" accessible={false} style={styles.markFrame}>
@@ -70,6 +73,7 @@ export function MoeCheckButton({ checked, disabled, label, onPress, tc }: {
             </Animated.View>
           </View>
         </Animated.View>
+        </Reanimated.View>
       </Animated.View>
     </Pressable>
   );

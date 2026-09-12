@@ -649,6 +649,7 @@ describe('Quick capture modal composition', () => {
     });
 
     const drag = tree.root.findAllByProps({ testID: 'quick-capture-drag-handle' })[0];
+    expect(drag.props.pointerEvents).toBe('box-only');
     expect(typeof drag.props.onMoveShouldSetResponder).toBe('function');
     expect(tree.root.findAllByType(TextInput).every((input) => input.props.onMoveShouldSetResponder === undefined)).toBe(true);
     expect(tree.root.findByType(ScrollView).props.onMoveShouldSetResponder).toBeUndefined();
@@ -663,6 +664,7 @@ describe('Quick capture modal composition', () => {
     expect(tree.root.findAllByProps({ accessibilityLabel: 'Today' }).length).toBeGreaterThan(0);
     expect(tree.root.findAllByProps({ accessibilityLabel: 'Tomorrow' }).length).toBeGreaterThan(0);
     expect(tree.root.findAllByProps({ accessibilityLabel: 'Next week' })).toHaveLength(0);
+    expect(more.findAllByType(Text).some((node) => node.props.children === "Today's focus")).toBe(true);
     expect(tree.root.findAllByType(Text).some((node) => node.props.children === 'More')).toBe(true);
   });
 

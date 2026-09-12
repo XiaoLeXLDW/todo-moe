@@ -13,6 +13,11 @@ const renderHostChild = (child: any, key: string) => {
 
 export const StyleSheet = {
   create: <T extends Record<string, unknown>>(styles: T) => styles,
+  flatten: (style: unknown): Record<string, unknown> | undefined => {
+    if (Array.isArray(style)) return Object.assign({}, ...style.map((item) => StyleSheet.flatten(item)));
+    return style && typeof style === 'object' ? style as Record<string, unknown> : undefined;
+  },
+  hairlineWidth: 1,
   absoluteFillObject: {
     position: 'absolute',
     top: 0,

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AppState,
   Keyboard,
   Platform,
   Pressable,
@@ -224,7 +225,9 @@ export function QuickCaptureSheet({
   );
 
   const [value, setValue] = useState('');
-  const [discardDraftOpen, setDiscardDraftOpen] = useState(false);
+  const [discardDraftSession, setDiscardDraftSession] = useState<CaptureSessionId | null>(null);
+  const discardDraftOpen = discardDraftSession !== null;
+  const [resumeTitleFocusSession, setResumeTitleFocusSession] = useState<CaptureSessionId | null>(null);
   const draftBaselineRef = useRef('');
   const reducedMotion = useReducedMotion();
   const [saving, setSaving] = useState(false);
@@ -438,7 +441,8 @@ export function QuickCaptureSheet({
 
   const resetDraftState = useCallback((options?: { keepAddAnother?: boolean; value?: string }) => {
     clearAndroidOptionsExpand();
-    setDiscardDraftOpen(false);
+    setDiscardDraftSession(null);
+    setResumeTitleFocusSession(null);
     setQuickAddParseOptions(readQuickAddParseOptions());
     setValue(options?.value ?? initialValue ?? '');
     setNoteValue(initialProps?.description ?? '');
@@ -668,7 +672,8 @@ export function QuickCaptureSheet({
     clearInitialFocusTimer();
     clearContextOptionsLoad();
     contextOptionsRequestRef.current += 1;
-    setDiscardDraftOpen(false);
+    setDiscardDraftSession(null);
+    setResumeTitleFocusSession(null);
     inputRef.current?.blur();
     Keyboard.dismiss();
     // Notify the owner now. The existing Modal retains this same private draft
@@ -720,9 +725,29 @@ export function QuickCaptureSheet({
     const dirty = recording || hasCaptureDraftChanges(value, noteValue, {
       dueDate, dueDateHasTime, startTime, contextTags, projectId, selectedAreaId, priority, focusNewTask,
     }, draftBaselineRef.current);
-    if (dirty) { setDiscardDraftOpen(true); return; }
+    if (dirty) { setDiscardDraftSession(session); return; }
     discardDraft();
   }, [clearContextOptionsLoad, clearInitialFocusTimer, contextTags, discardDraft, dueDate, dueDateHasTime, focusNewTask, noteValue, priority, projectId, recording, recordingBusy, selectedAreaId, startTime, value]);
+
+  const cancelDiscardDraft = useCallback(() => {
+    // The callback belongs to the confirmation's opening session, not whichever
+    // draft happens to be mounted when an old event is eventually delivered.
+    if (discardDraftSession === null || activeSubmissionSessionRef.current !== discardDraftSession) return;
+    setDiscardDraftSession(null);
+    setResumeTitleFocusSession(discardDraftSession);
+  }, [discardDraftSession]);
+
+  useEffect(() => {
+    if (resumeTitleFocusSession === null) return;
+    setResumeTitleFocusSession(null);
+    // Runs after the confirmation overlay has left the committed tree. Never
+    // refocus a hidden/reopened draft, background app or active audio/save.
+    if (!visible || discardDraftOpen || AppState.currentState !== 'active'
+      || saving || recording || recordingBusy
+      || activeSubmissionSessionRef.current !== resumeTitleFocusSession
+      || submissionCoordinatorRef.current.isSubmitting(resumeTitleFocusSession)) return;
+    inputRef.current?.focus();
+  }, [discardDraftOpen, recording, recordingBusy, resumeTitleFocusSession, saving, visible]);
 
   const formatBulkConfirmTitle = useCallback((count: number) => (
     tFallback(t, 'quickAdd.bulkConfirmTitle', 'Create {{count}} tasks?')
@@ -1193,7 +1218,7 @@ export function QuickCaptureSheet({
         dark={tokens.isDark}
         handleClose={handleClose}
         handleRequestClose={() => {
-          if (discardDraftOpen) setDiscardDraftOpen(false);
+          if (discardDraftOpen) cancelDiscardDraft();
           else if (pendingBulkLines) cancelBulkQuickAdd();
           else if (showProjectPicker) setShowProjectPicker(false);
           else if (showAreaPicker) setShowAreaPicker(false);
@@ -1280,7 +1305,7 @@ export function QuickCaptureSheet({
             cancelLabel={t('common.cancel')}
             confirmLabel={tFallback(t, 'common.discard', 'Discard')}
             message={tFallback(t, 'taskEdit.discardChangesDesc', 'Your changes will be lost if you leave now.')}
-            onCancel={() => setDiscardDraftOpen(false)}
+            onCancel={cancelDiscardDraft}
             onConfirm={discardDraft}
             tc={tc}
             title={tFallback(t, 'taskEdit.discardChanges', 'Discard unsaved changes?')}
