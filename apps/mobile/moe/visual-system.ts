@@ -4,7 +4,7 @@ export const MOE_VISUAL = {
     contentMaxWidth: 760,
     panelRadius: 28,
     cardRadius: 20,
-    bar: { height: 64, inset: 5, gap: 12, maxWidth: 520, captureSize: 60 },
+    bar: { height: 64, inset: 4, gap: 12, maxWidth: 520, captureSize: 60 },
     motion: {
         pressMs: 110,
         settleMs: 180,

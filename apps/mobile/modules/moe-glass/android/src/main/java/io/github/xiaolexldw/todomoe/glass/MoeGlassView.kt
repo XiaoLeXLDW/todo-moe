@@ -30,7 +30,7 @@ import kotlin.math.sqrt
 
 /** RN keeps foreground layout/touches. Native samples only during real pre-draw
  * traversals, excludes glass groups, and never owns an animation clock or task. */
-class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
+class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context, appContext), GlassSourceExcluded {
   private var mode = "off"
   private var dark = false
   private var reducedMotion = false

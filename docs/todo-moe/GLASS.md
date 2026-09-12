@@ -1,5 +1,13 @@
 # Android 玻璃实现与验证
 
+## 当前底栏方向（2026-09-12，用户验收否决后）
+
+vc30 的自绘底栏未通过用户视觉验收。以下旧契约是现有 `GlassSurface` 的实现记录，不能称作 SukiSU 底栏一比一复现。
+
+当前改为直接移植固定来源的完整 `FloatingBottomBar` Compose 层，包括 `CombinedBackdrop` 着色标签副本、原始透镜、高光和弹簧；通过现有 `HardwareBackdropScene` 接入 RN 页面背景。RN 只传页面标签、主题、受控选中状态和可见性，收到最终选中事件后调用原导航。新增面板继续使用现有 `GlassSurface`，不迁移业务或数据模型。原生模块已编译，9项原生检查通过；尚未完成新 APK 真机验收；正式候选暂停。
+
+---
+
 当前 T02 路线为 `apps/mobile/modules/moe-glass` 的 Expo View/Kotlin/AGSL 适配，不引入 Compose/Miuix。圆角 SDF、梯度、circle-map 折射和七采样色散来自已固定来源的 LanMoe/SukiSU lens；JS/RN 继续拥有前景、手势与导航。vc25 真机 Inbox 性能未通过，现将软件 Bitmap/root.draw 采样替换为单一硬件 RenderNode 来源。**新硬件来源仍待候选 APK 的画面与性能验证；vc25 和下文 vc3 的旧实现数据不能证明它通过。** 完整设备矩阵与 v1.0 也未由此次代码实现放行。
 
 ## T02 原生契约

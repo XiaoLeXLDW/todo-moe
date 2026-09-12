@@ -71,7 +71,7 @@ internal object GlassLensShader {
       half4 cyan = backdrop.eval(coord - offset * (1.0 / 3.0));
       color.g += cyan.g / 3.5; color.b += cyan.b / 3.0; color.a += cyan.a / 7.0;
       half4 blue = backdrop.eval(coord - offset * (2.0 / 3.0));
-      color.g += blue.g / 3.5; color.b += blue.b / 3.0; color.a += blue.a / 7.0;
+      color.b += blue.b / 3.0; color.a += blue.a / 7.0;
       half4 purple = backdrop.eval(coord - offset);
       color.r += purple.r / 7.0; color.b += purple.b / 3.0; color.a += purple.a / 7.0;
       return color;

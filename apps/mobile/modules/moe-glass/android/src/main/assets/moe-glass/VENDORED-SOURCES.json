@@ -1,0 +1,172 @@
+{
+  "notice": "Hashes identify the read local pinned-source adaptations, not upstream git blob IDs. Licensing and intentional changes are in SUKISU-COMPOSE-SOURCES.md.",
+  "records": [
+    {
+      "file": "vendor/blur/internal/RenderEffectCompat.android.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "b8e19905ffd8eafe70b0a819d1cedb865b1a4ebb02f7f56377903ae2e26f89b2",
+      "adaptedSha256": "d8b799bbecffdc39ca3a6025860b3efc136e266ed5023dda2b5f8ce1cd71762f"
+    },
+    {
+      "file": "vendor/blur/sensor/DeviceTilt.android.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "275c27beb89fde1a41491a8e3067f098f1e1b8b60f2e9f327f155c0a057e3398",
+      "adaptedSha256": "78bc442485ff478e6206d888b64db616fa1539eb100a4359aa74750e669f082c"
+    },
+    {
+      "file": "vendor/blur/Backdrop.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "1bb31cc79f01868e1eec854fd758549465d2b763ee8944086c16e5fe9d781736",
+      "adaptedSha256": "f2d76e870327d6b05927c62bebd8f204f1cfa948bf538685fb7a42f36b011be4"
+    },
+    {
+      "file": "vendor/blur/BackdropEffects.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "5c76a4fb0ddfc64761e97566f17969a4831ce0856ad897ec364be20617fe2f26",
+      "adaptedSha256": "5a9770a25e7ad39852c08ab863b6efe79ab296d22ab9dffa37f6310310d17f76"
+    },
+    {
+      "file": "vendor/blur/BackdropEffectScope.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "aa760f9df414bc90fb1ac075b65d2becb7f54f23caab2896bb0b83939611f432",
+      "adaptedSha256": "ba2567ef4e64d79f26535568cadf334efd3c4a1d27a28a3b5cb857190fbb296a"
+    },
+    {
+      "file": "vendor/blur/BlurDefaults.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "f17775d00d01c2716977a9583e6417ea65c26d06da49c29a0d2f87cfde717919",
+      "adaptedSha256": "a8cefc2162f50c9ce02417c389c141ff628dab46cc9ac276293f77b8c1179603"
+    },
+    {
+      "file": "vendor/blur/DrawBackdropModifier.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "02bb57b1fdf2007f0706f19faf0cf176ebbf08403e219541e5a012ca04990013",
+      "adaptedSha256": "1492408bc838c05e65602b983d5c73d97f0a0b1f6b57fb3665efbd48bf0af87f"
+    },
+    {
+      "file": "vendor/blur/highlight/Highlight.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "47493f22e21d595ede37a889589e14ab66d94400759fb6de9b132aec03f85b53",
+      "adaptedSha256": "7f59ed4938ca9a5eb4983b3fff043d5d745426879d130ed9558ceef020a9f375"
+    },
+    {
+      "file": "vendor/blur/highlight/HighlightDrawing.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "ea520ffad9a83db2988c802221797498e7380e17245928ce3366ce5c2678cc56",
+      "adaptedSha256": "157a859efbfc26f67346457aa03d9d89c79017de457d6b1eeba77f4b757309bc"
+    },
+    {
+      "file": "vendor/blur/highlight/HighlightStyle.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "fd9d1f7e034d1d48e0551e5e8a81c729d7cd8b02ef63385368b695118ca64487",
+      "adaptedSha256": "e8b4dd17e9027c44692ba5cad52f78b4ef3448538fb554b79166cc303c91dccd"
+    },
+    {
+      "file": "vendor/blur/highlight/TiltLight.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "f5cc8fbd3cfbfe8a5efdfc503b63edb58a0c539e3e8f97ac73d243a06c2f680a",
+      "adaptedSha256": "aa2dd69850cd22698966c34866a820751979f5620ffafaa01a59083d16f74010"
+    },
+    {
+      "file": "vendor/blur/internal/BlurEffect.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "900fbf2d9a81d22ee95f596691ef83fb8474c89f8d1837a95d40ed37c274f3cb",
+      "adaptedSha256": "ba11c3ed7fc5f06e78158c34ad78582bd0b2e6ab2695d098eb5ef0d9cdfd74be"
+    },
+    {
+      "file": "vendor/blur/internal/InverseLayerScope.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "52930a84ea1802cb3afcadcc650b922145faa5779f73a57893d508c76d7efa85",
+      "adaptedSha256": "54b8be91739210872392913e24d449e4901c895290fa725df88c0d19667229d6"
+    },
+    {
+      "file": "vendor/blur/internal/LayerRecorder.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "1864ebbd9d2fc71f32138bfc598c7e59f160026e9a64012173b85a8d19e3bd52",
+      "adaptedSha256": "503e491289f46162e7c6f0dfd7a3eb9deac623ae83eab686356fdf03b325fd81"
+    },
+    {
+      "file": "vendor/blur/internal/Shaders.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "217b087fbb52b946bed8ef64b02ed483801301360f7fc18acca29a89a1cfe5f9",
+      "adaptedSha256": "5e5690a4f794f82a2af1adab3704edec94b74d182f371d3f5a557df773116b28"
+    },
+    {
+      "file": "vendor/blur/internal/ShapeProvider.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "7935c7bef2299dd5fd45046f016c6340f296a18f3d137de3b4a37ff97b5726b1",
+      "adaptedSha256": "c84ce5f7ed50a46896d8a87df08fe596ab10c789ce57157f76b79b40e01160ab"
+    },
+    {
+      "file": "vendor/blur/LayerBackdrop.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "31d19f3be5b0f9b4a24467a336d923a4e00571fe7109475ad25695a2817e4e93",
+      "adaptedSha256": "b158860c623b00f8bb06927a45ed4a6f7c2911cd405e0e6a0c68eb83d604278e"
+    },
+    {
+      "file": "vendor/blur/LayerBackdropModifier.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "3f40647d2c78d0152021830a5d105e20df06647e36626f764e6b095c20b48560",
+      "adaptedSha256": "28cc873cd18da6b1510408875c635720f0fd5e210b1a58585b910f9385523f1b"
+    },
+    {
+      "file": "vendor/blur/RuntimeShader.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "d36f4181d97580b42490c5cbcc3cc9667d6dff10ccb7be0bbdb9194bb677613a",
+      "adaptedSha256": "e4ade9e27db242de9caa61a284eb4d867b6194aef3314848c9e90d4a8e200d18"
+    },
+    {
+      "file": "vendor/blur/RuntimeShaderCache.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "47b2170773d22dfa2071e76c861f0e515b6ce7d30f0cdc8b370564f8382c6531",
+      "adaptedSha256": "0b8ee90dbe0817fc7771a1c91b00ac73cd07c1cd077aed381bd42339a7f31dc8"
+    },
+    {
+      "file": "vendor/blur/sensor/DeviceTilt.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "45076c7e851dfdd3868ac749f9e87ba7d9622c4ee007d52355642e3bdc92adea",
+      "adaptedSha256": "7ed2d08f44cb34dc1b1d55680f1d337ffca8e2aa317df9ebac2174473d952de2"
+    },
+    {
+      "file": "vendor/blur/TextureEffect.kt",
+      "sourceCommit": "c36fab72391801d1e3ea5a00f966bf16bac28d4c",
+      "readReferenceSha256": "140998b6d128e74e4853368b92ecf3ad148c448a02d023eb63b8819a73aa200e",
+      "adaptedSha256": "801d7c35c7fa44f3acaec15abe0bc4ef0234fe515ed30249dafd59fc9940c626"
+    },
+    {
+      "file": "vendor/sukisu/FloatingBottomBar.kt",
+      "readReferenceSha256": "db386dbfbba2b51e0e54a53fa06d7e11e3ca4de39067f817a002917975586b00",
+      "adaptedSha256": "c9487b3366d7c511dd7be4a1ace0c68ae848d1bb7313ca89a810c2042c333b60"
+    },
+    {
+      "file": "vendor/sukisu/liquid/CombinedBackdrop.kt",
+      "readReferenceSha256": "388147799b8b34810fd50687f464f9c86613befcc01cd6eb985011a0aa9c4e8e",
+      "adaptedSha256": "b9c37bf052bf31f29e61e279e345a7de45cee87bd7695b4aee769bdd3ca022d5"
+    },
+    {
+      "file": "vendor/sukisu/liquid/InnerShadow.kt",
+      "readReferenceSha256": "caf09efc7b7922a37ef0f8eac290ce459fffbad915bb19ebdf2b1e22e86a70db",
+      "adaptedSha256": "0e4558f07e457c863cceab8a01b3ae8d1a673fbaafc27577765698836f15b0b0"
+    },
+    {
+      "file": "vendor/sukisu/liquid/Lens.kt",
+      "readReferenceSha256": "b1a8098c0e89685400a941c80c47aeaa07d8f4237a1fec6d4eeac768542af05c",
+      "adaptedSha256": "3800d57727934d7a85baf4ee088d8cbb7fc1d3ce6f67c4ebb5dff082d55d8499"
+    },
+    {
+      "file": "vendor/sukisu/liquid/Vibrancy.kt",
+      "readReferenceSha256": "9da2fd8d77f5394219ef5b663ffd3a7c0a4244c5ce60d7e7e50cf2bc8de49174",
+      "adaptedSha256": "65309d4901a708ab6b8ece4c952cbf04ed90cb936e69e4b042ea90f939ad99ce"
+    },
+    {
+      "file": "vendor/sukisu/animation/DampedDragAnimation.kt",
+      "readReferenceSha256": "562379d93fa012ff5923c8ce47c0a91d433b7b7fcf41dc0db5d4f1201278ea14",
+      "adaptedSha256": "3a62dbf392225c4db86ffbd0716c4760b6abdadf258158dca1d7f12c9874641a"
+    },
+    {
+      "file": "vendor/sukisu/animation/InteractiveHighlight.kt",
+      "readReferenceSha256": "a7e0bbc2ad07e786e4d652a395a2666ace6aed76a6ed21cc9b7b97b98fd5e3a6",
+      "adaptedSha256": "eb2774f11a0d8bda8da52ff8a9a654b9faea8b47f96621844fceaf8ab667ecc6"
+    }
+  ]
+}

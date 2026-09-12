@@ -1,12 +1,23 @@
+buildscript {
+  repositories { mavenCentral() }
+  dependencies { classpath 'org.jetbrains.kotlin:compose-compiler-gradle-plugin:2.1.20' }
+}
+
 apply plugin: 'com.android.library'
 def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
 apply from: expoModulesCorePlugin
 applyKotlinExpoModulesCorePlugin()
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 useCoreDependencies()
 useDefaultAndroidSdkVersions()
 
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+  compilerOptions.freeCompilerArgs.add('-Xcontext-parameters')
+}
+
 android {
   namespace "io.github.xiaolexldw.todomoe.glass"
+  buildFeatures { compose true }
   defaultConfig {
     versionCode 1
     versionName "1.0.0"
@@ -14,6 +25,10 @@ android {
 }
 
 dependencies {
+  implementation 'androidx.compose.ui:ui-android:1.9.0'
+  implementation 'androidx.compose.foundation:foundation-android:1.9.0'
+  implementation 'androidx.compose.animation:animation-android:1.9.0'
+  implementation 'androidx.lifecycle:lifecycle-runtime-compose-android:2.9.0'
   // Already supplied by the app. Compile against its RN overflow clipping API;
   // do not package a second React runtime or resolve a different version.
   compileOnly 'com.facebook.react:react-android'

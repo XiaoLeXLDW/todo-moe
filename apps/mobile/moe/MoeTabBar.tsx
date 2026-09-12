@@ -14,6 +14,7 @@ import { useThemeColors } from '../hooks/use-theme-colors';
 import { useThemeTokens } from '../hooks/use-theme-tokens';
 import { useReducedMotion } from '../hooks/use-reduced-motion';
 import { GlassSurface, glassCapabilities } from './glass/GlassSurface';
+import { NativeLiquidTabBar } from './glass/NativeLiquidTabBar';
 import { useMoePreferences } from './preferences';
 import { moeHaptic } from './haptics';
 import { MOE_TABS, moeTabLabel } from './navigation';
@@ -44,6 +45,7 @@ export function MoeTabBar({ state, navigation, tabBarBottomInset, openQuickCaptu
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
   const [measuredWidth, setMeasuredWidth] = useState(1);
+  const [selectionRevision, setSelectionRevision] = useState(0);
   const selectedIndex = Math.max(0, MOE_TABS.findIndex((name) => name === state.routes[state.index]?.name));
   const width = useSharedValue(1);
   const center = useSharedValue(lensSlotCenter(selectedIndex, 1, TAB_COUNT, BAR.inset));
@@ -64,7 +66,7 @@ export function MoeTabBar({ state, navigation, tabBarBottomInset, openQuickCaptu
 
   useEffect(() => {
     width.value = measuredWidth;
-    lensWidth.value = Math.max(1, (measuredWidth - 2 * BAR.inset) / TAB_COUNT - 2) / Math.max(1, measuredWidth);
+    lensWidth.value = Math.max(1, (measuredWidth - 2 * BAR.inset) / TAB_COUNT) / Math.max(1, measuredWidth);
     selected.value = selectedIndex;
     dragging.value = false;
     velocity.value = 0;
@@ -151,7 +153,20 @@ export function MoeTabBar({ state, navigation, tabBarBottomInset, openQuickCaptu
     }]}>
       <Animated.View style={[styles.shell, shellStyle]} pointerEvents={unavailable ? 'none' : 'auto'}
         accessibilityElementsHidden={unavailable} importantForAccessibility={unavailable ? 'no-hide-descendants' : 'auto'}>
-        <GestureDetector gesture={pan}>
+        {NativeLiquidTabBar ? (
+          <NativeLiquidTabBar labels={MOE_TABS.map(name => moeTabLabel(name, chinese))}
+            selectedIndex={selectedIndex} selectionRevision={selectionRevision} dark={isDark} accentColor={tc.tint}
+            surfaceColor={tc.cardBg} contentColor={tc.secondaryText}
+            mode={preferences.glass} reducedMotion={reduced} samplingEnabled={!unavailable}
+            style={styles.barFrame}
+            onSelect={({ nativeEvent }) => {
+              if (!unavailable && Number.isInteger(nativeEvent.index)
+                  && nativeEvent.index >= 0 && nativeEvent.index < TAB_COUNT) {
+                selectTab(nativeEvent.index);
+                setSelectionRevision(revision => revision + 1);
+              }
+            }} />
+        ) : <GestureDetector gesture={pan}>
           <View testID="moe-tab-gesture-surface" style={styles.barFrame} onLayout={(event) => setMeasuredWidth(event.nativeEvent.layout.width)} collapsable={false}>
             <GlassSurface mode={preferences.glass} dark={isDark} reducedMotion={reduced} samplingEnabled={!unavailable}
               cornerRadius={BAR.height / 2} lens={lens} style={styles.glass}>
@@ -190,7 +205,7 @@ export function MoeTabBar({ state, navigation, tabBarBottomInset, openQuickCaptu
               </View>
             </GlassSurface>
           </View>
-        </GestureDetector>
+        </GestureDetector>}
         <AppPressable accessibilityRole="button" accessibilityLabel={chinese ? '新增任务；长按语音记录' : 'Add task; hold for voice capture'}
           testID="moe-capture" style={[styles.capture, { backgroundColor: tc.tint, shadowColor: tc.tint }]}
           onPressIn={() => { longPress.current = false; }}
@@ -210,7 +225,7 @@ const styles = StyleSheet.create({
   tabs: { flex: 1, flexDirection: 'row', padding: BAR.inset },
   lens: { position: 'absolute', left: 0, top: BAR.inset, height: BAR.height - BAR.inset * 2, borderRadius: BAR.height / 2, borderWidth: StyleSheet.hairlineWidth },
   tab: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', minWidth: 0 },
-  label: { fontSize: 11, marginTop: 4, fontWeight: '600' },
+  label: { fontSize: 11, marginTop: 1, fontWeight: '500' },
   capture: { height: BAR.captureSize, width: BAR.captureSize, borderRadius: BAR.captureSize / 2, alignItems: 'center', justifyContent: 'center',
     shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.16, shadowRadius: 12, elevation: 3 },
 });

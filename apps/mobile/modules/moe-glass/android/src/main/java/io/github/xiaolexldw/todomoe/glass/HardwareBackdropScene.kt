@@ -123,7 +123,7 @@ internal class HardwareBackdropScene private constructor(private val root: View)
 
   private fun inspect(view: View): Plan? {
     // Stop before examining or retaining any glass foreground descendants.
-    if (view is MoeGlassView) {
+    if (view is GlassSourceExcluded) {
       markGlassAncestors(view)
       return Plan(view, emptyList(), true, 0L, false, false)
     }

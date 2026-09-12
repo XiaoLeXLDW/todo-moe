@@ -1,6 +1,6 @@
 {
   "platforms": ["android"],
   "android": {
-    "modules": ["io.github.xiaolexldw.todomoe.glass.MoeGlassModule"]
+    "modules": ["io.github.xiaolexldw.todomoe.glass.MoeGlassModule", "io.github.xiaolexldw.todomoe.glass.MoeLiquidTabBarModule"]
   }
 }

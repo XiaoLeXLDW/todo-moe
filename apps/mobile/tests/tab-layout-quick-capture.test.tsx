@@ -10,6 +10,10 @@ import TabLayout from '../app/(drawer)/(tabs)/_layout';
 import { MoeTabBar } from '../moe/MoeTabBar';
 
 const panCallbacks = vi.hoisted(() => ({ current: {} as Record<string, (...args: any[]) => void> }));
+const nativeBarMode = vi.hoisted(() => ({ enabled: false }));
+vi.mock('../moe/glass/NativeLiquidTabBar', () => ({
+  get NativeLiquidTabBar() { return nativeBarMode.enabled ? 'NativeLiquidTabBar' : null; },
+}));
 const sharedRuntime = vi.hoisted(() => {
   const state = { onUI: false, deferJSWrites: false, pending: [] as Array<() => void> };
   const onUI = <T,>(callback: () => T): T => {
@@ -392,6 +396,7 @@ const getMoreSheetMenu = (tree: ReturnType<typeof create>) => {
 
 describe('mobile tab quick capture', () => {
   beforeEach(() => {
+    nativeBarMode.enabled = false;
     sharedRuntime.state.onUI = false;
     sharedRuntime.state.deferJSWrites = false;
     sharedRuntime.state.pending.length = 0;
@@ -598,6 +603,33 @@ describe('mobile tab quick capture', () => {
     sheets = getQuickCaptureSheets(tree);
     expect(sheets).toHaveLength(1);
     expect(sheets[0]?.props.openRequestId).toBe(2);
+  });
+
+  it('routes native bar selection through the existing preventable navigation and blocks hidden or invalid events', () => {
+    nativeBarMode.enabled = true;
+    let tree!: ReturnType<typeof create>;
+    act(() => { tree = create(<TabLayout />); });
+    const nativeBar = () => tree.root.find(node => String(node.type) === 'NativeLiquidTabBar');
+    const { dispatch, emit } = tree.root.findByType(MoeTabBar).props.navigation;
+    expect(tree.root.findAll(node => node.props.testID === 'moe-tab-gesture-surface')).toHaveLength(0);
+    act(() => {
+      nativeBar().props.onSelect({ nativeEvent: { index: -1 } });
+      nativeBar().props.onSelect({ nativeEvent: { index: 1.5 } });
+      nativeBar().props.onSelect({ nativeEvent: { index: 3 } });
+    });
+    expect(dispatch).not.toHaveBeenCalled();
+    emit.mockReturnValueOnce({ defaultPrevented: true });
+    act(() => nativeBar().props.onSelect({ nativeEvent: { index: 2 } }));
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(nativeBar().props.selectionRevision).toBe(1);
+    act(() => nativeBar().props.onSelect({ nativeEvent: { index: 2 } }));
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ name: 'inbox' }) }));
+    act(() => getAddTaskButton(tree).props.onPress());
+    expect(nativeBar().props.samplingEnabled).toBe(false);
+    act(() => nativeBar().props.onSelect({ nativeEvent: { index: 1 } }));
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    act(() => tree.unmount());
   });
 
   it('does not navigate for a cancelled active drag, but commits one successful release', () => {
