@@ -57,6 +57,7 @@ import { CompactText, CompactTextInput } from '@/components/compact-text';
 import { useMoeTabInset } from '@/moe/tab-insets';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { animateMoeListMutation } from '@/moe/motion';
+import { MOE_VISUAL } from '@/moe/visual-system';
 
 type ProjectTaskSortBy = TaskSortBy;
 const EMPTY_PROJECT_TASKS: Task[] = [];
@@ -124,6 +125,13 @@ export default function ProjectsScreen() {
   const statusPalette = buildProjectStatusPalette(tc);
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [newProjectAreaId, setNewProjectAreaId] = useState('');
+  const [creatingProject, setCreatingProject] = useState(false);
+  const projectCreatePending = useRef(false);
+  const newProjectInputRef = useRef<TextInput>(null);
+  const projectListRef = useRef<FlatList<ProjectListRow>>(null);
+  const projectListOffsetRef = useRef(0);
+  const restoreListFrameRef = useRef<number | null>(null);
+  const screenMountedRef = useRef(true);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectTaskSortBy, setProjectTaskSortBy] = useState<ProjectTaskSortBy>('default');
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -131,6 +139,7 @@ export default function ProjectsScreen() {
   const [taskModalOpenKey, setTaskModalOpenKey] = useState('manual');
   const [showAreaPicker, setShowAreaPicker] = useState(false);
   const [showAreaManager, setShowAreaManager] = useState(false);
+  const [standaloneAreaManager, setStandaloneAreaManager] = useState(false);
   const [newAreaName, setNewAreaName] = useState('');
   const [newAreaColor, setNewAreaColor] = useState('#3b82f6');
   const [expandedAreaColorId, setExpandedAreaColorId] = useState<string | null>(null);
@@ -169,6 +178,14 @@ export default function ProjectsScreen() {
   } = useMobileAreaFilter();
 
   const selectedAreaFilterValue = areaFilterSelectionToValue(selectedAreaFilter);
+
+  useEffect(() => {
+    screenMountedRef.current = true;
+    return () => {
+      screenMountedRef.current = false;
+      if (restoreListFrameRef.current !== null) cancelAnimationFrame(restoreListFrameRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     setNewProjectAreaId(
@@ -282,6 +299,10 @@ export default function ProjectsScreen() {
     if (!projectListViewStateHydrated) return [];
     return buildProjectListRows({
       areaById,
+      orderedAreas: sortedAreas,
+      projects: allProjects ?? projects,
+      areaFilter: selectedAreaFilter,
+      hasTagFilter: selectedTagFilter !== ALL_TAGS,
       collapsedAreas,
       groupedActiveProjects,
       groupedArchivedProjects,
@@ -292,6 +313,11 @@ export default function ProjectsScreen() {
     });
   }, [
     areaById,
+    allProjects,
+    projects,
+    sortedAreas,
+    selectedAreaFilter,
+    selectedTagFilter,
     collapsedAreas,
     groupedActiveProjects,
     groupedArchivedProjects,
@@ -331,6 +357,7 @@ export default function ProjectsScreen() {
   }, [selectedProjectIsArchived]);
 
   const openProject = useCallback((project: Project) => {
+    setStandaloneAreaManager(false);
     setSelectedProject(project);
     setProjectTaskSortBy(project.taskSortBy ?? 'default');
     resetProjectNotesUi();
@@ -589,6 +616,7 @@ export default function ProjectsScreen() {
 
     if (item.type === 'area-header') {
       return (
+        <View style={[styles.folderHeader, { backgroundColor: tc.filterBg }]}>
         <TouchableOpacity
           onPress={() => toggleAreaCollapse(item.areaId)}
           accessibilityRole="button"
@@ -608,7 +636,7 @@ export default function ProjectsScreen() {
             {item.icon ? (
               <Text style={[styles.collapsibleAreaIcon, { color: tc.secondaryText }]}>{item.icon}</Text>
             ) : null}
-            <Text style={[styles.collapsibleAreaHeaderText, { color: tc.secondaryText }]} numberOfLines={1}>
+            <Text style={[styles.collapsibleAreaHeaderText, { color: tc.text }]} numberOfLines={2}>
               {item.title}
             </Text>
           </View>
@@ -616,6 +644,31 @@ export default function ProjectsScreen() {
             ? <ChevronRight size={16} color={tc.secondaryText} strokeWidth={2.2} />
             : <ChevronDown size={16} color={tc.secondaryText} strokeWidth={2.2} />}
         </TouchableOpacity>
+        {item.sectionKind === 'active' ? (
+          <TouchableOpacity
+            onPress={() => beginProjectInArea(item.areaId)}
+            disabled={creatingProject}
+            accessibilityRole="button"
+            accessibilityLabel={`${t('projects.add')}: ${item.title}`}
+            style={styles.folderAddButton}
+          >
+            <Plus size={20} color={tc.tint} />
+          </TouchableOpacity>
+        ) : null}
+        </View>
+      );
+    }
+
+    if (item.type === 'empty-area') {
+      return (
+        <View style={[styles.emptyFolderCard, { borderColor: tc.border }]}>
+          <Text style={[styles.helperText, { color: tc.secondaryText }]}>{t('projects.empty')}</Text>
+          <TouchableOpacity onPress={() => beginProjectInArea(item.areaId)} disabled={creatingProject}
+            accessibilityRole="button" style={styles.emptyCreateButton}>
+            <Plus size={18} color={tc.tint} />
+            <Text style={{ color: tc.tint, fontWeight: '600' }}>{t('projects.add')} {t('taskEdit.projectLabel')}</Text>
+          </TouchableOpacity>
+        </View>
       );
     }
 
@@ -626,18 +679,48 @@ export default function ProjectsScreen() {
     ? areaById.get(selectedProject.areaId)?.name || t('projects.noArea')
     : t('projects.noArea');
 
-  const handleAddProject = () => {
-    if (newProjectTitle.trim()) {
+  const beginProjectInArea = (areaId?: string) => {
+    if (projectCreatePending.current) return;
+    setNewProjectAreaId(areaId && areaById.has(areaId) ? areaId : '');
+    newProjectInputRef.current?.focus();
+  };
+
+  const openFolderManager = () => {
+    setStandaloneAreaManager(true);
+    setNewAreaName('');
+    setExpandedAreaColorId(null);
+    setShowAreaManager(true);
+  };
+
+  const handleAddProject = async () => {
+    const title = newProjectTitle.trim();
+    if (!title || projectCreatePending.current) return;
+    projectCreatePending.current = true;
+    setCreatingProject(true);
+    const reportFailure = () => showToast({
+      title: resolveText('common.notice', 'Notice'),
+      message: resolveText('projects.createFailed', 'Failed to create list'),
+      tone: 'error',
+    });
+    try {
       const resolvedAreaId =
         newProjectAreaId && areaById.has(newProjectAreaId) ? newProjectAreaId : undefined;
       const areaColor = resolvedAreaId ? areaById.get(resolvedAreaId)?.color : undefined;
-      addProject(newProjectTitle, areaColor || DEFAULT_PROJECT_COLOR, {
+      const created = await addProject(title, areaColor || DEFAULT_PROJECT_COLOR, {
         areaId: resolvedAreaId,
       });
-      setNewProjectTitle('');
-      setNewProjectAreaId(
+      if (!screenMountedRef.current) return;
+      if (!created) { reportFailure(); return; }
+      setNewProjectTitle(current => current === newProjectTitle ? '' : current);
+      setNewProjectAreaId(current => current !== newProjectAreaId ? current : (
         selectedAreaFilterValue !== ALL_AREAS && selectedAreaFilterValue !== NO_AREA ? selectedAreaFilterValue : ''
-      );
+      ));
+    } catch (error) {
+      logProjectError('Failed to create project', error);
+      if (screenMountedRef.current) reportFailure();
+    } finally {
+      projectCreatePending.current = false;
+      if (screenMountedRef.current) setCreatingProject(false);
     }
   };
 
@@ -734,6 +817,12 @@ export default function ProjectsScreen() {
     resetProjectAttachmentUi();
     setShowAreaPicker(false);
     setShowTagPicker(false);
+    if (restoreListFrameRef.current !== null) cancelAnimationFrame(restoreListFrameRef.current);
+    const offset = projectListOffsetRef.current;
+    restoreListFrameRef.current = requestAnimationFrame(() => {
+      restoreListFrameRef.current = null;
+      projectListRef.current?.scrollToOffset({ offset, animated: false });
+    });
     if (navigateBack && projectId && router.canGoBack()) {
       router.back();
     }
@@ -813,12 +902,22 @@ export default function ProjectsScreen() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View onLayout={onStartupLayout} style={[styles.container, { backgroundColor: tc.bg }]}>
       <View style={[styles.inputContainer, { borderBottomColor: tc.border }]}>
+        <View style={styles.organizationHeader}>
+          <Text accessibilityRole="header" style={[styles.organizationTitle, { color: tc.text }]}>{t('projects.title')}</Text>
+          <TouchableOpacity onPress={openFolderManager} accessibilityRole="button"
+            accessibilityLabel={t('projects.manageAreas')} style={[styles.folderManagerButton, { borderColor: tc.border }]}>
+            <Text style={{ color: tc.tint, fontWeight: '600' }}>{t('projects.manageAreas')}</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.addProjectRow}>
           <CompactTextInput
+            ref={newProjectInputRef}
             style={[styles.input, styles.addProjectInput, { borderColor: tc.border, backgroundColor: tc.inputBg, color: tc.text }]}
             placeholder={t('projects.addPlaceholder')}
             placeholderTextColor={tc.secondaryText}
             value={newProjectTitle}
+            editable={!creatingProject}
+            accessibilityState={{ busy: creatingProject, disabled: creatingProject }}
             onChangeText={setNewProjectTitle}
             onSubmitEditing={handleAddProject}
             returnKeyType="done"
@@ -827,13 +926,14 @@ export default function ProjectsScreen() {
           <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel={t('projects.add')}
+            accessibilityState={{ busy: creatingProject, disabled: creatingProject || !newProjectTitle.trim() }}
             onPress={handleAddProject}
             style={[
               styles.addIconButton,
               { backgroundColor: filledButton.backgroundColor },
               !newProjectTitle.trim() && styles.addButtonDisabled,
             ]}
-            disabled={!newProjectTitle.trim()}
+            disabled={creatingProject || !newProjectTitle.trim()}
           >
             <Plus size={22} color={filledButton.textColor ?? tc.onTint} strokeWidth={2.4} />
           </TouchableOpacity>
@@ -848,6 +948,7 @@ export default function ProjectsScreen() {
                   : { borderColor: tc.border, backgroundColor: tc.cardBg },
               ]}
               onPress={() => setNewProjectAreaId('')}
+              disabled={creatingProject}
               accessibilityRole="button"
               accessibilityLabel={t('projects.noArea')}
               accessibilityState={{ selected: newProjectAreaId === '' }}
@@ -871,6 +972,7 @@ export default function ProjectsScreen() {
                     : { borderColor: tc.border, backgroundColor: tc.cardBg },
                 ]}
                 onPress={() => setNewProjectAreaId(area.id)}
+                disabled={creatingProject}
                 accessibilityRole="button"
                 accessibilityLabel={area.name}
                 accessibilityState={{ selected: newProjectAreaId === area.id }}
@@ -986,13 +1088,23 @@ export default function ProjectsScreen() {
       </View>
 
       <FlatList
+        ref={projectListRef}
+        onScroll={event => { projectListOffsetRef.current = Math.max(0, event.nativeEvent.contentOffset.y); }}
+        scrollEventThrottle={16}
         data={projectListRows}
         keyExtractor={(item) => item.key}
-        contentContainerStyle={[defaultListContentStyle, moeTabInset > 0 && { paddingBottom: moeTabInset }]}
+        contentContainerStyle={[defaultListContentStyle, { paddingHorizontal: MOE_VISUAL.pageGutter }, moeTabInset > 0 && { paddingBottom: moeTabInset }]}
         style={{ flex: 1 }}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={[styles.emptyText, { color: tc.secondaryText }]}>{projectListEmptyLabel}</Text>
+            {projectListViewStateHydrated ? (
+              <TouchableOpacity onPress={() => beginProjectInArea(newProjectAreaId)} disabled={creatingProject}
+                accessibilityRole="button" style={styles.emptyCreateButton}>
+                <Plus size={18} color={tc.tint} />
+                <Text style={{ color: tc.tint }}>{t('projects.add')} {t('taskEdit.projectLabel')}</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         }
         renderItem={renderProjectListRow}
@@ -1075,6 +1187,7 @@ export default function ProjectsScreen() {
         onClose={() => setImagePreviewAttachment(null)}
       />
       <ProjectAreaModals
+        standalone={standaloneAreaManager}
         addArea={addArea}
         areaListMaxHeight={areaListMaxHeight}
         areaManagerListMaxHeight={areaManagerListMaxHeight}
@@ -1085,6 +1198,7 @@ export default function ProjectsScreen() {
         newAreaName={newAreaName}
         onCloseAreaManager={() => {
           setShowAreaManager(false);
+          setStandaloneAreaManager(false);
           setExpandedAreaColorId(null);
         }}
         onDeleteArea={deleteArea}

@@ -42,6 +42,40 @@ describe('buildProjectListRows', () => {
     'projects.closed': 'Closed',
   }[key] ?? key);
 
+  it('keeps a genuinely empty folder in its ordered position with a create-list row', () => {
+    const empty = { ...buildArea('empty', '旅行准备'), order: -1 };
+    const rows = buildProjectListRows({
+      areaById: new Map([[research.id, research], [empty.id, empty]]),
+      orderedAreas: [empty, research],
+      projects: [buildProject('active', 'Research notes', 'active', research.id)],
+      areaFilter: { included: [], excluded: [] },
+      collapsedAreas: {},
+      groupedActiveProjects: [{ areaId: research.id, projects: [buildProject('active', 'Research notes', 'active', research.id)] }],
+      groupedDeferredProjects: [], groupedArchivedProjects: [],
+      showArchivedProjects: false, showDeferredProjects: false, t,
+    });
+    expect(rows.map(row => row.type)).toEqual(['section-label', 'area-header', 'empty-area', 'area-header', 'project']);
+    expect(rows[1]).toMatchObject({ areaId: 'empty', title: '旅行准备' });
+    expect(rows[2]).toMatchObject({ type: 'empty-area', areaId: 'empty' });
+  });
+
+  it.each(['excluded', 'other-included', 'tag-filter', 'deleted', 'closed-project', 'collapsed'])(
+    'does not offer an empty-folder create row for %s content', reason => {
+      const area = { ...research, deletedAt: reason === 'deleted' ? now : undefined };
+      const rows = buildProjectListRows({
+        areaById, orderedAreas: [area],
+        projects: reason === 'closed-project' ? [buildProject('closed', 'Closed', 'archived', area.id)] : [],
+        areaFilter: { included: reason === 'other-included' ? ['other'] : [], excluded: reason === 'excluded' ? [area.id] : [] },
+        hasTagFilter: reason === 'tag-filter',
+        collapsedAreas: reason === 'collapsed' ? { [area.id]: true } : {},
+        groupedActiveProjects: [], groupedDeferredProjects: [], groupedArchivedProjects: [],
+        showArchivedProjects: false, showDeferredProjects: false, t,
+      });
+      expect(rows.some(row => row.type === 'empty-area')).toBe(false);
+      if (reason === 'collapsed') expect(rows.some(row => row.type === 'area-header')).toBe(true);
+    },
+  );
+
   it('keeps deferred and archived projects out of the active area list by default', () => {
     const rows = buildProjectListRows({
       areaById,

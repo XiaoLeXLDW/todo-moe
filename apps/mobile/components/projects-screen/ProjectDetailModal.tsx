@@ -1720,6 +1720,23 @@ export function ProjectDetailModal({
                                         <Ionicons name="ellipsis-horizontal" size={20} color={tc.secondaryText} />
                                     </TouchableOpacity>
                                 </View>
+                                <View style={styles.projectContainerPath}>
+                                    <TouchableOpacity onPress={openAreaPicker} disabled={isArchivedProject}
+                                        accessibilityRole="button" accessibilityLabel={`${t('projects.areaLabel')}: ${areaName}`}
+                                        accessibilityState={{ disabled: isArchivedProject }}
+                                        style={[styles.projectContainerChip, { borderColor: tc.border, backgroundColor: tc.filterBg }]}>
+                                        <Ionicons name="folder-outline" size={16} color={tc.secondaryText} />
+                                        <Text style={[styles.projectContainerText, { color: tc.text }]} numberOfLines={2}>{areaName}</Text>
+                                    </TouchableOpacity>
+                                    {canManageProjectSections || selectedProjectSections.length > 0 ? (
+                                        <TouchableOpacity onPress={() => setSectionManagerVisible(true)} accessibilityRole="button"
+                                            accessibilityLabel={projectSectionsLabel}
+                                            style={[styles.projectContainerChip, { borderColor: tc.border, backgroundColor: tc.filterBg }]}>
+                                            <Text style={{ color: tc.tint }}>{projectSectionsLabel} · {selectedProjectSections.length}</Text>
+                                            <Ionicons name="chevron-forward" size={14} color={tc.tint} />
+                                        </TouchableOpacity>
+                                    ) : null}
+                                </View>
                                 {projectTaskPinnedToolbar}
                                 {projectTaskSelectionBulkBar}
                                 <ProjectDetailScrollFrame backgroundColor={tc.bg}>

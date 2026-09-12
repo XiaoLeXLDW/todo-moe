@@ -1,4 +1,4 @@
-import type { Area, Project, ProjectAreaGroup, Task } from '@mindwtr/core';
+import type { Area, AreaFilterSelection, Project, ProjectAreaGroup, Task } from '@mindwtr/core';
 
 export type ProjectListRow =
   | { type: 'section-label'; key: string; title: string }
@@ -13,6 +13,7 @@ export type ProjectListRow =
       color?: string;
       icon?: string;
     }
+  | { type: 'empty-area'; key: string; areaId: string }
   | { type: 'project'; key: string; project: Project; sectionKind: 'active' | 'deferred' | 'archived' };
 
 // Matches core's projectTaskSummaryById value shape (store-types.ts DerivedState);
@@ -24,6 +25,10 @@ export type ProjectTaskSummary = {
 
 type BuildProjectListRowsParams = {
   areaById: Map<string, Area>;
+  orderedAreas?: readonly Area[];
+  projects?: readonly Project[];
+  areaFilter?: AreaFilterSelection;
+  hasTagFilter?: boolean;
   collapsedAreas: Record<string, boolean>;
   groupedActiveProjects: ProjectAreaGroup[];
   groupedArchivedProjects: ProjectAreaGroup[];
@@ -60,6 +65,10 @@ function buildAreaRows(
 
     if (collapsed) return;
 
+    if (group.projects.length === 0) {
+      rows.push({ type: 'empty-area', key: `empty-area-${areaId}`, areaId });
+    }
+
     group.projects.forEach((project) => {
       rows.push({
         type: 'project',
@@ -75,6 +84,10 @@ function buildAreaRows(
 
 export function buildProjectListRows({
   areaById,
+  orderedAreas = [],
+  projects = [],
+  areaFilter = { included: [], excluded: [] },
+  hasTagFilter = false,
   collapsedAreas,
   groupedActiveProjects,
   groupedArchivedProjects,
@@ -84,14 +97,33 @@ export function buildProjectListRows({
   t,
 }: BuildProjectListRowsParams): ProjectListRow[] {
   const rows: ProjectListRow[] = [];
+  const activeGroups = [...groupedActiveProjects];
+  // An empty folder is a real container, not an artefact of hidden projects.
+  // Consult every project, including closed/deferred ones, before offering it.
+  const occupiedAreaIds = new Set(projects.filter(project => !project.deletedAt).map(project => project.areaId));
+  const groupedAreaIds = new Set([
+    ...groupedActiveProjects, ...groupedDeferredProjects, ...groupedArchivedProjects,
+  ].map(group => group.areaId));
+  if (!hasTagFilter) {
+    orderedAreas.forEach(area => {
+      if (area.deletedAt || occupiedAreaIds.has(area.id) || groupedAreaIds.has(area.id)) return;
+      if (areaFilter.excluded.includes(area.id)) return;
+      if (areaFilter.included.length && !areaFilter.included.includes(area.id)) return;
+      activeGroups.push({ areaId: area.id, projects: [] });
+    });
+    if (activeGroups.length !== groupedActiveProjects.length) {
+      const rank = new Map(orderedAreas.map((area, index) => [area.id, index]));
+      activeGroups.sort((a, b) => (rank.get(a.areaId ?? '') ?? Infinity) - (rank.get(b.areaId ?? '') ?? Infinity));
+    }
+  }
 
-  if (groupedActiveProjects.length > 0) {
+  if (activeGroups.length > 0) {
     rows.push({
       type: 'section-label',
       key: 'active-projects',
       title: t('projects.activeSection'),
     });
-    rows.push(...buildAreaRows('active', groupedActiveProjects, areaById, collapsedAreas, t));
+    rows.push(...buildAreaRows('active', activeGroups, areaById, collapsedAreas, t));
   }
 
   if (groupedDeferredProjects.length > 0) {

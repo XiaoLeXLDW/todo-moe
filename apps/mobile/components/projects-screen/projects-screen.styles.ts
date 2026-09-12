@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { MOE_VISUAL } from '@/moe/visual-system';
 
 export const projectsScreenStyles = StyleSheet.create({
     container: {
@@ -6,7 +7,7 @@ export const projectsScreenStyles = StyleSheet.create({
         backgroundColor: '#fff',
     },
     inputContainer: {
-        padding: 16,
+        padding: MOE_VISUAL.pageGutter,
         gap: 12,
         borderBottomWidth: 1,
         borderBottomColor: '#e5e5e5',
@@ -16,6 +17,13 @@ export const projectsScreenStyles = StyleSheet.create({
         alignItems: 'center',
         gap: 8,
     },
+    organizationHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+    organizationTitle: { flex: 1, fontSize: 22, fontWeight: '700', minWidth: 0 },
+    folderManagerButton: { minHeight: 44, borderWidth: 1, borderRadius: MOE_VISUAL.cardRadius, paddingHorizontal: 14, justifyContent: 'center' },
+    folderHeader: { flexDirection: 'row', alignItems: 'center', borderRadius: MOE_VISUAL.cardRadius, paddingHorizontal: 12, marginBottom: 8 },
+    folderAddButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+    emptyFolderCard: { borderWidth: 1, borderStyle: 'dashed', borderRadius: MOE_VISUAL.cardRadius, padding: 16, marginBottom: 12, alignItems: 'flex-start' },
+    emptyCreateButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 },
     filterSection: {
         gap: 8,
     },
@@ -97,13 +105,14 @@ export const projectsScreenStyles = StyleSheet.create({
     projectItem: {
         flexDirection: 'row',
         backgroundColor: '#f9f9f9',
-        borderRadius: 8,
-        padding: 12,
+        borderRadius: MOE_VISUAL.cardRadius,
+        padding: 16,
         marginBottom: 8,
         alignItems: 'center',
     },
     projectTouchArea: {
         flex: 1,
+        minWidth: 0,
         flexDirection: 'row',
         alignItems: 'center',
     },
@@ -186,6 +195,9 @@ export const projectsScreenStyles = StyleSheet.create({
         textTransform: 'uppercase',
     },
     collapsibleAreaHeader: {
+        flex: 1,
+        minWidth: 0,
+        minHeight: 48,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -197,6 +209,7 @@ export const projectsScreenStyles = StyleSheet.create({
         alignItems: 'center',
         gap: 8,
         flex: 1,
+        minWidth: 0,
         paddingRight: 8,
     },
     collapsibleAreaDot: {
@@ -229,6 +242,11 @@ export const projectsScreenStyles = StyleSheet.create({
         alignItems: 'center',
         gap: 6,
     },
+    projectContainerPath: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingHorizontal: MOE_VISUAL.pageGutter, paddingBottom: 8 },
+    projectContainerChip: { minHeight: 44, maxWidth: '100%', borderWidth: 1, borderRadius: MOE_VISUAL.cardRadius, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 8, flexShrink: 1 },
+    projectContainerText: { fontSize: 13, flexShrink: 1, minWidth: 0 },
+    areaRenameButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
+    areaEditorHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 12 },
     projectTagDots: {
         flexDirection: 'row',
         gap: 4,
@@ -245,6 +263,7 @@ export const projectsScreenStyles = StyleSheet.create({
         fontWeight: '500',
     },
     projectTaskCountBadge: {
+        flexShrink: 0,
         minWidth: 22,
         minHeight: 20,
         alignItems: 'center',
@@ -859,16 +878,20 @@ export const projectsScreenStyles = StyleSheet.create({
         flexWrap: 'wrap',
     },
     areaManagerInfo: {
+        minWidth: 0,
+        flexShrink: 1,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
     },
     areaManagerActions: {
+        flexShrink: 0,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
     },
     areaManagerText: {
+        flexShrink: 1,
         fontSize: 14,
         fontWeight: '600',
     },
@@ -909,8 +932,8 @@ export const projectsScreenStyles = StyleSheet.create({
         fontWeight: '700',
     },
     pickerCard: {
-        padding: 16,
-        borderRadius: 12,
+        padding: MOE_VISUAL.pageGutter,
+        borderRadius: MOE_VISUAL.cardRadius,
         borderWidth: 1,
         minWidth: 280,
         maxWidth: 360,
