@@ -1,5 +1,5 @@
 import React from 'react';
-import { FlatList, KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -22,6 +22,10 @@ vi.mock('@/contexts/toast-context', () => ({
   ToastViewport: () => null,
   useToast: () => ({ showToast: () => {}, dismissToast: () => {} }),
 }));
+
+vi.mock('@/moe/glass/GlassSurface', () => ({ GlassSurface: (props: Record<string, unknown>) => React.createElement(View, props) }));
+vi.mock('@/moe/preferences', () => ({ useMoePreferences: () => ({ glass: 'soft', motion: 'standard' }) }));
+vi.mock('@/hooks/use-reduced-motion', () => ({ useReducedMotion: () => false }));
 
 const tc: any = {
   cardBg: '#111827',
@@ -320,10 +324,7 @@ describe('Quick capture modal composition', () => {
     expect(keyboardAvoiding.props.behavior).toBeUndefined();
     expect(keyboardAvoiding.props.accessibilityElementsHidden).toBe(true);
     expect(keyboardAvoiding.props.importantForAccessibility).toBe('no-hide-descendants');
-    const backdrop = tree.root.find(
-      (node) => node.props.accessibilityRole === 'button'
-        && node.props.accessibilityLabel === 'common.close'
-    );
+    const backdrop = tree.root.findAllByType(Pressable).find((node) => node.props.accessibilityLabel === 'common.close')!;
     expect(backdrop.props.accessibilityElementsHidden).toBe(true);
     expect(backdrop.props.importantForAccessibility).toBe('no-hide-descendants');
     expect(modal.props.statusBarTranslucent).toBe(false);
@@ -578,7 +579,7 @@ describe('Quick capture modal composition', () => {
     expect(onSubmitAreaQuery).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps collapsed capture focused on context and hides organizing fields behind More', () => {
+  it('keeps project and dates in the default layer while other fields are hidden behind More', () => {
     let tree!: ReturnType<typeof create>;
     const t = (key: string) => ({
       'common.close': 'Close',
@@ -647,12 +648,21 @@ describe('Quick capture modal composition', () => {
       );
     });
 
-    expect(tree.root.findAllByProps({ accessibilityLabel: 'Contexts: @computer' }).length).toBeGreaterThan(0);
-    expect(tree.root.findAllByProps({ accessibilityLabel: 'More' }).length).toBeGreaterThan(0);
-    expect(tree.root.findAllByProps({ accessibilityLabel: 'Due Date: Tomorrow' })).toHaveLength(0);
-    expect(tree.root.findAllByProps({ accessibilityLabel: 'Area: Work' })).toHaveLength(0);
-    expect(tree.root.findAllByProps({ accessibilityLabel: 'Project: Project' })).toHaveLength(0);
-    expect(tree.root.findAllByProps({ accessibilityLabel: 'Priority: High' })).toHaveLength(0);
+    const drag = tree.root.findAllByProps({ testID: 'quick-capture-drag-handle' })[0];
+    expect(typeof drag.props.onMoveShouldSetResponder).toBe('function');
+    expect(tree.root.findAllByType(TextInput).every((input) => input.props.onMoveShouldSetResponder === undefined)).toBe(true);
+    expect(tree.root.findByType(ScrollView).props.onMoveShouldSetResponder).toBeUndefined();
+    const more = tree.root.findAllByProps({ testID: 'quick-capture-more' })[0];
+    expect(more.props.pointerEvents).toBe('none');
+    expect(more.props.importantForAccessibility).toBe('no-hide-descendants');
+    expect(more.findAllByProps({ accessibilityLabel: 'Contexts: @computer' }).length).toBeGreaterThan(0);
+    expect(more.findAllByProps({ accessibilityLabel: 'Area: Work' }).length).toBeGreaterThan(0);
+    expect(more.findAllByProps({ accessibilityLabel: 'Priority: High' }).length).toBeGreaterThan(0);
+    expect(more.findAllByProps({ testID: 'quick-capture-project' })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: 'quick-capture-project' }).length).toBeGreaterThan(0);
+    expect(tree.root.findAllByProps({ accessibilityLabel: 'Today' }).length).toBeGreaterThan(0);
+    expect(tree.root.findAllByProps({ accessibilityLabel: 'Tomorrow' }).length).toBeGreaterThan(0);
+    expect(tree.root.findAllByProps({ accessibilityLabel: 'Next week' })).toHaveLength(0);
     expect(tree.root.findAllByType(Text).some((node) => node.props.children === 'More')).toBe(true);
   });
 
@@ -800,9 +810,8 @@ describe('Quick capture modal composition', () => {
     const projectChip = tree.root.findByProps({ accessibilityLabel: `Project: ${longProjectName}` });
     const projectText = tree.root.findAllByType(Text).find((node) => node.props.children === longProjectName);
     expect(projectChip).toBeTruthy();
-    expect(projectText?.props.numberOfLines).toBe(1);
-    expect(projectText?.props.ellipsizeMode).toBe('tail');
-    expect(tree.root.findAllByProps({ accessibilityLabel: 'Contexts: @computer' })).toHaveLength(0);
+    expect(projectText?.props.numberOfLines).toBe(2);
+    expect(tree.root.findAllByProps({ testID: 'quick-capture-more' })[0].props.pointerEvents).toBe('none');
     expect(tree.root.findAllByProps({ accessibilityLabel: 'More' }).length).toBeGreaterThan(0);
   });
 
@@ -1154,7 +1163,7 @@ describe('Quick capture modal composition', () => {
       // TextInput inside an iOS ScrollView gets auto-scrolled above the keyboard and
       // flies off the top of the sheet on every refocus (#887).
       expect(scroll.findAllByType(TextInput).map((node) => node.props.accessibilityLabel))
-        .toEqual(['taskEdit.descriptionLabel']);
+        .toEqual([]);
       expect(tree.root.findAllByType(TextInput)[0].props.accessibilityLabel).toBe('quickAdd.inputLabel');
     } finally {
       Object.defineProperty(Platform, 'OS', { configurable: true, value: originalPlatformOs });
@@ -1218,14 +1227,13 @@ describe('Quick capture modal composition', () => {
         );
       });
 
-      // Tapping More hides the Android keyboard, but it comes back the moment the user
-      // taps the title to keep typing. The measured lift then shrinks the space left for
+      // More keeps the Android keyboard visible while the user continues typing. The measured lift then shrinks the space left for
       // a sheet whose expanded content is taller than the screen, so the More panel has
       // to scroll inside the sheet instead of pushing the title off the top (#1120).
       const scroll = tree.root.findByType(ScrollView);
       expect(scroll.props.testID).toBe('quick-capture-scroll');
       expect(scroll.findAllByType(TextInput).map((node) => node.props.accessibilityLabel))
-        .toEqual(['taskEdit.descriptionLabel']);
+        .toEqual([]);
       const sheet = tree.root
         .findAllByType(View)
         .find((node) => flattenStyle(node.props.style).maxHeight === 500);
@@ -1242,7 +1250,7 @@ describe('Quick capture modal composition', () => {
       Object.defineProperty(Platform, 'OS', { configurable: true, value: originalPlatformOs });
     }
   });
-  it('keeps the note field behind More instead of crowding collapsed capture', () => {
+  it('keeps existing notes readable while directing low-frequency editing to task details', () => {
     const renderBody = (optionsExpanded: boolean) => {
       let tree!: ReturnType<typeof create>;
       act(() => {
@@ -1305,10 +1313,10 @@ describe('Quick capture modal composition', () => {
     // disclosure behind More (#1118).
     expect(findNote(renderBody(false))).toHaveLength(0);
 
-    const expanded = findNote(renderBody(true));
-    expect(expanded).toHaveLength(1);
-    expect(expanded[0].props.value).toBe('Bring the signed form');
-    expect(expanded[0].props.multiline).toBe(true);
+    const expanded = renderBody(true);
+    expect(findNote(expanded)).toHaveLength(0);
+    expect(JSON.stringify(expanded.toJSON())).toContain('Bring the signed form');
+    expect(JSON.stringify(expanded.toJSON())).toContain('taskEdit.recurrenceLabel');
   });
 
   it('carries the canonical priority flag on overlay rows and tints the trigger flag when set', () => {
@@ -1440,4 +1448,36 @@ describe('Quick capture modal composition', () => {
     expect(triggerFlag(null).map((node) => node.props.color)).toContain(tc.text);
     expect(triggerFlag(null).map((node) => node.props.color)).not.toContain('#ca8a04');
   });
+
+  it('distinguishes same-name projects by their folders while selecting the original project ID', () => {
+    const onSelectProject = vi.fn();
+    const props = {
+      filteredAreas: [], projectAreas: [{ id: 'a', name: 'Home' }, { id: 'b', name: 'Work' }],
+      filteredProjects: [{ id: 'p1', title: 'Shopping', areaId: 'a' }, { id: 'p2', title: 'Shopping', areaId: 'b' }, { id: 'p3', title: 'Shopping' }],
+      selectedProjectId: 'p2', contextInputRef: { current: null }, contextOptionsLoading: false,
+      contextQuery: '', contextTags: [], dueDate: null, filteredContexts: [], hasAddableContextTokens: false,
+      hasExactProjectMatch: false, pendingStartDate: null, prioritiesEnabled: false, priorityOptions: [],
+      projectQuery: '', selectedAreaId: null, selectedPriority: null, showAreaPicker: false, showContextPicker: false,
+      showDatePicker: false, showDueTimePicker: false, showPriorityPicker: false, showProjectPicker: true,
+      startPickerMode: null, startTime: null, t: (key: string) => key === 'taskEdit.noAreaOption' ? 'No folder' : key, tc,
+      onAddContextFromQuery: vi.fn(), onClearContexts: vi.fn(), onCloseAreaPicker: vi.fn(), onCloseContextPicker: vi.fn(),
+      onClosePriorityPicker: vi.fn(), onCloseProjectPicker: vi.fn(), onContextQueryChange: vi.fn(), onDueDateChange: vi.fn(),
+      onDueTimeChange: vi.fn(), onProjectQueryChange: vi.fn(), onRemoveContext: vi.fn(), onSelectArea: vi.fn(),
+      onSelectContext: vi.fn(), onSelectPriority: vi.fn(), onSelectProject, onStartTimeChange: vi.fn(),
+      onSubmitContextQuery: vi.fn(), onSubmitProjectQuery: vi.fn(),
+    } as unknown as React.ComponentProps<typeof QuickCaptureSheetPickers>;
+    let tree!: ReactTestRenderer;
+    act(() => { tree = create(<QuickCaptureSheetPickers {...props} />); });
+    const list = tree.root.findByType(FlatList);
+    let rows!: ReactTestRenderer;
+    act(() => { rows = create(<>{props.filteredProjects.map((item, index) => React.cloneElement(list.props.renderItem({ item, index }), { key: item.id }))}</>); });
+    const choices = rows.root.findAllByType(Pressable).filter((item) => item.props.accessibilityLabel.startsWith('Shopping,'));
+    expect(choices.map((item) => item.props.accessibilityLabel)).toEqual(['Shopping, Home', 'Shopping, Work', 'Shopping, No folder']);
+    expect(choices[1].props.accessibilityState.selected).toBe(true);
+    act(() => choices[1].props.onPress()); expect(onSelectProject).toHaveBeenCalledExactlyOnceWith('p2');
+    act(() => rows.unmount());
+    expect(tree.root.findAllByType(Modal)).toHaveLength(0);
+    act(() => tree.unmount());
+  });
+
 });

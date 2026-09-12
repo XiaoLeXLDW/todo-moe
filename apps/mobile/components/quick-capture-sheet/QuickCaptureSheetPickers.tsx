@@ -16,6 +16,8 @@ interface QuickCaptureSheetPickersProps {
   contextTags: string[];
   filteredContexts: string[];
   filteredProjects: Project[];
+  projectAreas?: Area[];
+  selectedProjectId?: string | null;
   hasAddableContextTokens: boolean;
   hasExactAreaMatch?: boolean;
   hasExactProjectMatch: boolean;
@@ -70,6 +72,8 @@ export function QuickCaptureSheetPickers({
   dueDate,
   filteredContexts,
   filteredProjects,
+  projectAreas = [],
+  selectedProjectId,
   hasAddableContextTokens,
   hasExactAreaMatch = false,
   hasExactProjectMatch,
@@ -120,6 +124,8 @@ export function QuickCaptureSheetPickers({
     ? [styles.overlay, { paddingBottom: overlayKeyboardInset }]
     : styles.overlay;
   const trimmedAreaQuery = areaQuery.trim();
+  const projectAreaLabels = new Map(projectAreas.map((area) => [area.id, area.name]));
+  const projectSubtitle = (project: Project) => (project.areaId ? projectAreaLabels.get(project.areaId) : null) || t('taskEdit.noAreaOption');
 
   return (
     <>
@@ -382,9 +388,14 @@ export function QuickCaptureSheetPickers({
                   onPress={() => onSelectProject(project.id)}
                   style={styles.pickerRow}
                   accessibilityRole="button"
-                  accessibilityLabel={project.title}
+                  accessibilityLabel={`${project.title}, ${projectSubtitle(project)}`}
+                  accessibilityState={{ selected: selectedProjectId === project.id }}
                 >
-                  <Text style={[styles.pickerRowText, { color: tc.text }]}>{project.title}</Text>
+                  <View style={styles.pickerRowContent}>
+                    <Text style={[styles.pickerRowText, { color: tc.text }]}>{project.title}</Text>
+                    <Text style={[styles.pickerRowSubtitle, { color: tc.secondaryText }]}>{projectSubtitle(project)}</Text>
+                  </View>
+                  {selectedProjectId === project.id ? <Check size={16} color={tc.tint} accessible={false} /> : null}
                 </Pressable>
               )}
               removeClippedSubviews={false}

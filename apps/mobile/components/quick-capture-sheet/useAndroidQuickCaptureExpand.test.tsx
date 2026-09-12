@@ -1,164 +1,43 @@
-import React, { useEffect, useRef, useState, type RefObject } from 'react';
+import React, { useRef, useState } from 'react';
 import { Keyboard, Platform, type TextInput } from 'react-native';
-import { act, create } from 'react-test-renderer';
+import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-
 import { useAndroidQuickCaptureExpand } from './useAndroidQuickCaptureExpand';
 
-type HookSnapshot = ReturnType<typeof useAndroidQuickCaptureExpand> & {
-  clearInitialFocusTimer: ReturnType<typeof vi.fn>;
-  inputRef: RefObject<TextInput | null>;
-  keyboardAvoidingEnabled: boolean;
-  optionsExpanded: boolean;
-};
-
-const withPlatform = async (os: typeof Platform.OS, run: () => Promise<void>) => {
-  const descriptor = Object.getOwnPropertyDescriptor(Platform, 'OS');
-  Object.defineProperty(Platform, 'OS', { configurable: true, value: os });
-  try {
-    await run();
-  } finally {
-    if (descriptor) {
-      Object.defineProperty(Platform, 'OS', descriptor);
-    }
-  }
-};
-
-function TestHarness({ onSnapshot }: { onSnapshot: (snapshot: HookSnapshot) => void }) {
-  const inputRef = useRef<TextInput | null>(null);
-  const clearInitialFocusTimer = useRef(vi.fn()).current;
-  const [keyboardAvoidingEnabled, setKeyboardAvoidingEnabled] = useState(true);
+type Snapshot = ReturnType<typeof useAndroidQuickCaptureExpand> & { optionsExpanded: boolean; keyboardAvoidingEnabled: boolean; input: React.RefObject<TextInput | null> };
+let snapshot: Snapshot;
+const mounted: ReactTestRenderer[] = [];
+function Harness() {
+  const input = useRef<TextInput | null>(null);
   const [optionsExpanded, setOptionsExpanded] = useState(false);
-  const controller = useAndroidQuickCaptureExpand({
-    clearInitialFocusTimer,
-    fallbackMs: 500,
-    inputRef,
-    setKeyboardAvoidingEnabled,
-    setOptionsExpanded,
-  });
-
-  useEffect(() => {
-    onSnapshot({
-      ...controller,
-      clearInitialFocusTimer,
-      inputRef,
-      keyboardAvoidingEnabled,
-      optionsExpanded,
-    });
-  });
-
+  const [keyboardAvoidingEnabled, setKeyboardAvoidingEnabled] = useState(true);
+  const controller = useAndroidQuickCaptureExpand({ clearInitialFocusTimer: vi.fn(), inputRef: input, setKeyboardAvoidingEnabled, setOptionsExpanded });
+  snapshot = { ...controller, input, optionsExpanded, keyboardAvoidingEnabled };
   return null;
 }
+afterEach(() => { for (const tree of mounted.splice(0)) act(() => tree.unmount()); vi.restoreAllMocks(); vi.useRealTimers(); });
 
-describe('useAndroidQuickCaptureExpand', () => {
-  afterEach(() => {
-    vi.useRealTimers();
-    vi.restoreAllMocks();
+describe('Android More preserves the measured keyboard viewport', () => {
+  it.each([true, false])('expands immediately without blur, dismiss, listeners or fallback timers (keyboard visible=%s)', (visible) => {
+    const original = Object.getOwnPropertyDescriptor(Platform, 'OS');
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
+    try {
+      vi.useFakeTimers(); vi.spyOn(Keyboard, 'isVisible').mockReturnValue(visible);
+      const dismiss = vi.spyOn(Keyboard, 'dismiss'); const listen = vi.spyOn(Keyboard, 'addListener');
+      act(() => { mounted.push(create(<Harness />)); });
+      const blur = vi.fn(); snapshot.input.current = { blur } as unknown as TextInput;
+      act(() => snapshot.requestAndroidOptionsExpand());
+      expect(snapshot.optionsExpanded).toBe(true); expect(snapshot.keyboardAvoidingEnabled).toBe(true);
+      expect(snapshot.androidOptionsExpandPhase).toBe('expanded');
+      expect(blur).not.toHaveBeenCalled(); expect(dismiss).not.toHaveBeenCalled(); expect(listen).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally { if (original) Object.defineProperty(Platform, 'OS', original); }
   });
-
-  it('expands immediately when the Android keyboard is already hidden', async () => {
-    vi.spyOn(Keyboard, 'isVisible').mockReturnValue(false);
-    const dismiss = vi.spyOn(Keyboard, 'dismiss').mockImplementation(vi.fn());
-    const addListener = vi.spyOn(Keyboard, 'addListener');
-    let snapshot!: HookSnapshot;
-
-    await withPlatform('android', async () => {
-      await act(async () => {
-        create(<TestHarness onSnapshot={(next) => { snapshot = next; }} />);
-        await Promise.resolve();
-      });
-      const blur = vi.fn();
-      snapshot.inputRef.current = { blur } as unknown as TextInput;
-
-      await act(async () => {
-        snapshot.requestAndroidOptionsExpand();
-        await Promise.resolve();
-      });
-
-      expect(blur).toHaveBeenCalledOnce();
-      expect(dismiss).toHaveBeenCalledOnce();
-      expect(addListener).toHaveBeenCalledWith('keyboardDidShow', expect.any(Function));
-      expect(snapshot.optionsExpanded).toBe(true);
-      expect(snapshot.keyboardAvoidingEnabled).toBe(false);
-      expect(snapshot.androidOptionsExpandPhase).toBe('expanded');
-    });
-  });
-
-  it('keeps the sheet lifted until the Android keyboard hide event fires', async () => {
-    vi.useFakeTimers();
-    vi.spyOn(Keyboard, 'isVisible').mockReturnValue(true);
-    vi.spyOn(Keyboard, 'dismiss').mockImplementation(vi.fn());
-    const remove = vi.fn();
-    const hideListeners: Array<() => void> = [];
-    const showListeners: Array<() => void> = [];
-    vi.spyOn(Keyboard, 'addListener').mockImplementation(((event: string, callback: () => void) => {
-      if (event === 'keyboardDidHide') hideListeners.push(callback);
-      if (event === 'keyboardDidShow') showListeners.push(callback);
-      return { remove };
-    }) as unknown as typeof Keyboard.addListener);
-    let snapshot!: HookSnapshot;
-
-    await withPlatform('android', async () => {
-      await act(async () => {
-        create(<TestHarness onSnapshot={(next) => { snapshot = next; }} />);
-        await Promise.resolve();
-      });
-      snapshot.inputRef.current = { blur: vi.fn() } as unknown as TextInput;
-
-      await act(async () => {
-        snapshot.requestAndroidOptionsExpand();
-        await Promise.resolve();
-      });
-
-      expect(hideListeners).toHaveLength(1);
-      expect(snapshot.optionsExpanded).toBe(false);
-      expect(snapshot.keyboardAvoidingEnabled).toBe(true);
-      expect(snapshot.androidOptionsExpandPhase).toBe('hiding');
-
-      await act(async () => {
-        hideListeners[0]?.();
-        await Promise.resolve();
-      });
-
-      expect(remove).toHaveBeenCalledOnce();
-      expect(snapshot.optionsExpanded).toBe(true);
-      expect(snapshot.keyboardAvoidingEnabled).toBe(false);
-      expect(snapshot.androidOptionsExpandPhase).toBe('expanded');
-      expect(showListeners).toHaveLength(1);
-
-      await act(async () => {
-        showListeners[0]?.();
-        await Promise.resolve();
-      });
-
-      expect(snapshot.optionsExpanded).toBe(true);
-      expect(snapshot.keyboardAvoidingEnabled).toBe(true);
-      expect(snapshot.androidOptionsExpandPhase).toBe('expanded');
-    });
-  });
-
-  it('uses the fallback timer if Android never reports the keyboard hide event', async () => {
-    vi.useFakeTimers();
-    vi.spyOn(Keyboard, 'isVisible').mockReturnValue(true);
-    vi.spyOn(Keyboard, 'dismiss').mockImplementation(vi.fn());
-    vi.spyOn(Keyboard, 'addListener').mockReturnValue({ remove: vi.fn() } as unknown as ReturnType<typeof Keyboard.addListener>);
-    let snapshot!: HookSnapshot;
-
-    await withPlatform('android', async () => {
-      await act(async () => {
-        create(<TestHarness onSnapshot={(next) => { snapshot = next; }} />);
-        await Promise.resolve();
-      });
-
-      await act(async () => {
-        snapshot.requestAndroidOptionsExpand();
-        await vi.advanceTimersByTimeAsync(500);
-        await Promise.resolve();
-      });
-
-      expect(snapshot.optionsExpanded).toBe(true);
-      expect(snapshot.keyboardAvoidingEnabled).toBe(false);
-      expect(snapshot.androidOptionsExpandPhase).toBe('expanded');
-    });
+  it('does not replay a delayed expansion after fast collapse or cleanup', () => {
+    vi.useFakeTimers(); act(() => { mounted.push(create(<Harness />)); });
+    act(() => { snapshot.requestAndroidOptionsExpand(); snapshot.collapseAndroidOptions(); snapshot.clearAndroidOptionsExpand(); });
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(snapshot.optionsExpanded).toBe(false); expect(snapshot.keyboardAvoidingEnabled).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
