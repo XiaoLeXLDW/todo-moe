@@ -5,6 +5,8 @@ import { groupTasksByViewSection, type Task } from '@mindwtr/core';
 
 import { TaskListView, type TaskListViewProps } from './task-list-view';
 
+vi.mock('../hooks/use-reduced-motion', () => ({ useReducedMotion: () => false }));
+
 vi.mock('react-native', () => ({
   FlatList: ({ data, ListEmptyComponent, ListHeaderComponent, ListFooterComponent, renderItem, ...props }: any) => React.createElement(
     'FlatList',

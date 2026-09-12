@@ -38,6 +38,8 @@ type ToastContextValue = {
 
 type ToastRenderState = {
     toast: ToastState | null;
+    interactionBlocked: boolean;
+    runToastAction: (toastId: number) => Promise<void>;
     opacity: Animated.Value;
     translateX: Animated.Value;
     translateY: Animated.Value;
@@ -84,6 +86,7 @@ const getToastSwipeExitTranslateX = (gestureState: PanResponderGestureState): nu
 
 export function ToastProvider({ children }: { children: ReactNode }) {
     const [queue, setQueue] = useState<ToastState[]>([]);
+    const [interactionBlocked, setInteractionBlocked] = useState(false);
     // Lift the root overlay above a persistent bottom bar (the tab bar) so an
     // undo toast never covers it (#1044). ponytail: single value, not a stack —
     // only the tabs layout registers one; add a stack if a second caller appears.
@@ -100,6 +103,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const isDismissingRef = useRef(false);
     const queueRef = useRef<ToastState[]>([]);
     const activeToastRef = useRef<ToastState | null>(null);
+    const claimedActionIdRef = useRef<number | null>(null);
     const toast = queue[0] ?? null;
 
     useEffect(() => {
@@ -119,11 +123,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         queueAdvanceTimerRef.current = null;
     }, []);
 
-    const dismissToast = useCallback((exitTranslateX = 0) => {
+    const dismissToast = useCallback((exitTranslateX = 0, expectedToastId?: number) => {
+        const dismissedId = activeToastRef.current?.id;
+        // Repeated Undo/dismiss during the fade or queue gap must not cancel
+        // the one timer that will remove this now-transparent toast.
+        if (dismissedId === undefined || isDismissingRef.current
+            || (expectedToastId !== undefined && expectedToastId !== dismissedId)) return;
         clearTimer();
         clearQueueAdvanceTimer();
-        if (!activeToastRef.current || isDismissingRef.current) return;
         isDismissingRef.current = true;
+        setInteractionBlocked(true);
+        let handled = false;
         Animated.parallel([
             Animated.timing(opacity, {
                 toValue: 0,
@@ -144,10 +154,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 useNativeDriver: true,
             }),
         ]).start(() => {
+            if (handled || activeToastRef.current?.id !== dismissedId) return;
+            handled = true;
             const advanceQueue = () => {
+                if (activeToastRef.current?.id !== dismissedId) return;
+                activeToastRef.current = null;
                 isDismissingRef.current = false;
                 translateX.setValue(0);
-                setQueue((current) => current.slice(1));
+                setQueue((current) => current[0]?.id === dismissedId ? current.slice(1) : current);
             };
             if (queueRef.current.length > 1) {
                 queueAdvanceTimerRef.current = setTimeout(() => {
@@ -198,9 +212,32 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         ]);
     }, []);
 
+    const runToastAction = useCallback(async (toastId: number) => {
+        const current = activeToastRef.current;
+        if (!current || current.id !== toastId || isDismissingRef.current
+            || claimedActionIdRef.current === toastId) return;
+        // Claim synchronously: a second tap can arrive before React commits
+        // disabled/pointerEvents, or through the previous viewport's handler.
+        claimedActionIdRef.current = toastId;
+        setInteractionBlocked(true);
+        try {
+            await current.onAction?.();
+            dismissToast(0, toastId);
+        } catch (error) {
+            void logError(error, { scope: 'toast', extra: { message: 'Toast action failed' } });
+            dismissToast(0, toastId);
+            showToast({
+                title: 'Action failed',
+                message: error instanceof Error && error.message.trim() ? error.message : 'Please try again.',
+                tone: 'error',
+            });
+        }
+    }, [dismissToast, showToast]);
+
     useEffect(() => {
         if (!toast) return undefined;
         isDismissingRef.current = false;
+        setInteractionBlocked(false);
 
         opacity.stopAnimation();
         translateX.stopAnimation();
@@ -234,6 +271,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     useEffect(() => () => {
         clearTimer();
         clearQueueAdvanceTimer();
+        activeToastRef.current = null;
     }, [clearQueueAdvanceTimer, clearTimer]);
 
     const value = useMemo<ToastContextValue>(() => ({
@@ -260,6 +298,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
     const renderState = useMemo<ToastRenderState>(() => ({
         toast,
+        interactionBlocked,
+        runToastAction,
         opacity,
         translateX,
         translateY,
@@ -271,7 +311,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         unregisterViewport,
         bottomOffset,
         setBottomOffset,
-    }), [bottomOffset, dismissToast, opacity, panResponder, registerViewport, showToast, toast, topViewportId, translateX, translateY, unregisterViewport]);
+    }), [bottomOffset, dismissToast, interactionBlocked, opacity, panResponder, registerViewport, runToastAction, showToast, toast, topViewportId, translateX, translateY, unregisterViewport]);
 
     return (
         <ToastContext.Provider value={value}>
@@ -288,7 +328,7 @@ function ToastOverlay({ respectBottomOffset = false }: { respectBottomOffset?: b
     const insets = useSafeAreaInsets();
     const tc = useThemeColors();
     if (!renderState?.toast) return null;
-    const { toast, opacity, translateX, translateY, panHandlers, showToast, dismissToast } = renderState;
+    const { toast, opacity, translateX, translateY, panHandlers, interactionBlocked, runToastAction } = renderState;
     // The registered offset (tab bar height) already contains the bottom safe
     // area; modal viewports have no tab bar, so they keep the plain inset.
     const bottomOffset = respectBottomOffset ? renderState.bottomOffset : 0;
@@ -315,6 +355,9 @@ function ToastOverlay({ respectBottomOffset = false }: { respectBottomOffset?: b
             >
                 <Animated.View
                     testID={TOAST_SWIPE_TARGET_TEST_ID}
+                    pointerEvents={interactionBlocked ? 'none' : 'auto'}
+                    accessibilityElementsHidden={interactionBlocked}
+                    importantForAccessibility={interactionBlocked ? 'no-hide-descendants' : 'auto'}
                     {...panHandlers}
                     style={[
                         styles.toast,
@@ -340,22 +383,9 @@ function ToastOverlay({ respectBottomOffset = false }: { respectBottomOffset?: b
                     {toast.actionLabel ? (
                         <Pressable
                             accessibilityRole="button"
-                            onPress={async () => {
-                                try {
-                                    await toast.onAction?.();
-                                    dismissToast();
-                                } catch (error) {
-                                    void logError(error, { scope: 'toast', extra: { message: 'Toast action failed' } });
-                                    dismissToast();
-                                    showToast({
-                                        title: 'Action failed',
-                                        message: error instanceof Error && error.message.trim()
-                                            ? error.message
-                                            : 'Please try again.',
-                                        tone: 'error',
-                                    });
-                                }
-                            }}
+                            disabled={interactionBlocked}
+                            accessibilityState={{ disabled: interactionBlocked }}
+                            onPress={() => runToastAction(toast.id)}
                             style={styles.actionButton}
                         >
                             <Text style={[styles.actionLabel, { color: accentColor }]}>

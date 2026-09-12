@@ -39,6 +39,8 @@ import { useLanguage } from '../contexts/language-context';
 import { buildTaskGroupSections, getTaskGroupByLabel, type TaskGroupBy } from '@/lib/task-group-sections';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
+import Animated from 'react-native-reanimated';
+import { useMoeCompletionListLayout } from '@/moe/MoeCompletionRow';
 import { useMobileAreaFilter } from '@/hooks/use-mobile-area-filter';
 import { useToast } from '@/contexts/toast-context';
 import { PullSyncIndicator } from '@/components/PullSyncIndicator';
@@ -306,6 +308,7 @@ function TaskListComponent({
   const [completedTasksCollapsed, setCompletedTasksCollapsed] = useState(true);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reduceMotion = useReducedMotion();
+  const completionListLayout = useMoeCompletionListLayout();
   // Tracks the highlightTaskId we already scrolled to, so an id is centred once
   // (when it first appears in the rendered data) rather than re-scrolling on
   // every unrelated list re-render during its ~3.5s highlight window (#916).
@@ -1548,9 +1551,10 @@ function TaskListComponent({
           contentContainerStyle={styles.projectDragSelfScrollContent}
         />
       ) : (
-        <FlatList
+        <Animated.FlatList
           ref={setListRef}
           data={listItems}
+          itemLayoutAnimation={completionListLayout}
           renderItem={renderListItem}
           keyExtractor={getListItemKey}
           ListHeaderComponent={listHeaderComponent ?? undefined}

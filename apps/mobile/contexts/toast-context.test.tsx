@@ -123,6 +123,66 @@ describe('ToastProvider', () => {
         vi.useFakeTimers();
     });
 
+    it('keeps advancing queued toasts when dismissal is requested again during the invisible gap', () => {
+        let controls!: ToastControls;
+        let tree!: ReactTestRenderer;
+        act(() => { tree = create(<ToastProvider><ToastHarness onReady={value => { controls = value; }} /></ToastProvider>); });
+        act(() => {
+            controls.showToast({ message: 'First completion', durationMs: 10_000 });
+            controls.showToast({ message: 'Second completion', durationMs: 10_000 });
+        });
+        act(() => { controls.dismissToast(); });
+        act(() => { controls.dismissToast(); });
+        act(() => { vi.advanceTimersByTime(QUEUE_GAP_MS); });
+        expect(getRenderedText(tree)).not.toContain('First completion');
+        expect(getRenderedText(tree)).toContain('Second completion');
+        act(() => { tree.unmount(); });
+    });
+
+    it('runs an undo action only once and disables the toast hit target immediately', async () => {
+        let controls!: ToastControls;
+        let tree!: ReactTestRenderer;
+        let finish!: () => void;
+        const undo = vi.fn(() => new Promise<void>(resolve => { finish = resolve; }));
+        act(() => { tree = create(<ToastProvider><ToastHarness onReady={value => { controls = value; }} /></ToastProvider>); });
+        act(() => {
+            controls.showToast({ message: 'Completed', actionLabel: 'Undo', onAction: undo });
+            controls.showToast({ message: 'Next completion', durationMs: 10_000 });
+        });
+        const action = tree.root.findByType('Pressable' as any).props.onPress;
+        let first!: Promise<void>;
+        act(() => { first = action(); void action(); });
+        expect(undo).toHaveBeenCalledTimes(1);
+        expect(tree.root.findByProps({ testID: TOAST_SWIPE_TARGET_TEST_ID }).props.pointerEvents).toBe('none');
+        expect(tree.root.findByType('Pressable' as any).props.disabled).toBe(true);
+        await act(async () => { finish(); await first; });
+        await act(async () => { await action(); });
+        expect(undo).toHaveBeenCalledTimes(1);
+        act(() => { vi.advanceTimersByTime(QUEUE_GAP_MS); });
+        expect(getRenderedText(tree)).toContain('Next completion');
+        act(() => { tree.unmount(); });
+    });
+
+    it('does not let an expired asynchronous undo dismiss the newer visible toast', async () => {
+        let controls!: ToastControls;
+        let tree!: ReactTestRenderer;
+        let finish!: () => void;
+        const undo = vi.fn(() => new Promise<void>(resolve => { finish = resolve; }));
+        act(() => { tree = create(<ToastProvider><ToastHarness onReady={value => { controls = value; }} /></ToastProvider>); });
+        act(() => {
+            controls.showToast({ message: 'Old completion', actionLabel: 'Undo', onAction: undo, durationMs: 50 });
+            controls.showToast({ message: 'New completion', durationMs: 10_000 });
+        });
+        let pending!: Promise<void>;
+        act(() => { pending = tree.root.findByType('Pressable' as any).props.onPress(); });
+        act(() => { vi.advanceTimersByTime(50 + QUEUE_GAP_MS); });
+        expect(getRenderedText(tree)).toContain('New completion');
+        await act(async () => { finish(); await pending; });
+        act(() => { vi.advanceTimersByTime(QUEUE_GAP_MS); });
+        expect(getRenderedText(tree)).toContain('New completion');
+        act(() => { tree.unmount(); });
+    });
+
     it('shows the settings invalid-backup warning at the root after the project blurs without unmounting its viewport', () => {
         const projectScreen = createScreenNavigation();
         let project!: ToastControls;
