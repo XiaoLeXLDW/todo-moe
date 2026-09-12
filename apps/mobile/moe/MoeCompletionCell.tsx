@@ -1,25 +1,39 @@
 import React from 'react';
 import { type CellRendererProps } from 'react-native';
-import Animated, { LinearTransition } from 'react-native-reanimated';
+import Animated, { withTiming, type LayoutAnimationsValues } from 'react-native-reanimated';
 import { useReducedMotion } from '../hooks/use-reduced-motion';
-import { useMoeCompletionUndoPending } from './MoeCompletionFeedback';
+import { useMoeCompletionLayoutGate } from './MoeCompletionFeedback';
 
 type CompletionCellProps = Pick<CellRendererProps<unknown>, 'children' | 'style' | 'onLayout' | 'onFocusCapture'> & { item?: unknown };
 
 // Keep the native cell ancestor alive while a completed child exits. Forward
 // VirtualizedList's measurement and focus handlers without changing its data.
-export function MoeCompletionCell({ children, style, onLayout, onFocusCapture, item }: CompletionCellProps) {
+export function MoeCompletionCell({ children, style, onLayout, onFocusCapture }: CompletionCellProps) {
     const reduced = useReducedMotion();
-    const candidate = item as { type?: string; kind?: string; task?: { id?: unknown } } | undefined;
-    const taskId = candidate && (candidate.type === 'task' || candidate.kind === 'task') && typeof candidate.task?.id === 'string' ? candidate.task.id : undefined;
-    const undoPending = useMoeCompletionUndoPending(taskId);
-    const restoreCell = React.useRef({ taskId, skipLayout: false });
-    if (restoreCell.current.taskId !== taskId) restoreCell.current = { taskId, skipLayout: false };
-    if (undoPending) restoreCell.current.skipLayout = true;
-    // Do not re-install a delayed transition as the restored row is revealed:
-    // this native cell instance must never animate from the temporary Next slot.
-    const skipLayout = restoreCell.current.skipLayout;
-    const layout = React.useMemo(() => reduced || skipLayout ? undefined : LinearTransition.delay(120).duration(220), [reduced, skipLayout]);
+    const gate = useMoeCompletionLayoutGate();
+    const layout = React.useMemo(() => reduced ? undefined : (values: LayoutAnimationsValues) => {
+        'worklet';
+        const state = gate?.value;
+        const epoch = state?.epoch ?? 0;
+        const target = { originX: values.targetOriginX, originY: values.targetOriginY,
+            width: values.targetWidth, height: values.targetHeight };
+        if (state && (state.pending || Date.now() < state.until)) return { initialValues: target, animations: target };
+        // A single timing curve (rather than withDelay) can observe Undo even
+        // during the initial 120ms hold. An old epoch stays snapped, including
+        // after the handoff closes, so old positions can never animate back.
+        const easing = (progress: number) => {
+            const latest = gate?.value;
+            if (latest && (latest.epoch !== epoch || latest.pending || Date.now() < latest.until)) return 1;
+            return Math.min(1, Math.max(0, (progress - 120 / 340) / (220 / 340)));
+        };
+        const config = { duration: 340, easing };
+        return {
+            initialValues: { originX: values.currentOriginX, originY: values.currentOriginY,
+                width: values.currentWidth, height: values.currentHeight },
+            animations: { originX: withTiming(target.originX, config), originY: withTiming(target.originY, config),
+                width: withTiming(target.width, config), height: withTiming(target.height, config) },
+        };
+    }, [gate, reduced]);
     const viewProps = { style, onLayout, onFocusCapture };
     return (
         <Animated.View {...viewProps} collapsable={false} layout={layout}>

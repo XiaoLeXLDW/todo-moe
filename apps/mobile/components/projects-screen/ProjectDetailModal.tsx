@@ -59,6 +59,7 @@ import type { useProjectAttachments } from './use-project-attachments';
 import type { useProjectNotesEditor } from './use-project-notes-editor';
 import { getAndroidKeyboardFrame } from '../../lib/android-keyboard-frame';
 import { MoeCompletionFeedbackHost } from '@/moe/MoeCompletionFeedback';
+import { MoeCelebration } from '@/moe/MoeCelebration';
 
 const PROJECT_TASK_SORT_OPTIONS: TaskSortBy[] = ['default', 'due', 'start', 'review', 'timeEstimate', 'title', 'created', 'created-desc'];
 const PROJECT_SHOW_COMPLETED_STORAGE_KEY = 'mindwtr:view:project-detail:show-completed:v1';
@@ -618,6 +619,7 @@ export function ProjectDetailModal({
         setLinkModalVisible,
     } = attachments;
     const overlayVisible = selectedProject !== null;
+    const [nativeModalShown, setNativeModalShown] = React.useState(false);
     const presentationStyle: ProjectDetailPresentationStyle = Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen';
     const statusPalette = buildProjectStatusPalette(tc);
     const modalHeaderStyle = [styles.modalHeader, {
@@ -663,6 +665,10 @@ export function ProjectDetailModal({
     const [projectActionsVisible, setProjectActionsVisible] = React.useState(false);
     const [projectTaskBulkBarProps, setProjectTaskBulkBarProps] = React.useState<TaskListBulkBarProps | null>(null);
     const [sectionManagerVisible, setSectionManagerVisible] = React.useState(false);
+    const celebrationActive = overlayVisible && nativeModalShown
+        && !showStatusMenu && !showStartDatePicker && !showDueDatePicker && !showReviewPicker
+        && !projectSortModalVisible && !projectViewOptionsVisible && !projectActionsVisible
+        && !sectionManagerVisible && !notesFullscreen && !attachments.linkModalVisible && !attachments.imagePreviewAttachment;
     const projectDetailListRef = React.useRef<FlatList | null>(null);
     const projectDetailScrollOffsetRef = React.useRef(0);
     const pendingProjectDetailScrollRestoreRef = React.useRef<number | null>(null);
@@ -1020,6 +1026,7 @@ export function ProjectDetailModal({
     // Opening the modal, closing it, or swapping the open project all start from
     // a collapsed details panel with every menu and picker shut.
     React.useEffect(() => {
+        if (!overlayVisible) setNativeModalShown(false);
         setProjectTaskReorderMode(false);
         setSectionManagerVisible(false);
         setProjectViewOptionsVisible(false);
@@ -1659,6 +1666,9 @@ export function ProjectDetailModal({
     return (
         <Modal
             visible={overlayVisible}
+            onShow={() => {
+                if (selectedProject && selectedProjectRef.current?.id === selectedProject.id) setNativeModalShown(true);
+            }}
             animationType="slide"
             presentationStyle={presentationStyle}
             transparent={false}
@@ -1942,6 +1952,7 @@ export function ProjectDetailModal({
                     </SafeAreaView>
                 </KeyboardAccessoryHost>
                 </MoeCompletionFeedbackHost>
+                <MoeCelebration active={Boolean(celebrationActive)} projectId={selectedProject?.id} />
                 <ToastViewport />
                 {/* Last child so the alert covers the header and the toasts (#940). */}
                 <ThemedAlertHost />

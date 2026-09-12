@@ -12,6 +12,7 @@ export type CompletionFeedback = {
     row: FeedbackRect; titleRect: FeedbackRect; check: FeedbackRect; expiresAt: number;
 };
 export type FeedbackMeasurement = { pageX: number; pageY: number; width: number; height: number };
+export type FeedbackLayoutGate = { epoch: number; pending: boolean; until: number };
 
 const valid = (rect: FeedbackMeasurement) => [rect.pageX, rect.pageY, rect.width, rect.height].every(Number.isFinite)
     && rect.width > 0 && rect.height > 0;
@@ -34,6 +35,10 @@ export function createCompletionFeedbackStore() {
     let entries: readonly CompletionFeedback[] = [];
     // Only identity tokens while the original two-stage Undo promise is pending.
     const undoing = new Map<string, number>();
+    let layoutGate: FeedbackLayoutGate = { epoch: 0, pending: false, until: 0 };
+    const finishLayoutHandoff = () => {
+        if (!undoing.size) layoutGate = { epoch: layoutGate.epoch, pending: false, until: Date.now() + 340 };
+    };
     let timer: ReturnType<typeof setTimeout> | undefined;
     const listeners = new Set<() => void>();
     const notify = () => listeners.forEach((listener) => listener());
@@ -51,17 +56,20 @@ export function createCompletionFeedbackStore() {
         getSnapshot: () => entries,
         hasFeedback: () => entries.length > 0 || undoing.size > 0,
         isUndoing: (taskId: string) => undoing.has(taskId),
+        getLayoutGate: () => layoutGate,
         subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
         beginUndo(taskId: string, operationId: number) {
             if (!Number.isSafeInteger(operationId) || operationId < 1) return false;
             const previous = undoing.get(taskId);
             if (previous !== undefined && previous > operationId) return false;
             if (previous === undefined && undoing.size >= 4) return false;
-            undoing.set(taskId, operationId); notify(); return true;
+            undoing.set(taskId, operationId);
+            layoutGate = { epoch: layoutGate.epoch + 1, pending: true, until: 0 };
+            notify(); return true;
         },
         finishUndo(taskId: string, operationId: number) {
             if (undoing.get(taskId) !== operationId) return;
-            undoing.delete(taskId); notify();
+            undoing.delete(taskId); finishLayoutHandoff(); notify();
         },
         present(entry: CompletionFeedback) {
             if (!Number.isSafeInteger(entry.operationId) || entry.operationId < 1 || !Number.isFinite(entry.expiresAt) || entry.expiresAt <= Date.now() || entry.expiresAt > Date.now() + 400) return false;
@@ -82,14 +90,15 @@ export function createCompletionFeedbackStore() {
             const next = entries.filter((entry) => entry.taskId !== taskId || (operationId !== undefined && entry.operationId !== operationId));
             const removeUndo = undoing.has(taskId) && (operationId === undefined || undoing.get(taskId) === operationId);
             if (next.length === entries.length && !removeUndo) return;
-            if (removeUndo) undoing.delete(taskId);
+            if (removeUndo) { undoing.delete(taskId); finishLayoutHandoff(); }
             entries = next; notify(); schedule();
         },
         clear() {
             if (timer !== undefined) clearTimeout(timer);
             timer = undefined;
-            if (!entries.length && !undoing.size) return;
-            entries = []; undoing.clear(); notify();
+            entries = []; undoing.clear();
+            layoutGate = { epoch: layoutGate.epoch + 1, pending: false, until: 0 };
+            notify();
         },
     };
 }

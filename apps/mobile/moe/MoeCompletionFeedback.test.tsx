@@ -15,7 +15,9 @@ vi.mock('./preferences', () => ({ useMoePreferences: () => ({ motion: 'lively' }
 vi.mock('../hooks/use-reduced-motion', () => ({ useReducedMotion: () => state.reduced }));
 vi.mock('@react-navigation/core', () => ({ NavigationContext: React.createContext(undefined) }));
 vi.mock('lucide-react-native', () => ({ Check: (props: object) => React.createElement('Check', props) }));
-vi.mock('react-native-reanimated', async (original) => ({ ...await original() as object, measure: vi.fn() }));
+vi.mock('react-native-reanimated', async (original) => ({ ...await original() as object, measure: vi.fn(),
+    withTiming: vi.fn((target: number, config: { duration: number; easing?: (progress: number) => number }) => ({ target, config })),
+}));
 vi.mock('react-native-worklets', () => ({ runOnUISync: vi.fn((worklet, ...args) => worklet(...args)) }));
 vi.mock('react-native', async (original) => ({ ...await original() as object, AppState: { currentState: 'active', addEventListener: (_: string, listener: (value: string) => void) => {
     state.listeners.add(listener); return { remove: () => state.listeners.delete(listener) };
@@ -125,6 +127,8 @@ it('a failed native hide gate cancels the snapshot before falling back to the or
 
 const rowPaint = () => tree!.root.findByType(MoeCompletionRow).findAllByType('View' as unknown as React.ElementType)[0];
 const cellPaint = () => tree!.root.findByType(MoeCompletionCell).findAllByType('View' as unknown as React.ElementType)[0];
+const layoutValues = { currentOriginX: 0, currentOriginY: 100, currentWidth: 320, currentHeight: 64,
+    targetOriginX: 0, targetOriginY: 180, targetWidth: 320, targetHeight: 64 };
 type UndoVisual = Transition;
 
 it('hides the real unfocused intermediate row until both original Undo writes settle', async () => {
@@ -148,12 +152,12 @@ it('hides the real unfocused intermediate row until both original Undo writes se
     expect(tree!.root.findAllByProps({ testID: 'restore-star-state' }).at(-1)!.props.children).toBe('hollow');
     expect(rowPaint().props.style).toEqual({ opacity: 0 });
     expect(rowPaint().props.pointerEvents).toBe('none');
-    expect(cellPaint().props.layout).toBeUndefined();
+    expect(cellPaint().props.layout(layoutValues).animations.originY).toBe(180);
     await act(async () => { statusDone(); await Promise.resolve(); });
     expect(rowPaint().props.style).toEqual({ opacity: 0 });
     await act(async () => { focusDone(); await pending; });
     expect(rowPaint().props.style).toBeUndefined();
-    expect(cellPaint().props.layout).toBeUndefined();
+    expect(cellPaint().props.layout(layoutValues).animations.originY).toBe(180);
     expect(tree!.root.findAllByProps({ testID: 'restore-star-state' }).at(-1)!.props.children).toBe('filled');
     expect(feedbackActive).toBe(false); expect(vi.getTimerCount()).toBe(0);
 });
@@ -173,7 +177,40 @@ it('failed Undo clears its gate and exposes the actual partial result without in
     await act(async () => { fail(new Error('focus persistence failed')); await pending; });
     expect((await pending).ok).toBe(false);
     expect(rowPaint().props.style).toBeUndefined();
-    expect(cellPaint().props.layout).toBeUndefined();
+    expect(cellPaint().props.layout(layoutValues).animations.originY).toBe(180);
     expect(tree!.root.findAllByProps({ testID: 'restore-star-state' }).at(-1)!.props.children).toBe('hollow');
     expect(feedbackActive).toBe(false); expect(vi.getTimerCount()).toBe(0);
+});
+
+it('one Host gate snaps waiting row/header/neighbor layouts together and later permits fresh animations', () => {
+    act(() => { tree = create(<MoeCompletionFeedbackHost scopeKey="group"><Row />
+        <MoeCompletionCell style={undefined} item={{ type: 'section' }}><Text>Today header</Text></MoeCompletionCell>
+        <MoeCompletionCell style={undefined} item={{ type: 'task', task: { id: 'neighbor' } }}><Text>Neighbor</Text></MoeCompletionCell>
+    </MoeCompletionFeedbackHost>); });
+    act(() => { tree!.root.findAllByProps({ testID: 'moe-completion-feedback-host' }).at(-1)!.props.onLayout(); });
+    const cells = tree!.root.findAllByType(MoeCompletionCell).map((cell) => cell.findAllByType('View' as unknown as React.ElementType)[0]);
+    const oldAnimations = cells.map((cell) => cell.props.layout(layoutValues).animations.originY);
+    expect(oldAnimations).toHaveLength(3);
+    oldAnimations.forEach((animation) => expect(animation.config.easing(0.1)).toBe(0));
+    act(() => { transition.arm(45); transition.cancel(45, true); transition.beginUndo(45); });
+    // Already-created timing curves observe the gate inside their hold period;
+    // newly requested layouts use the same immediate final coordinates.
+    oldAnimations.forEach((animation) => expect(animation.config.easing(0.1)).toBe(1));
+    cells.forEach((cell) => {
+        expect(cell.props.layout(layoutValues).animations.originY).toBe(180);
+        expect(cell.props.pointerEvents).toBeUndefined();
+        expect(cell.props.importantForAccessibility).toBeUndefined();
+    });
+    act(() => { transition.finishUndo(45); });
+    cells.forEach((cell) => expect(cell.props.layout(layoutValues).animations.originY).toBe(180));
+    act(() => { vi.advanceTimersByTime(341); });
+    cells.forEach((cell) => {
+        const fresh = cell.props.layout(layoutValues).animations.originY;
+        expect(fresh.config.duration).toBe(340);
+        expect(fresh.config.easing(0.1)).toBe(0);
+        expect(fresh.config.easing(0.8)).toBeGreaterThan(0);
+        expect(fresh.config.easing(0.8)).toBeLessThan(1);
+    });
+    oldAnimations.forEach((animation) => expect(animation.config.easing(0.8)).toBe(1));
+    expect(vi.getTimerCount()).toBe(0);
 });

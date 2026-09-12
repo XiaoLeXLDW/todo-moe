@@ -1,15 +1,15 @@
 import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { Animated as NativeAnimated, AppState, StyleSheet, Text, View } from 'react-native';
-import Animated, { measure, useAnimatedRef, type AnimatedRef } from 'react-native-reanimated';
+import Animated, { measure, useAnimatedRef, useSharedValue, type AnimatedRef, type SharedValue } from 'react-native-reanimated';
 import { runOnUISync } from 'react-native-worklets';
 import { Check } from 'lucide-react-native';
 import { NavigationContext } from '@react-navigation/core';
-import { createCompletionFeedbackStore, feedbackGeometry, type CompletionFeedback, type FeedbackAppearance } from './MoeCompletionFeedbackState';
+import { createCompletionFeedbackStore, feedbackGeometry, type CompletionFeedback, type FeedbackAppearance, type FeedbackLayoutGate } from './MoeCompletionFeedbackState';
 
 export type CompletionMeasureRefs = { row: AnimatedRef<View>; title: AnimatedRef<Text>; check: AnimatedRef<View> };
 export type CompletionFeedbackDetails = { title: string; appearance: FeedbackAppearance };
 type FeedbackStore = ReturnType<typeof createCompletionFeedbackStore>;
-type FeedbackHost = { store: FeedbackStore; hostRef: AnimatedRef<View>; available: () => boolean };
+type FeedbackHost = { store: FeedbackStore; hostRef: AnimatedRef<View>; layoutGate: SharedValue<FeedbackLayoutGate>; available: () => boolean };
 const Context = createContext<FeedbackHost | null>(null);
 const noSubscribe = () => () => {};
 const falseSnapshot = () => false;
@@ -26,6 +26,8 @@ export function useMoeCompletionUndoPending(taskId?: string) {
     return useSyncExternalStore(host?.store.subscribe ?? noSubscribe, getSnapshot, falseSnapshot);
 }
 
+export function useMoeCompletionLayoutGate() { return useContext(Context)?.layoutGate; }
+
 /** One stable paint host per native window, outside the list's filtered cells. */
 export function MoeCompletionFeedbackHost({ children, active = true, scopeKey = '' }: {
     children: React.ReactNode; active?: boolean; scopeKey?: string;
@@ -33,10 +35,21 @@ export function MoeCompletionFeedbackHost({ children, active = true, scopeKey = 
     const store = useMemo(createCompletionFeedbackStore, []);
     const entries = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
     const hostRef = useAnimatedRef<View>();
+    const layoutGate = useSharedValue<FeedbackLayoutGate>(store.getLayoutGate());
     const navigation = useContext(NavigationContext);
     const ready = useRef(false);
     const enabled = useRef(false);
     useLayoutEffect(() => {
+        let previous: FeedbackLayoutGate | undefined;
+        const syncLayoutGate = () => {
+            const next = store.getLayoutGate();
+            if (previous === next) return;
+            previous = next;
+            try {
+                runOnUISync((target, value) => { 'worklet'; target.value = value; }, layoutGate, next);
+            } catch { /* Visual scheduling must not block Undo's store call. */ }
+        };
+        const unsubscribeLayout = store.subscribe(syncLayoutGate);
         const updateEnabled = () => { enabled.current = active && AppState.currentState === 'active' && navigation?.isFocused() !== false; };
         const leave = () => { enabled.current = false; store.clear(); };
         updateEnabled();
@@ -48,9 +61,9 @@ export function MoeCompletionFeedbackHost({ children, active = true, scopeKey = 
         const blur = navigation?.addListener('blur', leave);
         const beforeRemove = navigation?.addListener('beforeRemove', leave);
         const focus = navigation?.addListener('focus', updateEnabled);
-        return () => { enabled.current = false; subscription.remove(); blur?.(); beforeRemove?.(); focus?.(); store.clear(); };
-    }, [active, navigation, scopeKey, store]);
-    const host = useMemo(() => ({ store, hostRef, available: () => enabled.current && ready.current }), [hostRef, store]);
+        return () => { enabled.current = false; subscription.remove(); blur?.(); beforeRemove?.(); focus?.(); store.clear(); unsubscribeLayout(); };
+    }, [active, layoutGate, navigation, scopeKey, store]);
+    const host = useMemo(() => ({ store, hostRef, layoutGate, available: () => enabled.current && ready.current }), [hostRef, layoutGate, store]);
     return (
         <Context.Provider value={host}>
             <View style={styles.host}>

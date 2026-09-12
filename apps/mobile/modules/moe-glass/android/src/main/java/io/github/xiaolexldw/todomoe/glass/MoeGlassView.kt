@@ -159,12 +159,13 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
   }
 
   private fun flushIdleDiagnostics(reason: String) {
+    Log.w("DEBUG-MoeGlassIdle-v23", "flush=$reason enabled=$idleDiagnostics package=${context.packageName}")
     if (!idleDiagnostics) return
     val now = SystemClock.uptimeMillis()
     if (diagnosticPreDraws + diagnosticLensCalls + diagnosticDraws + diagnosticExcludedDraws > 0L) {
       val activityRoot = appContext.currentActivity?.window?.decorView
       val windowKind = if (activityRoot == null) "unknown" else if (activityRoot === rootView) "activity" else "dialog"
-      Log.i("DEBUG-MoeGlassIdle-v23",
+      Log.w("DEBUG-MoeGlassIdle-v23",
         "reason=$reason mode=$mode view=$id window=$windowKind size=${width}x${height} " +
           "elapsedMs=${now - diagnosticStartedAt} preDraw=$diagnosticPreDraws captures=$diagnosticCaptures " +
           "captureChanged=$diagnosticCaptureChanged samePixels=$diagnosticSamePixels captureFailed=$diagnosticCaptureFailed " +

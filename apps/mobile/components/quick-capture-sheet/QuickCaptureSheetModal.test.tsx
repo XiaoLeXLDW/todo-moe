@@ -308,6 +308,18 @@ describe('Quick capture modal composition', () => {
           />
         );
       });
+      const originalProps = tree.root.findByType(QuickCaptureSheetBody).props as React.ComponentProps<typeof QuickCaptureSheetBody>;
+      // Fabric treats accessibilityElementsHidden / importantForAccessibility
+      // as stacking-context props. Keep this ancestor materialized on both sides
+      // of the overlay toggle, rather than reparenting the focused native input.
+      for (const hidden of [false, true, false, true]) {
+        act(() => tree.update(<QuickCaptureSheetBody {...originalProps} contentAccessibilityHidden={hidden} />));
+        const ancestor = tree.root.findByType(KeyboardAvoidingView);
+        expect(ancestor.props.collapsable).toBe(false);
+        expect(ancestor.props.accessibilityElementsHidden).toBe(hidden);
+        expect(ancestor.props.importantForAccessibility).toBe(hidden ? 'no-hide-descendants' : 'auto');
+        expect(ancestor.findAllByType(TextInput)).toHaveLength(1);
+      }
     } finally {
       Object.defineProperty(Platform, 'OS', {
         configurable: true,

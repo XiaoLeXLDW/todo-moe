@@ -294,6 +294,7 @@ export function QuickCaptureSheetBody({
           marginBottom: androidKeyboardOverlap,
         }]}>
         <KeyboardAvoidingView
+          collapsable={false}
           behavior={keyboardAvoidingBehavior}
           enabled={Platform.OS !== 'android' && keyboardAvoidingEnabled}
           keyboardVerticalOffset={0}

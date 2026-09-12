@@ -14,11 +14,15 @@ const PARTICLES = [
   { symbol: '✦', x: 1, y: -1 },
 ] as const;
 
-export function MoeCelebration() {
+export function MoeCelebration({ active, projectId }: { active?: boolean; projectId?: string } = {}) {
   const [event, setEvent] = useState<ListCompletedEvent | null>(null);
   const preferences = useMoePreferences();
   const reduced = useReducedMotion();
   const focused = useIsFocused();
+  // A native Modal owns its presentation lifecycle; Activity blur describes
+  // the window behind it. The tab instance keeps the original Activity gate.
+  const hostActive = active ?? focused;
+  const ownsModalLifecycle = active !== undefined;
   const tc = useThemeColors();
   const { language } = useLanguage();
   const progress = useRef(new Animated.Value(1)).current;
@@ -31,14 +35,15 @@ export function MoeCelebration() {
     setEvent(null);
   }, []);
   useEffect(() => subscribeListCompleted((next) => {
+    if (next && projectId !== undefined && next.projectId !== projectId) return;
     disposeCurrent.current();
-    if (next && AppState.currentState === 'active' && appWindowFocused.current && focused && preferences.celebration) {
+    if (next && AppState.currentState === 'active' && (ownsModalLifecycle || appWindowFocused.current) && hostActive && preferences.celebration) {
       expiresAt.current = Date.now() + MOE_COMPLETION_MOTION.celebrationMs;
       setEvent({ ...next });
     } else setEvent(null);
-  }), [focused, preferences.celebration]);
+  }), [hostActive, ownsModalLifecycle, preferences.celebration, projectId]);
   useEffect(() => {
-    if (!event || !preferences.celebration || !focused) return;
+    if (!event || !preferences.celebration || !hostActive || (projectId !== undefined && event.projectId !== projectId)) return;
     const remainingMs = Math.max(0, expiresAt.current - Date.now());
     progress.setValue(motion.reduced ? 1 : 1 - remainingMs / MOE_COMPLETION_MOTION.celebrationMs);
     const animation = motion.reduced ? null : Animated.timing(progress, {
@@ -60,10 +65,11 @@ export function MoeCelebration() {
     // arrive after stop and must never dismiss a newer completion.
     animation?.start();
     return dispose;
-  }, [event, focused, motion.reduced, preferences.celebration, progress]);
+  }, [event, hostActive, motion.reduced, preferences.celebration, progress, projectId]);
   useEffect(() => {
-    if (!focused || !preferences.celebration) clearCurrent();
-  }, [focused, preferences.celebration, clearCurrent]);
+    if (!hostActive || !preferences.celebration) clearCurrent();
+  }, [hostActive, preferences.celebration, clearCurrent]);
+  useEffect(() => { clearCurrent(); }, [projectId, clearCurrent]);
   useEffect(() => {
     const change = AppState.addEventListener('change', state => {
       appWindowFocused.current = state === 'active';
@@ -76,7 +82,7 @@ export function MoeCelebration() {
     const focus = AppState.addEventListener('focus', () => { appWindowFocused.current = true; });
     return () => { change.remove(); blur.remove(); focus.remove(); };
   }, [clearCurrent]);
-  if (!event || !preferences.celebration || !focused) return null;
+  if (!event || !preferences.celebration || !hostActive || (projectId !== undefined && event.projectId !== projectId)) return null;
   const opacity = motion.reduced ? 1 : progress.interpolate({
     inputRange: [0, MOE_COMPLETION_MOTION.celebrationFadeInAt, MOE_COMPLETION_MOTION.celebrationFadeOutAt, 1],
     outputRange: [0, 1, 1, 0],

@@ -213,4 +213,48 @@ describe('Moe Moment completion feedback', () => {
     expect(runs[0].stop).toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  it('activates an explicitly shown modal despite Activity blur and ignores other projects', async () => {
+    native.focused = false;
+    await act(async () => { tree = create(<MoeCelebration active={false} projectId="project-1" />); });
+    complete(1, 'Before onShow'); expect(tree?.toJSON()).toBeNull();
+    act(() => native.appListeners.get('blur')?.forEach(listener => listener()));
+    act(() => tree!.update(<MoeCelebration active projectId="project-1" />));
+    expect(tree?.toJSON()).toBeNull();
+    complete(2, 'Other project'); expect(tree?.toJSON()).toBeNull();
+    complete(1, 'Shown project'); expect(visibleText()).toContain('Shown project');
+    act(() => { vi.advanceTimersByTime(300); });
+    complete(2, 'Unrelated completion');
+    expect(visibleText()).toContain('Shown project');
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(tree?.toJSON()).toBeNull();
+  });
+
+  it('clears modal feedback on project changes and hiding, with no replay on reactivation', async () => {
+    await act(async () => { tree = create(<MoeCelebration active projectId="project-1" />); });
+    complete(1, 'Old project');
+    act(() => tree!.update(<MoeCelebration active projectId="project-2" />));
+    expect(tree?.toJSON()).toBeNull(); expect(vi.getTimerCount()).toBe(0);
+    complete(1, 'Stale old project'); expect(tree?.toJSON()).toBeNull();
+    complete(2, 'Current project'); expect(visibleText()).toContain('Current project');
+    act(() => tree!.update(<MoeCelebration active={false} projectId="project-2" />));
+    expect(tree?.toJSON()).toBeNull(); expect(vi.getTimerCount()).toBe(0);
+    complete(2, 'Hidden event');
+    act(() => { vi.advanceTimersByTime(1000); tree!.update(<MoeCelebration active projectId="project-2" />); });
+    expect(tree?.toJSON()).toBeNull();
+  });
+
+  it('still clears a scoped modal on Undo and app background', async () => {
+    await act(async () => { tree = create(<MoeCelebration active projectId="project-1" />); });
+    complete(1); act(() => cancelMoeCompletion('task'));
+    expect(tree?.toJSON()).toBeNull(); expect(vi.getTimerCount()).toBe(0);
+    complete(1);
+    act(() => { AppState.currentState = 'background'; native.appListeners.get('change')?.forEach(listener => listener('background')); });
+    expect(tree?.toJSON()).toBeNull(); expect(vi.getTimerCount()).toBe(0);
+    complete(1, 'Background event');
+    act(() => { AppState.currentState = 'active'; native.appListeners.get('change')?.forEach(listener => listener('active')); });
+    expect(tree?.toJSON()).toBeNull();
+    complete(1, 'Fresh active event'); expect(visibleText()).toContain('Fresh active event');
+  });
+
 });
