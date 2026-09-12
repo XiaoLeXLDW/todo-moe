@@ -8,9 +8,9 @@
     "保留独立Dev/Stable身份及现有备份、上游合并和受控发行流程；本轮按用户选择关闭同步。"
   ],
   "knownIssues": [
-    "当前为Dev候选材料：用户观感确认及内外屏代表路径已通过；现有证据不覆盖全部设备和长期功耗。",
+    "首版主要在MIX Fold 2 / Android 15验收，其他设备及长期功耗尚未完成全面验证。",
     "原生液态底栏使用Android API33及以上能力；其他设备保留兼容导航。现有真机证据仅限MIX Fold 2，旧渲染器性能数据不代表新底栏。",
-    "尚未生成并验收当前源码的正式签名Stable包，也未公开发布。Dev与Stable数据独立，迁移需先从Dev导出备份。"
+    "Dev与Stable数据独立，迁移时需先从Dev导出备份，再在Stable恢复并核对。"
   ],
   "supportedDevices": [
     "构建目标为Android arm64-v8a，最低API24；实际设备证据来自Xiaomi MIX Fold 2、Android15/API35的Dev候选，不能外推为所有机型或Stable身份已验。"
