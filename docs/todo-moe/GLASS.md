@@ -4,7 +4,7 @@
 
 vc30 的自绘底栏未通过用户视觉验收。以下旧契约是现有 `GlassSurface` 的实现记录，不能称作 SukiSU 底栏一比一复现。
 
-当前改为直接移植固定来源的完整 `FloatingBottomBar` Compose 层，包括 `CombinedBackdrop` 着色标签副本、原始透镜、高光和弹簧；通过现有 `HardwareBackdropScene` 接入 RN 页面背景。RN 只传页面标签、主题、受控选中状态和可见性，收到最终选中事件后调用原导航。新增面板继续使用现有 `GlassSurface`，不迁移业务或数据模型。原生模块已编译，9项原生检查通过；尚未完成新 APK 真机验收；正式候选暂停。
+当前改为直接移植固定来源的完整 `FloatingBottomBar` Compose 层，包括 `CombinedBackdrop` 着色标签副本、原始透镜、高光和弹簧；通过现有 `HardwareBackdropScene` 接入 RN 页面背景。RN 只传页面标签、主题、受控选中状态和可见性，收到最终选中事件后调用原导航。新增面板继续使用现有 `GlassSurface`，不迁移业务或数据模型。原生模块已编译，9项原生检查通过；vc32已实测冷启动、原版透镜外扩/镜内图标文字放大和折射、拖动切页及新增面板隐藏/返回，用户观感尚待确认；正式候选暂停。
 
 ---
 
