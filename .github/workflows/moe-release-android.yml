@@ -93,7 +93,9 @@ jobs:
           MOE_KEY_ALIAS: ${{ secrets.MOE_KEY_ALIAS }}
           MOE_KEY_PASSWORD: ${{ secrets.MOE_KEY_PASSWORD }}
           MOE_CERT_SHA256: ${{ vars.MOE_CERT_SHA256 }}
-        run: node scripts/moe/sign-android.mjs unsigned signed
+        # upload-artifact preserves the directory below the first wildcard in
+        # build/moe/stable-*/*; download-artifact does not flatten that directory.
+        run: node scripts/moe/sign-android.mjs "unsigned/stable-${MOE_VERSION_CODE}-${MOE_APPROVED_SHA:0:12}" signed
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: todo-moe-signed-stable
