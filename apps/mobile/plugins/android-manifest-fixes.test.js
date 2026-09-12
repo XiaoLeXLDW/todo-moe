@@ -15,6 +15,51 @@ const {
 } = plugin.__testables;
 
 describe('android-manifest-fixes', () => {
+  it('handles fold size changes in MainActivity without replacing existing config flags or other activities', async () => {
+    const existingFlags = 'keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|density';
+    const otherActivity = {
+      $: { 'android:name': 'example.OtherActivity', 'android:configChanges': 'orientation|screenSize' },
+    };
+    const mainActivity = {
+      $: { 'android:name': '.MainActivity', 'android:configChanges': existingFlags },
+    };
+    const configured = plugin({ name: 'Todo Moe Dev', slug: 'todo-moe-dev' });
+    const input = {
+      ...configured,
+      modResults: { manifest: { application: [{ activity: [otherActivity, mainActivity] }] } },
+      modRequest: { platform: 'android', modName: 'manifest' },
+    };
+
+    const first = await configured.mods.android.manifest(input);
+    expect(mainActivity.$['android:configChanges']).toBe(`${existingFlags}|smallestScreenSize`);
+    expect(otherActivity.$).toEqual({
+      'android:name': 'example.OtherActivity',
+      'android:configChanges': 'orientation|screenSize',
+    });
+
+    await configured.mods.android.manifest(first);
+    expect(mainActivity.$['android:configChanges']).toBe(`${existingFlags}|smallestScreenSize`);
+  });
+
+  it.each([
+    { label: 'MainActivity absent', activities: [] },
+    { label: 'config flags absent', activities: [{ $: { 'android:name': '.MainActivity' } }] },
+  ])(
+    'adds fold size handling when $label',
+    async ({ activities }) => {
+      const configured = plugin({ name: 'Todo Moe Dev', slug: 'todo-moe-dev' });
+      const result = await configured.mods.android.manifest({
+        ...configured,
+        modResults: { manifest: { application: [{ activity: activities }] } },
+        modRequest: { platform: 'android', modName: 'manifest' },
+      });
+      const mainActivity = result.modResults.manifest.application[0].activity.find(
+        (activity) => activity.$['android:name'] === '.MainActivity',
+      );
+      expect(mainActivity.$['android:configChanges']).toBe('smallestScreenSize');
+    },
+  );
+
   it('keeps manifest remove directives idempotent across repeated prebuilds', () => {
     const attribute = 'android:screenOrientation';
     expect(mergeToolsRemove(undefined, attribute)).toBe(attribute);
