@@ -42,6 +42,10 @@ internal class HardwareBackdropScene private constructor(private val root: View)
 
   companion object {
     private val pool = IdentityHashMap<View, HardwareBackdropScene>()
+    private val exclusionHistory = GlassAncestorHistory<View>()
+    fun markGlassAncestors(glass: View) {
+      exclusionHistory.markAncestors(glass) { it.parent as? View }
+    }
     fun acquire(root: View, changed: () -> Unit): Lease {
       val scene = pool[root] ?: HardwareBackdropScene(root).also { pool[root] = it }
       scene.references++
@@ -60,6 +64,7 @@ internal class HardwareBackdropScene private constructor(private val root: View)
   private var activeReferences = 0
   private var observing = false
   private var version = 0L
+  private var recordedExclusionRevision = -1L
   private var frame: Frame? = null
   private var failed = false
   private val listeners = mutableSetOf<() -> Unit>()
@@ -91,7 +96,9 @@ internal class HardwareBackdropScene private constructor(private val root: View)
    * Static scenes do not re-record, invalidate, or create another traversal. */
   fun currentFrame(): Frame? {
     check(!failed) { "Hardware backdrop source unavailable" }
-    if (frame == null) refresh()
+    // An owner listener may precede our scene listener. A newly attached/moved
+    // glass must invalidate old whole-subtree plans before this frame is read.
+    if (frame == null || recordedExclusionRevision != exclusionHistory.revision) refresh()
     return frame
   }
 
@@ -109,18 +116,25 @@ internal class HardwareBackdropScene private constructor(private val root: View)
     val node = record(plan)
     cache.keys.removeAll { !seen.contains(it) }
     if (frame?.node !== node) frame = Frame(node, ++version)
+    recordedExclusionRevision = exclusionHistory.revision
   }
 
   fun owns(view: View) = root === view
 
   private fun inspect(view: View): Plan? {
     // Stop before examining or retaining any glass foreground descendants.
-    if (view is MoeGlassView) return Plan(view, emptyList(), true, 0L, false, false)
+    if (view is MoeGlassView) {
+      markGlassAncestors(view)
+      return Plan(view, emptyList(), true, 0L, false, false)
+    }
     val children = if (view is ViewGroup) {
       (0 until view.childCount).map { view.getChildAt(view.getChildDrawingOrder(it)) }
         .sortedBy { it.z }.mapNotNull { inspect(it) }
     } else emptyList()
-    val hasGlass = children.any { it.hasGlass }
+    // Android/RNScreens retain removed children in private transition lists.
+    // Losing the last PUBLIC glass child does not make ViewGroup.draw safe.
+    val hasGlass = exclusionHistory.requiresPartition(view, children.any { it.hasGlass })
+    if (hasGlass) markGlassAncestors(view)
     // Inspect hidden containers too: a cached framework subtree must never be
     // classified as glass-free merely because its glass is temporarily hidden.
     if (view.visibility != View.VISIBLE || view.alpha <= 0f || view.width <= 0 || view.height <= 0) {
@@ -178,7 +192,9 @@ internal class HardwareBackdropScene private constructor(private val root: View)
         target.translate(-view.scrollX.toFloat(), -view.scrollY.toFloat())
         view.draw(target)
       } else {
-        // Never call draw on an ancestor containing glass: its cached native
+        // Never call draw on an ancestor that contains OR HAS CONTAINED glass:
+        // private disappearing children are absent from the public tree.
+        // Its cached native
         // child display lists could otherwise form root -> glass -> root cycles.
         view.background?.draw(target)
         drawChildren(target, view as ViewGroup, plan.children)

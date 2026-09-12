@@ -23,6 +23,10 @@ vc20 截图 219/222/241 已观察到透镜轮廓比外框偏软。下一候选�
 
 每个 Activity/Dialog root 共享一个来源场景与一个 pre-draw 观察者，通过明确的引用计数 lease 持有；最后一个 glass 释放时移除观察者、池条目及缓存显示列表。遍历在任何 MoeGlassView 处剪枝，连同它的前景整组排除。含 glass 的祖先不调用 View.draw，只画背景并递归非 glass 内容；确定不含 glass 的子树才记录到子 RenderNode。隐藏的容器也检查 glass 后代，避免把暂时隐藏的 glass 误判为可整体录制的来源。子节点顺序、z、局部 matrix、滚动、alpha、clipBounds/outline、clipChildren/clipToPadding 参与组合；RN 圆角 overflow 使用当前已安装 runtime 的公开 `BackgroundStyleApplicator.clipToPaddingBox`。模块只 compileOnly 引用应用原有 react-android，不附带另一份 runtime。
 
+vc26 在“同步、数据与高级设置”导航时出现 RenderThread SIGSEGV，`RenderNode::prepareTreeImpl` / `SkiaDisplayList::prepareListAndChildren` 大量重复，属于不可由 UI try/catch 捕获的循环显示列表。错误边界是仅用当前公开 childCount 判断无 glass：Android ViewGroup.dispatchDraw 还绘制私有 disappearing children，当前 react-native-screens 也使用 startViewTransition 和 DrawingOp 重放；公开子树已移除 glass 时，整体 ViewGroup.draw 仍可能录入它的旧 RenderNode。原始记录保留在 `evidence/development/device-20260911-153f8f46/vc26-crash.txt`，具体循环中的 View 实例不能只靠 native 栈反推出。
+
+后续补丁用 `GlassAncestorHistory` 的 WeakHashMap 键记录“曾经是 glass 祖先”的容器，值仅 Boolean；在 glass attach（包括 Off）和来源检查时标记 parent 链，不随公开子节点移除、主题或 scene 重建清空。这些容器始终只记录背景并递归，不再整体 View.draw。新排除标记递增 revision，owner 即使早于 scene 的 pre-draw listener 调用 currentFrame，也必须先应用新排除并刷新来源，再使用缓存帧。弱键不强留 View/Window。该策略排除私有转场中的 glass，不承诺重放其退出前景；仍须在新候选重走原崩溃导航确认。
+
 源 dirty/layout、层级与绘制属性变化才重录对应内容；glass 自身传播到祖先的 dirty 不当作源变化，因此仅 lens 动画不会触发重复来源录制。主题切换显式失效来源缓存，覆盖 RN CompositeDrawable 颜色/圆角原位变化而 identity/state/bounds 不变的情况；恢复采样也强制失效。其他需要自定义祖先 onDraw/foreground 或无主题事件的原位自定义 Drawable 变化不在通用重放契约内。每个 surface 只在来源版本或相对坐标改变时重录其效果节点，静止不无条件 invalidate；没有 JS 截图、循环定时器或自建 Choreographer frame callback。
 
 40dp 外扩继续为折射和模糊提供边缘内容；效果节点每方向最多 768 像素，倍率仍为柔和 0.35、液态 0.25。RN 前景与原生 rim 保持全分辨率，shader 半径和折射距离仍按 density × sampleScale 换算。本次改变的是 CPU 软件栅格路径，未继续降低倍率来掩盖来源成本。
@@ -40,6 +44,8 @@ vc20 截图 219/222/241 已观察到透镜轮廓比外框偏软。下一候选�
 原生单测复用本仓库已有 JUnit 4.13.2，覆盖 8 值原子契约、超范围/非有限输入、禁用及重复值稳定性。定向 `:moe-glass:compileReleaseKotlin :moe-glass:testReleaseUnitTest` 已通过，5 项 JVM 测试无失败；本地报告在模块 `android/build/test-results/testReleaseUnitTest/`，编译日志在 `android/build/verification/`。Kotlin 编译和单测不验证 AGSL 在手机 GPU 的输出。新 renderer 的 APK、shader 实际执行、移动透镜画面、Modal 和 T08 性能证据由本轮候选记录另填。
 
 硬件来源补丁已单独运行上述两个 Gradle 任务，最终 `BUILD SUCCESSFUL`；5 项既有光学参数测试通过，没有用 JVM stub 冒充真实 RecordingCanvas 测试。首轮缺少 RN 编译 API 与误用非公开 Choreographer 帧时间接口的编译失败已修正，最终代码通过 SDK 36/Kotlin 编译且完全移除该帧时间调用。本地证据为 `evidence/development/glass-hardware-backdrop-compile.log`（首轮）、`glass-hardware-backdrop-compile-final.log`（最终）和 `glass-hardware-backdrop-structure-final.json`（仅结构检查）。此次未构建 APK、操作 ADB、提交或发布；真机同 Inbox、键盘、Modal、浅/深色和静止检查仍是交付条件。
+
+vc26 崩溃修复的定向 JVM 历史策略回归先以旧“只看当前子树”判定得到 3 项中的 2 项失败（旧祖先误放行），日志为 `evidence/development/glass-ancestor-history-red.log`。修复后的编译及原生单测结果见 `glass-ancestor-history-green.log`；这些测试覆盖移除后的历史排除、新 attach 的 revision 和容器重新挂接，不能冒充 RenderThread 真机崩溃已消失。
 
 ## 以下是旧渲染器 vc2/vc3 历史证据
 

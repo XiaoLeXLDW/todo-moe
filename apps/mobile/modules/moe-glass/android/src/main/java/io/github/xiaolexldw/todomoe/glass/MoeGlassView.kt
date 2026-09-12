@@ -162,7 +162,12 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
     }
   }
 
-  override fun onAttachedToWindow() { super.onAttachedToWindow(); updateObservers() }
+  override fun onAttachedToWindow() {
+    super.onAttachedToWindow()
+    // Mark even in Off mode, before any hardware source records these parents.
+    if (Build.VERSION.SDK_INT >= 31) HardwareBackdropScene.markGlassAncestors(this)
+    updateObservers()
+  }
   override fun onDetachedFromWindow() {
     removeObservers()
     releaseBuffer()
@@ -215,6 +220,7 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
   private fun captureBackground(): Boolean {
     if (!canSample()) return false
     try {
+      HardwareBackdropScene.markGlassAncestors(this)
       val density = resources.displayMetrics.density
       // Outer 24dp refraction + the moving 14dp lens need samples outside the
       // visible shape. Padding also keeps the 12dp soft blur off the clamp edge.
