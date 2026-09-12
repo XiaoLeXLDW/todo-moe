@@ -88,7 +88,9 @@ export function useMoeCompletionRow(taskId: string, completed: boolean) {
     const exiting = useMemo(() => () => {
         'worklet';
         const current = visual.value;
-        if (!current.armed || motion.reduced) return { initialValues: {}, animations: {} };
+        // Reanimated merges these targets with an unfinished entering animation.
+        // An empty object would keep that old fade-in alive after this row left.
+        if (!current.armed || motion.reduced) return { initialValues: { opacity: 0 }, animations: { opacity: 0 } };
         visual.value = { operationId: current.operationId, armed: false };
         return {
             initialValues: { opacity: 1, transform: [{ translateX: 0 }] },

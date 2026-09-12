@@ -54,6 +54,17 @@ beforeEach(() => { mocks.preference = 'standard'; mocks.reduced = false; mocks.d
 afterEach(() => { for (const tree of mounted.splice(0)) act(() => tree.unmount()); mocks.appListeners.clear(); vi.useRealTimers(); });
 
 describe('completion-only native row configuration (not a Fabric animation simulation)', () => {
+    it('overrides an unfinished restoration entry when the intermediate row leaves', () => {
+        const old = mount('undo-intermediate');
+        act(() => { old.handle.current.arm(22); old.tree.unmount(); });
+        act(() => old.handle.current.cancel(22, true));
+        const intermediate = mount('undo-intermediate');
+        const entry = intermediate.handle.current.entering!();
+        act(() => intermediate.tree.unmount());
+        const exit = intermediate.handle.current.exiting();
+        // Reanimated merges new targets with a still-running layout animation.
+        expect({ ...entry.animations, ...exit.animations }.opacity).toBe(0);
+    });
     it('commits the UI gate before the caller can perform its immediate store write', () => {
         mocks.deferWrites = true;
         const { handle } = mount('ui-gate');
@@ -69,25 +80,25 @@ describe('completion-only native row configuration (not a Fabric animation simul
         const write = vi.fn();
         act(() => { handle.current.arm(21); write(); });
         expect(write).toHaveBeenCalledOnce();
-        expect(handle.current.exiting().animations).toEqual({});
+        expect(handle.current.exiting().animations).toEqual({ opacity: 0 });
     });
     it('does not configure a fade for ordinary filtering, deletion or virtualization unmount', () => {
         const { tree, handle } = mount('ordinary');
         const exit = handle.current.exiting;
         act(() => tree.unmount());
-        expect(exit()).toEqual({ initialValues: {}, animations: {} });
+        expect(exit()).toEqual({ initialValues: { opacity: 0 }, animations: { opacity: 0 } });
         expect(withTiming).not.toHaveBeenCalled();
     });
     it('arms each row independently before an immediate business callback', () => {
         const a = mount('independent-a'); const b = mount('independent-b');
-        const write = vi.fn(() => { expect(a.handle.current.exiting().animations).not.toEqual({}); });
+        const write = vi.fn(() => { expect(a.handle.current.exiting().animations).not.toEqual({ opacity: 0 }); });
         act(() => { a.handle.current.arm(1); write(); });
         expect(write).toHaveBeenCalledOnce();
         expect(vi.mocked(withTiming).mock.calls.some(([value, config]) => value === 10 && config?.duration === 300)).toBe(true);
-        expect(b.handle.current.exiting().animations).toEqual({});
+        expect(b.handle.current.exiting().animations).toEqual({ opacity: 0 });
         act(() => b.handle.current.arm(2));
         expect(b.handle.current.exiting().animations.opacity).toEqual({ target: 0, duration: 300 });
-        expect(a.handle.current.exiting().animations).toEqual({});
+        expect(a.handle.current.exiting().animations).toEqual({ opacity: 0 });
     });
     it('a synchronous successful action does not disarm before React commits removal', () => {
         const { tree, handle } = mount('commit-race');
@@ -98,9 +109,9 @@ describe('completion-only native row configuration (not a Fabric animation simul
     it('retained Done rows and failed operations do not arm later unrelated removal', () => {
         const row = mount('retained');
         act(() => { row.handle.current.arm(3); row.tree.update(<Harness id="retained" completed capture={row.capture} />); });
-        expect(row.handle.current.exiting().animations).toEqual({});
+        expect(row.handle.current.exiting().animations).toEqual({ opacity: 0 });
         act(() => { row.handle.current.arm(4); row.handle.current.settle(4, false); });
-        expect(row.handle.current.exiting().animations).toEqual({});
+        expect(row.handle.current.exiting().animations).toEqual({ opacity: 0 });
     });
     it('Undo requests restoration entry; old operation handlers cannot touch a new row instance', () => {
         const old = mount('undo-same-key'); const previous = old.handle.current;
@@ -111,7 +122,7 @@ describe('completion-only native row configuration (not a Fabric animation simul
         act(() => { replacement.handle.current.arm(6); previous.settle(5, false); previous.cancel(5); });
         expect(replacement.handle.current.exiting().animations.opacity).toEqual({ target: 0, duration: 300 });
         // This checks JS handle isolation, NOT cancellation of an old native node.
-        expect(previous.exiting().animations).toEqual({});
+        expect(previous.exiting().animations).toEqual({ opacity: 0 });
     });
     it('stale operations do not cancel a newer operation on the same mounted row', () => {
         const { handle } = mount('new-operation');
@@ -139,17 +150,17 @@ describe('completion-only native row configuration (not a Fabric animation simul
         act(() => { tree = create(<NavigationContext.Provider value={navigation as any}><Harness id="route" capture={(value) => { transition = value; }} /></NavigationContext.Provider>); });
         mounted.push(tree);
         act(() => { transition.arm(10); callbacks.get('blur')?.(); });
-        expect(transition.exiting().animations).toEqual({});
+        expect(transition.exiting().animations).toEqual({ opacity: 0 });
         act(() => { transition.arm(11); mocks.appListeners.forEach((listener) => listener('background')); });
-        expect(transition.exiting().animations).toEqual({});
+        expect(transition.exiting().animations).toEqual({ opacity: 0 });
         act(() => tree.unmount());
         expect(callbacks.size).toBe(0); expect(mocks.appListeners.size).toBe(0); expect(vi.getTimerCount()).toBe(0);
     });
     it('honors Simple/system reduction and the unified lively exit duration', () => {
         mocks.preference = 'simple'; const simple = mount('simple'); act(() => simple.handle.current.arm(12));
-        expect(simple.handle.current.exiting().animations).toEqual({});
+        expect(simple.handle.current.exiting().animations).toEqual({ opacity: 0 });
         mocks.preference = 'standard'; mocks.reduced = true; const reduced = mount('system'); act(() => reduced.handle.current.arm(13));
-        expect(reduced.handle.current.exiting().animations).toEqual({});
+        expect(reduced.handle.current.exiting().animations).toEqual({ opacity: 0 });
         mocks.reduced = false; mocks.preference = 'lively'; const lively = mount('lively'); act(() => lively.handle.current.arm(14));
         expect(lively.handle.current.exiting().animations.opacity).toEqual({ target: 0, duration: 340 });
     });
