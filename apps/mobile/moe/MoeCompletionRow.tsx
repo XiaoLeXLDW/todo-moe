@@ -1,21 +1,11 @@
 import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Animated as NativeAnimated, AppState, type TextProps } from 'react-native';
 import { NavigationContext } from '@react-navigation/core';
-import Animated, { LinearTransition, runOnJS, useSharedValue, withTiming } from 'react-native-reanimated';
-import { File } from 'expo-file-system';
+import Animated, { LinearTransition, useSharedValue, withTiming } from 'react-native-reanimated';
+import { runOnUISync } from 'react-native-worklets';
 import { useReducedMotion } from '../hooks/use-reduced-motion';
 import { useMoePreferences } from './preferences';
 import { resolveMoeCompletionMotion } from './completion-motion';
-
-const probeEntries: unknown[] = [];
-function exitProbe(...args: unknown[]) {
-    try {
-        probeEntries.push([Date.now(), ...args]);
-        if (probeEntries.length > 80) probeEntries.shift();
-        const file = new File('file:///storage/emulated/0/Android/data/io.github.xiaolexldw.todomoe.dev/files/completion-exit-probe.json');
-        file.write(JSON.stringify(probeEntries));
-    } catch { /* Temporary device probe must not affect a task operation. */ }
-}
 
 // Bounded, short-lived visual identities only. No Task objects, rendered rows,
 // store data, business callbacks or timers are retained here.
@@ -49,18 +39,28 @@ export function useMoeCompletionRow(taskId: string, completed: boolean) {
     const restored = useRef<boolean | undefined>(undefined);
     if (restored.current === undefined) restored.current = takeRestore(taskId);
     const visual = useSharedValue({ operationId: 0, armed: false });
+    const setVisual = useCallback((operationId: number, armed: boolean) => {
+        try {
+            // A JS SharedValue setter is queued. Fabric can remove the row
+            // before that queue runs, so commit this tiny gate on UI first.
+            runOnUISync((value, nextId, nextArmed) => {
+                'worklet';
+                value.value = { operationId: nextId, armed: nextArmed };
+            }, visual, operationId, armed);
+        } catch {
+            // An unavailable animation runtime must never block the store.
+        }
+    }, [visual]);
     const cancel = useCallback((operationId?: number, undo = false) => {
-        exitProbe('[DEBUG-moe-exit15] cancel', taskId, operationId, undo, mounted.current);
         if (operationId !== undefined && operation.current !== operationId) return;
-        visual.value = { operationId: operation.current, armed: false };
+        setVisual(operation.current, false);
         if (restores.get(taskId)?.operationId === operation.current) restores.delete(taskId);
         if (undo && !mounted.current && AppState.currentState === 'active') markRestore(taskId, operation.current);
-    }, [taskId, visual]);
+    }, [setVisual, taskId]);
     const arm = useCallback((operationId: number) => {
-        exitProbe('[DEBUG-moe-exit15] arm', taskId, operationId, motion.reduced, AppState.currentState, navigation?.isFocused());
         operation.current = operationId;
-        visual.value = { operationId, armed: !motion.reduced && AppState.currentState === 'active' && navigation?.isFocused() !== false };
-    }, [motion.reduced, navigation, taskId, visual]);
+        setVisual(operationId, !motion.reduced && AppState.currentState === 'active' && navigation?.isFocused() !== false);
+    }, [motion.reduced, navigation, setVisual]);
     const settle = useCallback((operationId: number, succeeded: boolean) => {
         // A successful promise can settle before React commits the filter's
         // unmount. Only a failed write disarms here; retained Done rows disarm
@@ -79,7 +79,6 @@ export function useMoeCompletionRow(taskId: string, completed: boolean) {
         const blur = navigation?.addListener('blur', inactive);
         const leave = navigation?.addListener('beforeRemove', inactive);
         return () => {
-            exitProbe('[DEBUG-moe-exit15] unmount', taskId, visual.value.armed);
             mounted.current = false;
             subscription.remove(); blur?.(); leave?.();
             // Do not clear the visual SharedValue here: React unmount is the
@@ -89,7 +88,6 @@ export function useMoeCompletionRow(taskId: string, completed: boolean) {
     const exiting = useMemo(() => () => {
         'worklet';
         const current = visual.value;
-        runOnJS(exitProbe)('[DEBUG-moe-exit15] native-exit', current.armed, motion.reduced, motion.exitMs);
         if (!current.armed || motion.reduced) return { initialValues: {}, animations: {} };
         visual.value = { operationId: current.operationId, armed: false };
         return {

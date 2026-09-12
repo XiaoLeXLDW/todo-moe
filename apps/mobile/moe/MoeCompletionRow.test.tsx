@@ -4,9 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Animated as NativeAnimated, AppState } from 'react-native';
 import { NavigationContext } from '@react-navigation/core';
 import { withTiming } from 'react-native-reanimated';
+import { runOnUISync } from 'react-native-worklets';
 import { MoeCompletionRow, MoeCompletionTitle, useMoeCompletionListLayout, useMoeCompletionRow } from './MoeCompletionRow';
 
-const mocks = vi.hoisted(() => ({ preference: 'standard' as 'simple' | 'standard' | 'lively', reduced: false, appListeners: new Set<(state: string) => void>() }));
+const mocks = vi.hoisted(() => ({ preference: 'standard' as 'simple' | 'standard' | 'lively', reduced: false, deferWrites: false, onUI: false, appListeners: new Set<(state: string) => void>() }));
 vi.mock('./preferences', () => ({ useMoePreferences: () => ({ motion: mocks.preference }) }));
 vi.mock('../hooks/use-reduced-motion', () => ({ useReducedMotion: () => mocks.reduced }));
 vi.mock('@react-navigation/core', () => ({ NavigationContext: React.createContext(undefined) }));
@@ -17,7 +18,22 @@ vi.mock('react-native', async (original) => ({ ...(await original() as object),
 }));
 vi.mock('react-native-reanimated', async (original) => ({ ...(await original() as object),
     withTiming: vi.fn((target: number, config: { duration: number }) => ({ target, duration: config.duration })),
+    useSharedValue: (initial: unknown) => {
+        const ref = React.useRef<{ value: unknown } | null>(null);
+        if (!ref.current) {
+            let current = initial;
+            ref.current = { get value() { return current; }, set value(next) {
+                // Model removal occurring before the JS setter queue is drained.
+                if (!mocks.deferWrites || mocks.onUI) current = next;
+            } };
+        }
+        return ref.current;
+    },
 }));
+vi.mock('react-native-worklets', () => ({ runOnUISync: vi.fn((worklet, ...args) => {
+    mocks.onUI = true;
+    try { return worklet(...args); } finally { mocks.onUI = false; }
+}) }));
 
 type Transition = ReturnType<typeof useMoeCompletionRow>;
 const mounted: ReactTestRenderer[] = [];
@@ -34,10 +50,27 @@ function mount(id: string) {
     mounted.push(tree);
     return { handle, tree, capture };
 }
-beforeEach(() => { mocks.preference = 'standard'; mocks.reduced = false; AppState.currentState = 'active'; vi.clearAllMocks(); vi.useFakeTimers(); });
+beforeEach(() => { mocks.preference = 'standard'; mocks.reduced = false; mocks.deferWrites = false; mocks.onUI = false; AppState.currentState = 'active'; vi.clearAllMocks(); vi.useFakeTimers(); });
 afterEach(() => { for (const tree of mounted.splice(0)) act(() => tree.unmount()); mocks.appListeners.clear(); vi.useRealTimers(); });
 
 describe('completion-only native row configuration (not a Fabric animation simulation)', () => {
+    it('commits the UI gate before the caller can perform its immediate store write', () => {
+        mocks.deferWrites = true;
+        const { handle } = mount('ui-gate');
+        const write = vi.fn(() => {
+            expect(handle.current.exiting().animations.opacity).toEqual({ target: 0, duration: 300 });
+        });
+        act(() => { handle.current.arm(20); write(); });
+        expect(write).toHaveBeenCalledOnce();
+    });
+    it('does not throw into the business path when the UI bridge is unavailable', () => {
+        const { handle } = mount('missing-ui');
+        vi.mocked(runOnUISync).mockImplementationOnce(() => { throw new Error('UI unavailable'); });
+        const write = vi.fn();
+        act(() => { handle.current.arm(21); write(); });
+        expect(write).toHaveBeenCalledOnce();
+        expect(handle.current.exiting().animations).toEqual({});
+    });
     it('does not configure a fade for ordinary filtering, deletion or virtualization unmount', () => {
         const { tree, handle } = mount('ordinary');
         const exit = handle.current.exiting;

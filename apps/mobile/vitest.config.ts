@@ -8,6 +8,7 @@ export default defineConfig({
       '@': path.resolve(__dirname, '.'),
       'react-native': path.resolve(__dirname, 'shims/react-native.ts'),
       'react-native-reanimated': path.resolve(__dirname, 'shims/react-native-reanimated.ts'),
+      'react-native-worklets': path.resolve(__dirname, 'shims/react-native-worklets.ts'),
     },
   },
   test: {
