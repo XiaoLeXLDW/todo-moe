@@ -82,6 +82,13 @@ class MoeLiquidTabBarView(context: Context, appContext: AppContext) : ExpoView(c
     (appContext.currentActivity as? SavedStateRegistryOwner)?.let { compose.setViewTreeSavedStateRegistryOwner(it) }
     if (Build.VERSION.SDK_INT >= 31) HardwareBackdropScene.markGlassAncestors(this)
     viewTreeObserver.addOnPreDrawListener(preDraw)
+    // Fabric measures native views before attaching them. Compose's measure
+    // creates its composition and needs the window recomposer. The posted pass
+    // runs after our child's attach dispatch, without relying on RN to honor a
+    // child requestLayout for the already measured Yoga frame.
+    post {
+      if (compose.isAttachedToWindow) layoutCompose(width, height)
+    }
   }
   override fun onDetachedFromWindow() {
     if (viewTreeObserver.isAlive) viewTreeObserver.removeOnPreDrawListener(preDraw)
@@ -101,9 +108,15 @@ class MoeLiquidTabBarView(context: Context, appContext: AppContext) : ExpoView(c
     val width = MeasureSpec.getSize(widthMeasureSpec)
     val height = MeasureSpec.getSize(heightMeasureSpec)
     setMeasuredDimension(width, height)
-    compose.measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY))
+    if (compose.isAttachedToWindow) {
+      compose.measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY))
+    }
   }
   override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-    compose.layout(0, 0, right - left, bottom - top)
+    if (compose.isAttachedToWindow) layoutCompose(right - left, bottom - top)
+  }
+  private fun layoutCompose(width: Int, height: Int) {
+    compose.measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY))
+    compose.layout(0, 0, width, height)
   }
 }

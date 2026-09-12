@@ -294,7 +294,7 @@ internal fun FloatingBottomBar(
         }
     }
 
-    val interactiveHighlight = remember(animationScope, tabWidthPx) {
+    val interactiveHighlight = remember(animationScope, tabWidthPx, dampedDragAnimation, isLtr) {
         InteractiveHighlight(
             animationScope = animationScope,
             position = { size, _ ->
