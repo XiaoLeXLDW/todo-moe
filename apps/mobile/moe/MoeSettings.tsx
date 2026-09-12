@@ -9,6 +9,7 @@ import { useReducedMotion } from '../hooks/use-reduced-motion';
 import { useMoePreferences, setMoePreferences, type MoePreferences } from './preferences';
 import { glassCapabilities } from './glass/GlassSurface';
 import { getMobileAppName } from './brand-text';
+import { MOE_VISUAL } from './visual-system';
 
 export function MoeSettings({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const tc = useThemeColors();
@@ -38,7 +39,7 @@ export function MoeSettings({ visible, onClose }: { visible: boolean; onClose: (
       </View>
     </View>
   );
-  const toggle = (key: 'followSystem' | 'celebration', text: string) => (
+  const toggle = (key: 'followSystem' | 'celebration' | 'nextActionPrompt', text: string) => (
     <View style={[styles.toggle, { borderColor: tc.border }]}>
       <Text style={[styles.toggleText, { color: tc.text }]}>{text}</Text>
       <Switch accessibilityLabel={text} value={preferences[key]} onValueChange={(value) => save({ [key]: value })} />
@@ -64,6 +65,7 @@ export function MoeSettings({ visible, onClose }: { visible: boolean; onClose: (
           <Text style={[styles.note, { color: tc.secondaryText }]}>{label('同时尊重系统减少动画；保存和撤销无需等待动画。', 'System Reduce Motion is respected. Saving and Undo never wait for animation.')}</Text>
           {select('haptics', label('触感反馈', 'Haptics'), [['off', label('关闭', 'Off')], ['light', label('轻', 'Light')]])}
           {toggle('celebration', label('清单完成庆祝', 'Celebrate completed lists'))}
+          {toggle('nextActionPrompt', label('清单下一步提示', 'Suggest the next action after completion'))}
           {error ? <Text accessibilityRole="alert" style={{ color: tc.danger }}>{error}</Text> : null}
           {getAppIdentity().channel === 'development' ? (
             <Text style={[styles.note, { color: tc.warning }]}>{label('Dev 数据保存在独立应用中；云端空间不会自动隔离，请仅连接测试目标。', 'Dev uses separate app data. Cloud storage is not automatically isolated; connect only a test target.')}</Text>
@@ -82,8 +84,8 @@ export function MoeSettings({ visible, onClose }: { visible: boolean; onClose: (
   );
 }
 const styles = StyleSheet.create({
-  root: { flex: 1 }, header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 }, heading: { flex: 1, fontSize: 22, fontWeight: '700' },
-  close: { minHeight: 48, minWidth: 64, alignItems: 'center', justifyContent: 'center' }, body: { padding: 20, paddingBottom: 48, gap: 12 },
+  root: { flex: 1 }, header: { width: '100%', maxWidth: MOE_VISUAL.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', paddingHorizontal: MOE_VISUAL.pageGutter }, heading: { flex: 1, fontSize: 22, fontWeight: '700' },
+  close: { minHeight: 48, minWidth: 64, alignItems: 'center', justifyContent: 'center' }, body: { width: '100%', maxWidth: MOE_VISUAL.contentMaxWidth, alignSelf: 'center', padding: MOE_VISUAL.pageGutter, paddingBottom: 48, gap: 12 },
   section: { paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth }, title: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, choice: { minHeight: 48, minWidth: 80, borderRadius: 16, paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center' },
   toggle: { flexDirection: 'row', minHeight: 56, alignItems: 'center', gap: 12 }, toggleText: { flex: 1, fontSize: 16 },

@@ -188,6 +188,7 @@ vi.mock('../../components/markdown-text', () => ({
 }));
 
 const taskListPropsSpy = vi.hoisted(() => vi.fn());
+vi.mock('@/moe/MoeCelebration', () => ({ MoeCelebration: (props: Record<string, unknown>) => React.createElement('MoeCelebration', props) }));
 
 vi.mock('../../components/task-list', async () => {
     const ReactModule = await import('react');
@@ -212,6 +213,10 @@ vi.mock('../../components/AttachmentProgressIndicator', () => ({
 }));
 
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { MoeCelebration } from '@/moe/MoeCelebration';
+import { ToastViewport } from '../../contexts/toast-context';
+import { ThemedAlertHost } from '../../components/themed-alert';
 import { ProjectDetailModal, getProjectDetailModalSafeAreaEdges } from './ProjectDetailModal';
 import { getProjectDetailTaskListOptions } from './ProjectTaskList';
 
@@ -1469,5 +1474,38 @@ describe('ProjectDetailModal reorder option under a custom sort', () => {
             tree.root.findAllByType(Text).some((node) =>
                 String(node.props.children) === 'Available when Sort is Default'),
         ).toBe(false);
+    });
+});
+
+
+describe('project reward native-window placement', () => {
+    it('activates only on native onShow, scopes by project, and leaves Toast/alerts above the reward', () => {
+        const props = createProjectDetailModalProps(); let tree!: ReturnType<typeof create>;
+        act(() => { tree = create(<ProjectDetailModal {...props} />); });
+        const reward = () => tree.root.findByType(MoeCelebration);
+        const modal = () => tree.root.findAllByType(Modal).find(item => item.props.presentationStyle === 'fullScreen' || item.props.presentationStyle === 'pageSheet')!;
+        expect(reward().props).toMatchObject({ active: false, projectId: 'project-1' });
+        const originalShow = modal().props.onShow;
+        act(() => originalShow()); expect(reward().props.active).toBe(true);
+        const children = React.Children.toArray(tree.root.findByType(GestureHandlerRootView).props.children) as React.ReactElement[];
+        expect(children.findIndex(child => child.type === MoeCelebration)).toBeLessThan(children.findIndex(child => child.type === ToastViewport));
+        expect(children.findIndex(child => child.type === ToastViewport)).toBeLessThan(children.findIndex(child => child.type === ThemedAlertHost));
+        act(() => tree.update(<ProjectDetailModal {...props} project={null} />));
+        act(() => originalShow()); expect(reward().props.active).toBe(false);
+        act(() => tree.update(<ProjectDetailModal {...props} project={{ ...props.project!, id: 'project-2' }} />));
+        expect(reward().props).toMatchObject({ active: false, projectId: 'project-2' });
+        act(() => modal().props.onShow()); expect(reward().props.active).toBe(true);
+        act(() => tree.unmount());
+    });
+    it('pauses the reward while the existing full-screen notes modal covers the project', () => {
+        const props = createProjectDetailModalProps(); let tree!: ReturnType<typeof create>;
+        act(() => { tree = create(<ProjectDetailModal {...props} />); });
+        const modal = tree.root.findAllByType(Modal).find(item => item.props.presentationStyle === 'fullScreen' || item.props.presentationStyle === 'pageSheet')!;
+        act(() => modal.props.onShow());
+        act(() => tree.update(<ProjectDetailModal {...props} notes={{ ...props.notes, notesFullscreen: true }} />));
+        expect(tree.root.findByType(MoeCelebration).props.active).toBe(false);
+        act(() => tree.update(<ProjectDetailModal {...props} />));
+        expect(tree.root.findByType(MoeCelebration).props.active).toBe(true);
+        act(() => tree.unmount());
     });
 });

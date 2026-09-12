@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Keyboard, Platform } from 'react-native';
+import { Alert, AppState, Keyboard, Platform } from 'react-native';
 import { act, create } from 'react-test-renderer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -298,6 +298,7 @@ describe('QuickCaptureSheet save handling', () => {
   });
 
   beforeEach(() => {
+    AppState.currentState = 'active';
     addTask.mockReset();
     addTasks.mockReset();
     addProject.mockReset();
@@ -427,144 +428,26 @@ describe('QuickCaptureSheet save handling', () => {
     expect(getUsedTaskTokens).not.toHaveBeenCalled();
   });
 
-  it('keeps the sheet lifted until the Android keyboard finishes hiding, then expands', async () => {
+  it.each([true, false])('discloses and collapses More without changing keyboard visibility (%s)', async (keyboardVisible) => {
     vi.useFakeTimers();
-    const keyboardDismiss = vi.spyOn(Keyboard, 'dismiss').mockImplementation(vi.fn());
-    vi.spyOn(Keyboard, 'isVisible').mockReturnValue(true);
-    const hideListeners: (() => void)[] = [];
-    const showListeners: (() => void)[] = [];
-    const removeListener = vi.fn();
-    vi.spyOn(Keyboard, 'addListener').mockImplementation(((event: string, cb: () => void) => {
-      if (event === 'keyboardDidHide') hideListeners.push(cb);
-      if (event === 'keyboardDidShow') showListeners.push(cb);
-      return { remove: removeListener };
-    }) as unknown as typeof Keyboard.addListener);
-
-    await withPlatform('android', async () => {
-      let tree!: ReturnType<typeof create>;
-      await act(async () => {
-        tree = create(
-          <QuickCaptureSheet
-            visible
-            openRequestId={1}
-            initialValue=""
-            onClose={vi.fn()}
-          />
-        );
-        await Promise.resolve();
-      });
-
-      const getBody = () => {
-        const body = tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetBody')[0];
-        if (!body) throw new Error('QuickCaptureSheetBody not found');
-        return body;
-      };
-
-      expect(getBody().props.optionsExpanded).toBe(false);
-      expect(getBody().props.keyboardAvoidingEnabled).toBe(true);
-
-      const focus = vi.fn();
-      const blur = vi.fn();
-      getBody().props.inputRef.current = { blur, focus };
-
-      // Ignore the baseline keyboard-inset listeners registered on mount; this
-      // test only cares about the keyboardDidHide gate the More toggle adds.
-      hideListeners.length = 0;
-      showListeners.length = 0;
-
-      await act(async () => {
-        getBody().props.onToggleOptions();
-        await Promise.resolve();
-      });
-
-      // The keyboard is dismissed, but the lift must stay on and the sheet must
-      // stay collapsed until the keyboard is actually gone. Dropping the lift now
-      // would slam the sheet behind the still-visible keyboard (the flicker).
-      expect(keyboardDismiss).toHaveBeenCalledOnce();
-      expect(blur).toHaveBeenCalledOnce();
-      expect(hideListeners).toHaveLength(1);
-      expect(getBody().props.optionsExpanded).toBe(false);
-      expect(getBody().props.keyboardAvoidingEnabled).toBe(true);
-
-      // A premature timer must not expand the sheet on its own; only the keyboard
-      // hide event (or the far safety-net) may.
-      await act(async () => {
-        vi.advanceTimersByTime(160);
-        await Promise.resolve();
-      });
-      expect(getBody().props.optionsExpanded).toBe(false);
-      expect(getBody().props.keyboardAvoidingEnabled).toBe(true);
-
-      // Keyboard finished hiding: now expand and drop the lift together.
-      await act(async () => {
-        hideListeners.forEach((cb) => cb());
-        await Promise.resolve();
-      });
-
-      expect(focus).not.toHaveBeenCalled();
-      expect(getBody().props.optionsExpanded).toBe(true);
-      expect(getBody().props.keyboardAvoidingEnabled).toBe(false);
-      expect(removeListener).toHaveBeenCalled();
-      expect(showListeners).toHaveLength(1);
-
-      await act(async () => {
-        showListeners.forEach((cb) => cb());
-        await Promise.resolve();
-      });
-
-      expect(getBody().props.optionsExpanded).toBe(true);
-      expect(getBody().props.keyboardAvoidingEnabled).toBe(true);
-
-      await act(async () => {
-        getBody().props.onToggleOptions();
-        await Promise.resolve();
-      });
-
-      expect(getBody().props.optionsExpanded).toBe(false);
-      expect(getBody().props.keyboardAvoidingEnabled).toBe(true);
-    });
-  });
-
-  it('expands Android organize options immediately when the keyboard is already hidden', async () => {
-    vi.useFakeTimers();
-    vi.spyOn(Keyboard, 'dismiss').mockImplementation(vi.fn());
-    vi.spyOn(Keyboard, 'isVisible').mockReturnValue(false);
+    vi.spyOn(Keyboard, 'isVisible').mockReturnValue(keyboardVisible);
+    const dismiss = vi.spyOn(Keyboard, 'dismiss');
     const addListener = vi.spyOn(Keyboard, 'addListener');
-
     await withPlatform('android', async () => {
       let tree!: ReturnType<typeof create>;
-      await act(async () => {
-        tree = create(
-          <QuickCaptureSheet
-            visible
-            openRequestId={1}
-            initialValue=""
-            onClose={vi.fn()}
-          />
-        );
-        await Promise.resolve();
-      });
-
-      const getBody = () => {
-        const body = tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetBody')[0];
-        if (!body) throw new Error('QuickCaptureSheetBody not found');
-        return body;
-      };
-
-      getBody().props.inputRef.current = { blur: vi.fn(), focus: vi.fn() };
-
-      // Drop the baseline keyboard-inset listeners registered on mount so we can
-      // assert the More toggle adds only the refocus guard.
+      await act(async () => { tree = create(<QuickCaptureSheet visible openRequestId={1} onClose={vi.fn()} />); });
+      const body = () => tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetBody')[0];
+      const blur = vi.fn(); body().props.inputRef.current = { blur, focus: vi.fn() };
       addListener.mockClear();
-
-      await act(async () => {
-        getBody().props.onToggleOptions();
-        await Promise.resolve();
-      });
-
-      expect(addListener).toHaveBeenCalledWith('keyboardDidShow', expect.any(Function));
-      expect(getBody().props.optionsExpanded).toBe(true);
-      expect(getBody().props.keyboardAvoidingEnabled).toBe(false);
+      act(() => { body().props.onToggleOptions(); });
+      expect(body().props.optionsExpanded).toBe(true);
+      expect(body().props.keyboardAvoidingEnabled).toBe(true);
+      expect(dismiss).not.toHaveBeenCalled(); expect(blur).not.toHaveBeenCalled();
+      expect(addListener).not.toHaveBeenCalled();
+      act(() => { vi.advanceTimersByTime(1000); body().props.onToggleOptions(); });
+      expect(body().props.optionsExpanded).toBe(false);
+      expect(body().props.keyboardAvoidingEnabled).toBe(true);
+      act(() => tree.unmount());
     });
   });
 
@@ -1540,7 +1423,7 @@ describe('QuickCaptureSheet save handling', () => {
     }));
     expect(onClose).not.toHaveBeenCalled();
   });
-  it('saves the More-panel note as the task description', async () => {
+  it('preserves a prefilled description when quick capture defers note editing to details', async () => {
     addTask.mockResolvedValue({ success: true, id: 'task-1' });
 
     let tree!: ReturnType<typeof create>;
@@ -1550,6 +1433,7 @@ describe('QuickCaptureSheet save handling', () => {
           visible
           openRequestId={1}
           initialValue="Renew passport"
+          initialProps={{ description: '  Bring the old one and two photos  ' }}
           onClose={vi.fn()}
         />
       );
@@ -1562,12 +1446,7 @@ describe('QuickCaptureSheet save handling', () => {
       return body;
     };
 
-    expect(getBody().props.noteValue).toBe('');
-
-    await act(async () => {
-      getBody().props.onNoteChange('  Bring the old one and two photos  ');
-      await Promise.resolve();
-    });
+    expect(getBody().props.noteValue).toBe('  Bring the old one and two photos  ');
 
     await act(async () => {
       getBody().props.handleSave();
@@ -1580,7 +1459,7 @@ describe('QuickCaptureSheet save handling', () => {
     }));
   });
 
-  it('keeps a /note: token typed in the title after the note field text', async () => {
+  it('keeps a /note: token typed in the title after the prefilled description', async () => {
     addTask.mockResolvedValue({ success: true, id: 'task-1' });
     parseQuickAdd.mockReturnValue({
       title: 'Renew passport',
@@ -1595,6 +1474,7 @@ describe('QuickCaptureSheet save handling', () => {
           visible
           openRequestId={1}
           initialValue="Renew passport /note: from the token"
+          initialProps={{ description: 'typed in the field' }}
           onClose={vi.fn()}
         />
       );
@@ -1608,11 +1488,6 @@ describe('QuickCaptureSheet save handling', () => {
     };
 
     await act(async () => {
-      getBody().props.onNoteChange('typed in the field');
-      await Promise.resolve();
-    });
-
-    await act(async () => {
       getBody().props.handleSave();
       await Promise.resolve();
     });
@@ -1623,4 +1498,137 @@ describe('QuickCaptureSheet save handling', () => {
       description: 'typed in the field\nfrom the token',
     }));
   });
+
+  it('keeps a dirty draft on Cancel, discards only after confirmation, and never writes a task', async () => {
+    const onClose = vi.fn(); let tree!: ReturnType<typeof create>;
+    await act(async () => { tree = create(<QuickCaptureSheet visible openRequestId={1} onClose={onClose} />); });
+    const body = () => tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetBody')[0];
+    act(() => { body().props.onValueChange('Unfinished thought'); body().props.onQuickDueDateSelect(new Date('2026-09-13T00:00:00Z')); });
+    act(() => body().props.handleClose());
+    expect(onClose).not.toHaveBeenCalled();
+    expect(findBulkConfirm(tree)?.props.title).toBe('Discard unsaved changes?');
+    expect(body().props.contentAccessibilityHidden).toBe(true);
+    act(() => findBulkConfirm(tree)?.props.onCancel());
+    expect(body().props.value).toBe('Unfinished thought');
+    expect(body().props.dueDate?.toISOString()).toBe('2026-09-13T00:00:00.000Z');
+    expect(body().props.contentAccessibilityHidden).toBe(false);
+    act(() => body().props.handleRequestClose());
+    act(() => findBulkConfirm(tree)?.props.onConfirm());
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(addTask).not.toHaveBeenCalled(); expect(addTasks).not.toHaveBeenCalled();
+    // The existing draft survives only the presentation exit, then is cleared.
+    act(() => body().props.onDidHide());
+    expect(body().props.value).toBe('');
+    act(() => tree.unmount());
+  });
+
+  it('protects metadata-only drafts and returns clean empty capture without confirmation', async () => {
+    const onClose = vi.fn(); let tree!: ReturnType<typeof create>;
+    await act(async () => { tree = create(<QuickCaptureSheet visible openRequestId={1} onClose={onClose} />); });
+    const body = () => tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetBody')[0];
+    act(() => body().props.onQuickDueDateSelect(new Date('2026-09-14T00:00:00Z')));
+    act(() => body().props.handleClose());
+    expect(onClose).not.toHaveBeenCalled(); expect(findBulkConfirm(tree)).toBeTruthy();
+    act(() => findBulkConfirm(tree)?.props.onCancel());
+    act(() => body().props.onResetDueDate());
+    act(() => body().props.handleClose());
+    expect(onClose).toHaveBeenCalledOnce(); expect(findBulkConfirm(tree)).toBeUndefined();
+    act(() => tree.unmount());
+  });
+
+  it('keeps failed save input recoverable and closes a successful save without a discard prompt', async () => {
+    const onClose = vi.fn(); let tree!: ReturnType<typeof create>;
+    addTask.mockResolvedValueOnce({ success: false, error: 'Disk full' }).mockResolvedValueOnce({ success: true, id: 'retried' });
+    await act(async () => { tree = create(<QuickCaptureSheet visible openRequestId={1} initialValue="Keep this" onClose={onClose} />); });
+    const body = () => tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetBody')[0];
+    await act(async () => { body().props.handleSave(); });
+    expect(body().props.value).toBe('Keep this'); expect(onClose).not.toHaveBeenCalled();
+    act(() => body().props.handleClose());
+    expect(findBulkConfirm(tree)).toBeTruthy();
+    act(() => findBulkConfirm(tree)?.props.onCancel());
+    await act(async () => { body().props.handleSave(); });
+    expect(onClose).toHaveBeenCalledOnce(); expect(findBulkConfirm(tree)).toBeUndefined();
+    expect(addTask).toHaveBeenCalledTimes(2);
+    act(() => tree.unmount());
+  });
+
+
+  it('does not open a delayed native picker into a reopened capture session', async () => {
+    vi.useFakeTimers();
+    await withPlatform('ios', async () => {
+      const onClose = vi.fn(); let tree!: ReturnType<typeof create>;
+      await act(async () => { tree = create(<QuickCaptureSheet visible openRequestId={1} onClose={onClose} />); });
+      const body = () => tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetBody')[0];
+      act(() => { body().props.onOpenDueDatePicker(); body().props.handleClose(); });
+      act(() => tree.update(<QuickCaptureSheet visible={false} openRequestId={1} onClose={onClose} />));
+      act(() => tree.update(<QuickCaptureSheet visible openRequestId={2} onClose={onClose} />));
+      act(() => { vi.advanceTimersByTime(121); });
+      const date = tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetPickers' && node.props.pickerLayer === 'date')[0];
+      expect(date.props.showDatePicker).toBe(false);
+      act(() => body().props.onOpenDueDatePicker());
+      act(() => { vi.advanceTimersByTime(121); });
+      expect(date.props.showDatePicker).toBe(true);
+      act(() => tree.unmount());
+    });
+  });
+
+
+  it.each(['button', 'system-back'])('refocuses the current draft after cancelling discard via %s without a timer', async (method) => {
+    vi.useFakeTimers(); const onClose = vi.fn(); let tree!: ReturnType<typeof create>;
+    await act(async () => { tree = create(<QuickCaptureSheet visible openRequestId={1} initialValue="940020" onClose={onClose} />); });
+    const body = () => tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetBody')[0];
+    const focus = vi.fn(); body().props.inputRef.current = { focus, blur: vi.fn() };
+    act(() => body().props.handleClose());
+    expect(focus).not.toHaveBeenCalled();
+    act(() => { if (method === 'button') findBulkConfirm(tree)?.props.onCancel(); else body().props.handleRequestClose(); });
+    expect(focus).toHaveBeenCalledOnce();
+    expect(body().props.value).toBe('940020'); expect(onClose).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+    act(() => tree.unmount());
+  });
+
+  it('reissues the native focus command when JS still remembers a now-unfocused input', async () => {
+    vi.useFakeTimers(); const onClose = vi.fn(); let tree!: ReturnType<typeof create>;
+    await act(async () => { tree = create(<QuickCaptureSheet visible openRequestId={1} initialValue="953022" onClose={onClose} />); });
+    const body = () => tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetBody')[0];
+    // RN TextInputState.focusTextInput returns early when its JS registry still
+    // holds this field. Native focus loss alone need not clear that registry yet.
+    let jsRemembersFocus = true;
+    const nativeFocus = vi.fn(); const order: string[] = [];
+    body().props.inputRef.current = {
+      blur: () => { order.push('blur'); jsRemembersFocus = false; },
+      focus: () => {
+        order.push('focus');
+        if (jsRemembersFocus) return;
+        jsRemembersFocus = true; nativeFocus();
+      },
+    };
+    act(() => body().props.handleClose());
+    act(() => findBulkConfirm(tree)?.props.onCancel());
+    expect(nativeFocus).toHaveBeenCalledOnce();
+    expect(order).toEqual(['blur', 'focus']);
+    expect(body().props.value).toBe('953022'); expect(onClose).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+    act(() => tree.unmount());
+  });
+
+  it.each(['hidden', 'reopened', 'background', 'busy'])('does not refocus a discarded-confirmation callback after %s', async (reason) => {
+    vi.useFakeTimers(); const onClose = vi.fn(); let tree!: ReturnType<typeof create>;
+    await act(async () => { tree = create(<QuickCaptureSheet visible openRequestId={1} initialValue="Original draft" onClose={onClose} />); });
+    const body = () => tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetBody')[0];
+    const focus = vi.fn(); body().props.inputRef.current = { focus, blur: vi.fn() };
+    act(() => body().props.handleClose());
+    const cancel = findBulkConfirm(tree)!.props.onCancel;
+    if (reason === 'hidden' || reason === 'reopened') act(() => tree.update(<QuickCaptureSheet visible={false} openRequestId={1} onClose={onClose} />));
+    if (reason === 'reopened') act(() => tree.update(<QuickCaptureSheet visible openRequestId={2} initialValue="New draft" onClose={onClose} />));
+    if (reason === 'background') AppState.currentState = 'background';
+    if (reason === 'busy') act(() => audioHookMock.params?.onSubmissionBusyChange(true));
+    act(() => cancel());
+    expect(focus).not.toHaveBeenCalled();
+    if (reason === 'reopened') expect(body().props.value).toBe('New draft');
+    if (reason === 'busy') { act(() => audioHookMock.params?.onSubmissionBusyChange(false)); expect(focus).not.toHaveBeenCalled(); }
+    act(() => tree.unmount()); AppState.currentState = 'active';
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
 });

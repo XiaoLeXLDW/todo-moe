@@ -63,6 +63,10 @@ import {
 } from '@mindwtr/core';
 import { SwipeableTaskItem, type TaskRowActions } from '@/components/swipeable-task-item';
 import { MoeCompletionCell } from '@/moe/MoeCompletionCell';
+import { useMoeCompletionFeedbackActive } from '@/moe/MoeCompletionFeedback';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
+import { MOE_VISUAL } from '@/moe/visual-system';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { settleStoreAction } from '@/components/store-action-result';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { useFilledButtonColors } from '@/hooks/use-filled-button-colors';
@@ -226,6 +230,8 @@ const serializeFocusViewState = (expandedSections: FocusExpandedSections, showDe
 });
 
 export default function FocusScreen() {
+  const completionFeedbackActive = useMoeCompletionFeedbackActive();
+  const reducedMotion = useReducedMotion();
   const onStartupLayout = useStartupScreenReady('focus');
   const { taskId, openToken, taskTab } = useLocalSearchParams<{ taskId?: string; openToken?: string; taskTab?: string }>();
   const insets = useSafeAreaInsets();
@@ -1843,8 +1849,8 @@ export default function FocusScreen() {
           ) : null
         )}
         renderItem={renderItem}
-        ListEmptyComponent={!hasTasks ? (
-          <View style={styles.emptyState}>
+        ListEmptyComponent={!hasTasks && !completionFeedbackActive ? (
+          <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(MOE_VISUAL.motion.settleMs)} style={styles.emptyState}>
             <CompactText
               style={[styles.emptyTitle, { color: tc.text }]}
               numberOfLines={2}
@@ -1857,7 +1863,7 @@ export default function FocusScreen() {
             >
               {emptySubtitle}
             </CompactText>
-          </View>
+          </Animated.View>
         ) : null}
         removeClippedSubviews={false}
       />
@@ -2075,6 +2081,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
+    width: '100%',
+    maxWidth: MOE_VISUAL.contentMaxWidth,
+    alignSelf: 'center',
     paddingHorizontal: 12,
     paddingBottom: 110,
   },

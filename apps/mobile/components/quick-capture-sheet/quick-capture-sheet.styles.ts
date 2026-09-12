@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { MOE_VISUAL } from '../../moe/visual-system';
 
 export const styles = StyleSheet.create({
   modalRoot: {
@@ -6,12 +7,16 @@ export const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(12,16,28,0.18)',
   },
   keyboardAvoiding: {
     flex: 1,
     justifyContent: 'flex-end',
   },
+  sheetMotion: { flexShrink: 1, width: '100%', maxWidth: MOE_VISUAL.contentMaxWidth, alignSelf: 'center' },
+  dragHandleArea: { flex: 1, minWidth: 0, minHeight: 44, justifyContent: 'center' },
+  dragHandle: { width: 36, height: 3, borderRadius: 2, opacity: 0.32, alignSelf: 'center', marginBottom: 6 },
+  closeButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   sheet: {
     // The keyboard-constrained viewport (or iOS padding parent) can leave less room
     // than sheetMaxHeight allows; without this the bottom-anchored sheet overflows past
@@ -19,10 +24,10 @@ export const styles = StyleSheet.create({
     // the loss to scrollArea, the only shrinkable child, so the title/header stay put.
     flexShrink: 1,
     width: '100%',
-    maxWidth: 860,
+    maxWidth: MOE_VISUAL.contentMaxWidth,
     alignSelf: 'center',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: MOE_VISUAL.panelRadius,
+    borderTopRightRadius: MOE_VISUAL.panelRadius,
     paddingHorizontal: 16,
     paddingTop: 12,
   },
@@ -137,7 +142,8 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    maxWidth: '62%',
+    maxWidth: '100%',
+    flex: 1,
     flexShrink: 1,
     overflow: 'hidden',
   },
@@ -368,6 +374,8 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  pickerRowContent: { flex: 1, minWidth: 0 },
+  pickerRowSubtitle: { fontSize: 12, marginTop: 3 },
   pickerRowText: {
     fontSize: 14,
     fontWeight: '600',

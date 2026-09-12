@@ -1,7 +1,7 @@
 import React, { type ReactNode, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View, type ViewStyle } from 'react-native';
 import { CircleDot, History, Hourglass, ListChecks, Repeat } from 'lucide-react-native';
-import { useThemeTokens } from '../../hooks/use-theme-tokens';
+import { MOE_VISUAL } from '../../moe/visual-system';
 import { useStatusColors } from '../../hooks/use-status-colors';
 import {
     getInlineMarkdownPreview,
@@ -30,6 +30,9 @@ import { styles } from './swipeable-task-item.styles';
 import { CompactText } from '@/components/compact-text';
 import { MoeCheckButton } from '../../moe/MoeCheckButton';
 import { MoeCompletionTitle } from '../../moe/MoeCompletionRow';
+import Reanimated from 'react-native-reanimated';
+import type { CompletionMeasureRefs } from '../../moe/MoeCompletionFeedback';
+import type { FeedbackAppearance } from '../../moe/MoeCompletionFeedbackState';
 
 interface SwipeableTaskItemContentProps {
     accessibilityActions: { label: string; name: string }[];
@@ -64,6 +67,8 @@ interface SwipeableTaskItemContentProps {
     onPress: () => void;
     onComplete?: () => void;
     completionPending?: boolean;
+    completionMeasureRefs?: CompletionMeasureRefs;
+    completionAppearanceRef?: React.MutableRefObject<FeedbackAppearance | null>;
     onProjectPress?: (projectId: string) => void;
     onTagPress?: (tag: string) => void;
     onToggleChecklist: () => void;
@@ -115,6 +120,8 @@ export function SwipeableTaskItemContent({
     onPress,
     onComplete,
     completionPending = false,
+    completionMeasureRefs,
+    completionAppearanceRef,
     onProjectPress,
     onTagPress,
     onToggleChecklist,
@@ -484,15 +491,11 @@ export function SwipeableTaskItemContent({
         );
     }
 
-    const { isMaterial, shape } = useThemeTokens();
-
-    return (
-        <AppPressable
-            style={[
+    const cardStyle = StyleSheet.flatten<ViewStyle>([
                 styles.taskItem,
-                isMaterial ? { borderRadius: shape.large } : undefined,
+                { borderRadius: MOE_VISUAL.cardRadius },
                 { backgroundColor: tc.taskItemBg },
-                { borderWidth: 1, borderColor: tc.border },
+                { borderWidth: StyleSheet.hairlineWidth, borderColor: tc.border },
                 isAvailableNextAction && !selectionMode && {
                     backgroundColor: isDark ? 'rgba(59, 130, 246, 0.08)' : 'rgba(59, 130, 246, 0.05)',
                     borderColor: isDark ? 'rgba(59, 130, 246, 0.34)' : 'rgba(59, 130, 246, 0.24)',
@@ -500,7 +503,17 @@ export function SwipeableTaskItemContent({
                 showFocusHighlight && canShowFocusToggle && task.isFocusedToday && !selectionMode && { borderWidth: 2, borderColor: tc.tint },
                 isHighlighted && !selectionMode && { borderWidth: 2, borderColor: tc.tint },
                 selectionMode && { borderWidth: 2, borderColor: isMultiSelected ? tc.tint : tc.border },
-            ]}
+            ]);
+    if (completionAppearanceRef) completionAppearanceRef.current = {
+        backgroundColor: String(cardStyle.backgroundColor ?? tc.taskItemBg), borderColor: String(cardStyle.borderColor ?? tc.border),
+        borderWidth: typeof cardStyle.borderWidth === 'number' ? cardStyle.borderWidth : 0,
+        borderRadius: typeof cardStyle.borderRadius === 'number' ? cardStyle.borderRadius : MOE_VISUAL.cardRadius,
+        textColor: tc.text, fontSize: styles.taskTitle.fontSize ?? 15, lineHeight: styles.taskTitle.lineHeight ?? 20,
+        fontWeight: '500', textAlign, writingDirection: textDirection, checkColor: tc.success, checkForeground: tc.onTint,
+    };
+    return (
+        <AppPressable
+            style={cardStyle}
             onPress={onPress}
             onLongPress={onLongPress}
             delayLongPress={300}
@@ -517,6 +530,8 @@ export function SwipeableTaskItemContent({
             accessibilityActions={accessibilityActions}
             onAccessibilityAction={onAccessibilityAction}
         >
+            <Reanimated.View ref={completionMeasureRefs?.row} collapsable={false} pointerEvents="none"
+                accessible={false} importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFillObject} />
             {task.priority && (
                 <View
                     style={[styles.priorityStrip, { backgroundColor: TASK_PRIORITY_COLORS[task.priority] }]}
@@ -541,11 +556,12 @@ export function SwipeableTaskItemContent({
             {!selectionMode && onComplete && task.status !== 'reference' && task.status !== 'archived' && !isTaskCancelled(task) ? (
                 <MoeCheckButton checked={task.status === 'done' || completionPending} disabled={interactionDisabled || completionPending}
                     label={task.status === 'done' ? tFallback(t, 'archived.restoreToInbox', 'Restore to Inbox') : tFallback(t, 'common.done', 'Done')}
-                    onPress={onComplete} tc={tc} />
+                    onPress={onComplete} tc={tc} measurementRef={completionMeasureRefs?.check} />
             ) : null}
             <View style={styles.taskContent}>
                 <View style={styles.titleRow}>
                     <MoeCompletionTitle
+                        measurementRef={completionMeasureRefs?.title}
                         completed={task.status === 'done' || completionPending}
                         style={[
                             styles.taskTitle,

@@ -225,6 +225,13 @@ module.exports = function withAndroidManifestFixes(config) {
         // Explicitly allow both portrait and landscape on tablets/Chromebooks.
         activity.$['android:screenOrientation'] = 'fullUser';
         activity.$['android:resizeableActivity'] = 'true';
+        // Folding changes the smallest width too; a system Activity relaunch
+        // would discard the open React capture draft even while the PID survives.
+        const configChanges = (activity.$['android:configChanges'] ?? '').split('|');
+        activity.$['android:configChanges'] = [...new Set([
+          ...configChanges.map((flag) => flag.trim()).filter(Boolean),
+          'smallestScreenSize',
+        ])].join('|');
         removeContextIntentFilters(activity);
         didUpdateMainActivity = true;
       }
@@ -242,6 +249,7 @@ module.exports = function withAndroidManifestFixes(config) {
           'android:name': MAIN_ACTIVITY,
           'android:screenOrientation': 'fullUser',
           'android:resizeableActivity': 'true',
+          'android:configChanges': 'smallestScreenSize',
           'tools:node': 'merge',
         },
       });

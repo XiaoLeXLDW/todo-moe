@@ -23,6 +23,7 @@ const detailModal = vi.hoisted(() => ({ props: null as Record<string, any> | nul
 const taskEditModal = vi.hoisted(() => ({ props: null as Record<string, any> | null }));
 const focusEffect = vi.hoisted(() => ({ callback: null as null | (() => void | (() => void)) }));
 const consumePendingCaptureTaskOpenMock = vi.hoisted(() => vi.fn());
+const showToastMock = vi.hoisted(() => vi.fn());
 
 const createDeferred = <T,>() => {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -105,6 +106,8 @@ const storeState: {
 };
 
 beforeEach(() => {
+  storeState.addProject.mockReset().mockResolvedValue(testProject);
+  showToastMock.mockClear();
   routeParams.current = {};
   detailModal.props = null;
   taskEditModal.props = null;
@@ -185,7 +188,7 @@ vi.mock('../contexts/language-context', () => ({
 
 vi.mock('../contexts/toast-context', () => ({
   ToastViewport: () => null,
-  useToast: () => ({ showToast: vi.fn() }),
+  useToast: () => ({ showToast: showToastMock }),
 }));
 
 vi.mock('../contexts/quick-capture-context', () => ({
@@ -316,6 +319,42 @@ vi.mock('../lib/app-log', () => ({
 }));
 
 describe('ProjectsScreen project quick add', () => {
+  it('preserves the new list title until a successful write and prevents duplicate pending creates', async () => {
+    const pending = createDeferred<Project | null>();
+    storeState.addProject.mockReturnValueOnce(pending.promise);
+    let tree!: ReturnType<typeof create>;
+    await act(async () => { tree = create(<ProjectsScreen />); });
+    const input = () => tree.root.find(node => node.props.placeholder === 'Add new project...');
+    act(() => { input().props.onChangeText('旅行准备'); });
+    let saving: Promise<void> | undefined;
+    act(() => {
+      saving = input().props.onSubmitEditing();
+      input().props.onSubmitEditing();
+    });
+    expect(input().props.value).toBe('旅行准备');
+    expect(storeState.addProject).toHaveBeenCalledTimes(1);
+    await act(async () => { pending.resolve(null); await saving; });
+    expect(input().props.value).toBe('旅行准备');
+    expect(showToastMock).toHaveBeenCalledWith(expect.objectContaining({ tone: 'error' }));
+    await act(async () => { await input().props.onSubmitEditing(); });
+    expect(input().props.value).toBe('');
+    expect(storeState.addProject).toHaveBeenCalledTimes(2);
+    act(() => tree.unmount());
+  });
+
+  it('keeps a rejected list creation editable for retry', async () => {
+    storeState.addProject.mockRejectedValueOnce(new Error('write failed'));
+    let tree!: ReturnType<typeof create>;
+    await act(async () => { tree = create(<ProjectsScreen />); });
+    const input = () => tree.root.find(node => node.props.placeholder === 'Add new project...');
+    act(() => { input().props.onChangeText('保留这张清单'); });
+    await act(async () => { await input().props.onSubmitEditing(); });
+    expect(input().props.value).toBe('保留这张清单');
+    expect(input().props.editable).toBe(true);
+    expect(showToastMock).toHaveBeenCalledWith(expect.objectContaining({ tone: 'error' }));
+    act(() => tree.unmount());
+  });
+
   // The detail sheet is a native modal driven by selectedProject. Leaving it set
   // while quick add pushes a route desyncs state from the native sheet, and
   // re-tapping the project then sets identical state — no transition, so the
@@ -496,6 +535,21 @@ describe('ProjectsScreen archived task inspection', () => {
 });
 
 describe('ProjectsScreen view state hydration', () => {
+  it('renders a folder icon identifier as artwork while preserving the folder title', async () => {
+    let tree!: ReturnType<typeof create>;
+    let header!: ReturnType<typeof create>;
+    await act(async () => { tree = create(<ProjectsScreen />); });
+    const list = tree.root.findByType(FlatList);
+    act(() => { header = create(list.props.renderItem({ item: {
+      type: 'area-header', key: 'travel', areaId: 'travel', title: '旅行 folder', icon: 'folder',
+      collapsed: false, sectionKind: 'active',
+    }, index: 0 })); });
+    const text = header.root.findAllByType(Text).map(node => node.props.children);
+    expect(text).toContain('旅行 folder');
+    expect(text).not.toContain('folder');
+    act(() => { header.unmount(); tree.unmount(); });
+  });
+
   it('does not render project rows before persisted collapsed areas are loaded', async () => {
     const deferred = createDeferred<string | null>();
     asyncStorageMock.getItem.mockReturnValue(deferred.promise);
@@ -508,7 +562,9 @@ describe('ProjectsScreen view state hydration', () => {
 
     const firstList = tree.root.findByType(FlatList);
     expect(firstList.props.data.some((row: { type: string }) => row.type === 'project')).toBe(false);
-    expect(firstList.props.ListEmptyComponent.props.children.props.children).toBe('Loading...');
+    expect(React.Children.toArray(firstList.props.ListEmptyComponent.props.children).some(child => (
+      React.isValidElement<{ children: unknown }>(child) && child.props.children === 'Loading...'
+    ))).toBe(true);
 
     await act(async () => {
       deferred.resolve(JSON.stringify({

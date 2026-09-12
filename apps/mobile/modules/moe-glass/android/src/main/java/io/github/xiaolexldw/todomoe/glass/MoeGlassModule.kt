@@ -17,6 +17,9 @@ class MoeGlassModule : Module() {
       Prop("mode") { view: MoeGlassView, mode: String -> view.setMode(mode) }
       Prop("dark") { view: MoeGlassView, dark: Boolean -> view.setDark(dark) }
       Prop("reducedMotion") { view: MoeGlassView, reduced: Boolean -> view.setReducedMotion(reduced) }
+      Prop("lensState") { view: MoeGlassView, values: List<Double> -> view.setLensState(values) }
+      Prop("cornerRadius") { view: MoeGlassView, radius: Double -> view.setCornerRadius(radius) }
+      Prop("samplingEnabled") { view: MoeGlassView, enabled: Boolean -> view.setSamplingEnabled(enabled) }
     }
   }
 }

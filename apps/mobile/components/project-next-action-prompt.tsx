@@ -5,6 +5,7 @@ import type { Task } from '@mindwtr/core';
 import { useLanguage } from '../contexts/language-context';
 import { useToast } from '../contexts/toast-context';
 import { useThemeColors } from '../hooks/use-theme-colors';
+import { getMoePreferences } from '../moe/preferences';
 import { ProjectNextActionPromptModal } from './swipeable-task-item/ProjectNextActionPromptModal';
 import { settleStoreAction } from './store-action-result';
 
@@ -63,6 +64,9 @@ export function buildProjectNextActionPromptState(completedTask: Task): ProjectN
 }
 
 export function presentProjectNextActionPrompt(completedTask: Task): boolean | null {
+    // Keep completion/Undo unobstructed by default; the original GTD planner
+    // remains available as an explicit, device-local presentation preference.
+    if (!getMoePreferences().nextActionPrompt) return false;
     if (!activePresenter) return null;
     return activePresenter(completedTask);
 }

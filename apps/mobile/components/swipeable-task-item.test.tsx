@@ -7,6 +7,12 @@ import { SwipeableTaskItem, readTaskRowRenderCount, type TaskRowActions } from '
 import { MoeCheckButton } from '../moe/MoeCheckButton';
 import { subscribeListCompleted } from '../moe/completion';
 
+const promptPreference = vi.hoisted(() => ({ enabled: false }));
+vi.mock('../moe/preferences', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../moe/preferences')>();
+  return { ...actual, getMoePreferences: () => ({ ...actual.getMoePreferences(), nextActionPrompt: promptPreference.enabled }) };
+});
+
 const { addTask, updateTask, restoreTask, undoTaskCompletion, showToast, getChecklistProgress, getTaskAgeLabel, getTaskStaleness, safeFormatDate, safeParseDate, storeState } = vi.hoisted(() => ({
   addTask: vi.fn(),
   updateTask: vi.fn(),
@@ -242,6 +248,7 @@ describe('SwipeableTaskItem', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    promptPreference.enabled = false;
     translate.overrides = {};
     storeState.projects = [];
     storeState._allProjects = [];
@@ -1726,6 +1733,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
   });
 
   it('prompts for the project next action after completing the last next task', async () => {
+    promptPreference.enabled = true;
     const project = { id: 'project-1', title: 'Launch plan', status: 'active' };
     const task = {
       id: 'task-1',
@@ -1796,6 +1804,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
   });
 
   it('does not open the next-action prompt when the completion update fails', async () => {
+    promptPreference.enabled = true;
     const project = { id: 'project-1', title: 'Launch plan', status: 'active' };
     const task = {
       id: 'task-1',
@@ -1913,6 +1922,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
   });
 
   it('keeps the next-action prompt open when promoting a candidate fails', async () => {
+    promptPreference.enabled = true;
     const project = { id: 'project-1', title: 'Launch plan', status: 'active' };
     const task = {
       id: 'task-1',
@@ -1986,6 +1996,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
   });
 
   it('can add a new project next action from the completion prompt', async () => {
+    promptPreference.enabled = true;
     const project = { id: 'project-1', title: 'Launch plan', status: 'active' };
     const task = {
       id: 'task-1',

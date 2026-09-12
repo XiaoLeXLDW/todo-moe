@@ -2,6 +2,7 @@ import React from 'react';
 import { act, create } from 'react-test-renderer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppSettings, Area, Project, Task } from '@mindwtr/core';
+import { MoeCompletionFeedbackHost, useMoeCompletionFeedback } from '../moe/MoeCompletionFeedback';
 
 const addTaskMock = vi.hoisted(() => vi.fn());
 const updateTaskMock = vi.hoisted(() => vi.fn());
@@ -102,6 +103,7 @@ const storeState = vi.hoisted(() => ({
 }));
 
 vi.mock('react-native', () => ({
+  AppState: { currentState: 'active', addEventListener: () => ({ remove: () => {} }) },
   FlatList: React.forwardRef(function MockFlatList(allProps: any, ref: any) {
     const { data, ListEmptyComponent, ListHeaderComponent, renderItem } = allProps;
     flatListPropsSpy(allProps);
@@ -347,6 +349,26 @@ import { TaskList } from './task-list';
 const latestHeaderProps = () => taskListHeaderPropsSpy.mock.calls.at(-1)?.[0];
 
 describe('TaskList', () => {
+  it('defers a project empty state until the nearest host feedback finishes, without changing list data', async () => {
+    let feedback!: ReturnType<typeof useMoeCompletionFeedback>;
+    function FeedbackControl() { feedback = useMoeCompletionFeedback('empty-project'); return null; }
+    let tree!: ReturnType<typeof create>;
+    await act(async () => {
+      tree = create(<MoeCompletionFeedbackHost scopeKey="project"><FeedbackControl />
+        <TaskList project={{ id: project.id }} statusFilter="all" title="Project empty handoff" taskSource={[]} showHeader={false} />
+      </MoeCompletionFeedbackHost>);
+    });
+    act(() => { tree.root.findAllByProps({ testID: 'moe-completion-feedback-host' }).at(-1)!.props.onLayout(); });
+    expect(flatListPropsSpy.mock.calls.at(-1)?.[0].data).toEqual([]);
+    expect(flatListPropsSpy.mock.calls.at(-1)?.[0].ListEmptyComponent).not.toBeNull();
+    act(() => { feedback.beginUndo('empty-project', 40); });
+    expect(flatListPropsSpy.mock.calls.at(-1)?.[0].data).toEqual([]);
+    expect(flatListPropsSpy.mock.calls.at(-1)?.[0].ListEmptyComponent).toBeNull();
+    act(() => { feedback.finishUndo('empty-project', 40); });
+    expect(flatListPropsSpy.mock.calls.at(-1)?.[0].data).toEqual([]);
+    expect(flatListPropsSpy.mock.calls.at(-1)?.[0].ListEmptyComponent).not.toBeNull();
+    act(() => tree.unmount());
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     resetTaskListSelectionState();

@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text
 import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassSurface, glassCapabilities } from '@/moe/glass/GlassSurface';
+import { NativeLiquidTabBar } from '@/moe/glass/NativeLiquidTabBar';
 import type { GlassMode } from '@/moe/glass/capabilities';
 
 /** Repeatable native visual fixture; never reads or writes the task store. */
@@ -12,6 +13,7 @@ export default function MoeGlassLab() {
     const [dark, setDark] = useState(false);
     const [reduced, setReduced] = useState(false);
     const [selected, setSelected] = useState(0);
+    const [selectionRevision, setSelectionRevision] = useState(0);
     const [text, setText] = useState('');
     return (
         <KeyboardAvoidingView style={[styles.page, { backgroundColor: dark ? '#171927' : '#faf7ff' }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -37,13 +39,25 @@ export default function MoeGlassLab() {
                     </View>
                 ))}
             </ScrollView>
-            <GlassSurface mode={mode} dark={dark} reducedMotion={reduced} style={[styles.bar, { bottom: 12 + insets.bottom }]}>
+            {NativeLiquidTabBar ? <NativeLiquidTabBar
+                labels={['今天', '清单', '收件箱']} selectedIndex={selected} selectionRevision={selectionRevision}
+                mode={mode} dark={dark} reducedMotion={reduced} samplingEnabled
+                accentColor={dark ? '#C0BDFF' : '#5943BF'} surfaceColor={dark ? '#1F2937' : '#FFFFFF'}
+                contentColor={dark ? '#CCD1E6' : '#53556B'}
+                onSelect={({ nativeEvent }) => {
+                    if (Number.isInteger(nativeEvent.index) && nativeEvent.index >= 0 && nativeEvent.index < 3) {
+                        setSelected(nativeEvent.index);
+                        setSelectionRevision(revision => revision + 1);
+                    }
+                }}
+                style={{ position: 'absolute', left: 16, right: 16, height: 64, bottom: 12 + insets.bottom }} />
+            : <GlassSurface mode={mode} dark={dark} reducedMotion={reduced} style={[styles.bar, { bottom: 12 + insets.bottom }]}>
                 {[0, 1, 2].map((index) => (
                     <Pressable key={index} accessibilityRole="tab" accessibilityState={{ selected: selected === index }} onPress={() => setSelected(index)} style={[styles.tab, selected === index && { backgroundColor: dark ? '#ffffff22' : '#7777aa22' }]}>
                         <Text style={{ color: dark ? '#fff' : '#22243a', fontWeight: selected === index ? '800' : '400' }}>{['今天', '清单', '收件箱'][index]}</Text>
                     </Pressable>
                 ))}
-            </GlassSurface>
+            </GlassSurface>}
         </KeyboardAvoidingView>
     );
 }

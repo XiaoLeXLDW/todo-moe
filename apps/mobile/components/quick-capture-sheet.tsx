@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AppState,
   Keyboard,
   Platform,
   Pressable,
@@ -73,6 +74,7 @@ import { useAndroidQuickCaptureExpand } from './quick-capture-sheet/useAndroidQu
 import { useReducedMotion } from '../hooks/use-reduced-motion';
 import { animateMoeListMutation } from '../moe/motion';
 import { moeHaptic } from '../moe/haptics';
+import { captureDraftFingerprint, hasCaptureDraftChanges } from './quick-capture-sheet/capture-draft';
 
 const PRIORITY_OPTIONS: TaskPriority[] = ['low', 'medium', 'high', 'urgent'];
 const ANDROID_OPTIONS_EXPAND_FALLBACK_MS = 500;
@@ -156,6 +158,7 @@ export function QuickCaptureSheet({
   visible,
   openRequestId,
   onClose,
+  onDidHide,
   initialProps,
   initialValue,
   autoRecord,
@@ -163,6 +166,7 @@ export function QuickCaptureSheet({
   visible: boolean;
   openRequestId?: number;
   onClose: () => void;
+  onDidHide?: () => void;
   initialProps?: Partial<Task>;
   initialValue?: string;
   autoRecord?: boolean;
@@ -221,6 +225,10 @@ export function QuickCaptureSheet({
   );
 
   const [value, setValue] = useState('');
+  const [discardDraftSession, setDiscardDraftSession] = useState<CaptureSessionId | null>(null);
+  const discardDraftOpen = discardDraftSession !== null;
+  const [resumeTitleFocusSession, setResumeTitleFocusSession] = useState<CaptureSessionId | null>(null);
+  const draftBaselineRef = useRef('');
   const reducedMotion = useReducedMotion();
   const [saving, setSaving] = useState(false);
   // Refreshed by resetDraftState — which runs on open AND after each capture in
@@ -433,6 +441,8 @@ export function QuickCaptureSheet({
 
   const resetDraftState = useCallback((options?: { keepAddAnother?: boolean; value?: string }) => {
     clearAndroidOptionsExpand();
+    setDiscardDraftSession(null);
+    setResumeTitleFocusSession(null);
     setQuickAddParseOptions(readQuickAddParseOptions());
     setValue(options?.value ?? initialValue ?? '');
     setNoteValue(initialProps?.description ?? '');
@@ -454,7 +464,15 @@ export function QuickCaptureSheet({
       ? initialProps.projectId
       : null;
     setProjectId(initialProjectId);
-    setSelectedAreaId(initialProjectId ? null : (initialProps?.areaId ?? defaultAreaId));
+    const initialAreaId = initialProjectId ? null : (initialProps?.areaId ?? defaultAreaId);
+    setSelectedAreaId(initialAreaId);
+    draftBaselineRef.current = captureDraftFingerprint({
+      dueDate: initialProps?.dueDate ? safeParseDate(initialProps.dueDate) : null,
+      dueDateHasTime: Boolean(initialProps?.dueDate && hasTimeComponent(initialProps.dueDate)),
+      startTime: initialProps?.startTime ? safeParseDate(initialProps.startTime) : null,
+      contextTags: initialContextTokens, projectId: initialProjectId, selectedAreaId: initialAreaId,
+      priority: (initialProps?.priority as TaskPriority) ?? null, focusNewTask: Boolean(initialProps?.isFocusedToday),
+    });
     setProjectQuery('');
     setShowProjectPicker(false);
     setShowAreaPicker(false);
@@ -652,9 +670,16 @@ export function QuickCaptureSheet({
     activeSubmissionSessionRef.current = null;
     setSaving(false);
     clearInitialFocusTimer();
-    resetState();
+    clearContextOptionsLoad();
+    contextOptionsRequestRef.current += 1;
+    setDiscardDraftSession(null);
+    setResumeTitleFocusSession(null);
+    inputRef.current?.blur();
+    Keyboard.dismiss();
+    // Notify the owner now. The existing Modal retains this same private draft
+    // during its short exit; only onDidHide clears the presentation fields.
     onClose();
-  }, [clearInitialFocusTimer, onClose, resetState]);
+  }, [clearContextOptionsLoad, clearInitialFocusTimer, onClose]);
 
   const getActiveSubmissionSession = useCallback(
     () => activeSubmissionSessionRef.current,
@@ -685,14 +710,48 @@ export function QuickCaptureSheet({
     visible,
   });
 
-  const handleClose = useCallback(() => {
-    const session = activeSubmissionSessionRef.current;
-    if (session !== null && submissionCoordinatorRef.current.isSubmitting(session)) return;
-    if (recording && !recordingBusy) {
-      void stopRecording({ saveTask: false });
-    }
+  const discardDraft = useCallback(() => {
+    if (recordingBusy) return;
+    if (recording) void stopRecording({ saveTask: false });
     finalizeClose();
   }, [finalizeClose, recording, recordingBusy, stopRecording]);
+
+  const handleClose = useCallback(() => {
+    const session = activeSubmissionSessionRef.current;
+    if (recordingBusy || (session !== null && submissionCoordinatorRef.current.isSubmitting(session))) return;
+    clearInitialFocusTimer();
+    clearContextOptionsLoad();
+    contextOptionsRequestRef.current += 1;
+    const dirty = recording || hasCaptureDraftChanges(value, noteValue, {
+      dueDate, dueDateHasTime, startTime, contextTags, projectId, selectedAreaId, priority, focusNewTask,
+    }, draftBaselineRef.current);
+    if (dirty) { setDiscardDraftSession(session); return; }
+    discardDraft();
+  }, [clearContextOptionsLoad, clearInitialFocusTimer, contextTags, discardDraft, dueDate, dueDateHasTime, focusNewTask, noteValue, priority, projectId, recording, recordingBusy, selectedAreaId, startTime, value]);
+
+  const cancelDiscardDraft = useCallback(() => {
+    // The callback belongs to the confirmation's opening session, not whichever
+    // draft happens to be mounted when an old event is eventually delivered.
+    if (discardDraftSession === null || activeSubmissionSessionRef.current !== discardDraftSession) return;
+    setDiscardDraftSession(null);
+    setResumeTitleFocusSession(discardDraftSession);
+  }, [discardDraftSession]);
+
+  useEffect(() => {
+    if (resumeTitleFocusSession === null) return;
+    setResumeTitleFocusSession(null);
+    // Runs after the confirmation overlay has left the committed tree. Never
+    // refocus a hidden/reopened draft, background app or active audio/save.
+    if (!visible || discardDraftOpen || AppState.currentState !== 'active'
+      || saving || recording || recordingBusy
+      || activeSubmissionSessionRef.current !== resumeTitleFocusSession
+      || submissionCoordinatorRef.current.isSubmitting(resumeTitleFocusSession)) return;
+    // Native focus can be lost before TextInputState's JS registry catches up.
+    // Clear that cached ownership so focus() actually sends a native command.
+    const input = inputRef.current;
+    input?.blur();
+    input?.focus();
+  }, [discardDraftOpen, recording, recordingBusy, resumeTitleFocusSession, saving, visible]);
 
   const formatBulkConfirmTitle = useCallback((count: number) => (
     tFallback(t, 'quickAdd.bulkConfirmTitle', 'Create {{count}} tasks?')
@@ -853,7 +912,10 @@ export function QuickCaptureSheet({
     Keyboard.dismiss();
     setShowDueTimePicker(false);
     if (Platform.OS === 'ios') {
-      setTimeout(() => setShowDatePicker(true), 120);
+      const session = activeSubmissionSessionRef.current;
+      setTimeout(() => {
+        if (session !== null && activeSubmissionSessionRef.current === session) setShowDatePicker(true);
+      }, 120);
       return;
     }
     setShowDatePicker(true);
@@ -865,7 +927,10 @@ export function QuickCaptureSheet({
     Keyboard.dismiss();
     setShowDatePicker(false);
     if (Platform.OS === 'ios') {
-      setTimeout(() => setShowDueTimePicker(true), 120);
+      const session = activeSubmissionSessionRef.current;
+      setTimeout(() => {
+        if (session !== null && activeSubmissionSessionRef.current === session) setShowDueTimePicker(true);
+      }, 120);
       return;
     }
     setShowDueTimePicker(true);
@@ -1027,8 +1092,6 @@ export function QuickCaptureSheet({
         requestAndroidOptionsExpand();
         return;
       }
-      inputRef.current?.blur();
-      Keyboard.dismiss();
     } else if (Platform.OS === 'android') {
       collapseAndroidOptions();
       return;
@@ -1095,6 +1158,8 @@ export function QuickCaptureSheet({
     dueDate,
     filteredContexts,
     filteredProjects,
+    projectAreas: areas,
+    selectedProjectId: projectId,
     hasAddableContextTokens,
     hasExactAreaMatch,
     hasExactProjectMatch,
@@ -1152,9 +1217,19 @@ export function QuickCaptureSheet({
         dueDate={dueDate}
         dueLabel={dueLabel}
         dueTimeLabel={dueTimeLabel}
-        contentAccessibilityHidden={Boolean(pendingBulkLines)}
+        contentAccessibilityHidden={Boolean(pendingBulkLines) || discardDraftOpen}
+        onDidHide={() => { resetState(); onDidHide?.(); }}
+        dark={tokens.isDark}
         handleClose={handleClose}
-        handleRequestClose={pendingBulkLines ? cancelBulkQuickAdd : handleClose}
+        handleRequestClose={() => {
+          if (discardDraftOpen) cancelDiscardDraft();
+          else if (pendingBulkLines) cancelBulkQuickAdd();
+          else if (showProjectPicker) setShowProjectPicker(false);
+          else if (showAreaPicker) setShowAreaPicker(false);
+          else if (showContextPicker) closeContextPicker();
+          else if (showPriorityPicker) setShowPriorityPicker(false);
+          else handleClose();
+        }}
         handleImportTextFile={handleImportTextFile}
         handleSave={() => {
           void handleSave();
@@ -1214,6 +1289,7 @@ export function QuickCaptureSheet({
         selectedPriority={priority}
         projectLabel={projectLabel}
         projectSelected={Boolean(selectedProject)}
+        captureTargetLabel={initialProps?.status && initialProps.status !== 'inbox' ? t(`status.${initialProps.status}`) : t('nav.inbox')}
         recording={Boolean(recording)}
         recordingBusy={recordingBusy}
         recordingReady={recordingReady}
@@ -1228,6 +1304,17 @@ export function QuickCaptureSheet({
         visible={visible}
       >
         <QuickCaptureSheetPickers {...pickerProps} pickerLayer="overlay" overlayKeyboardInset={overlayKeyboardInset} />
+        {discardDraftOpen ? (
+          <BulkQuickAddConfirm
+            cancelLabel={t('common.cancel')}
+            confirmLabel={tFallback(t, 'common.discard', 'Discard')}
+            message={tFallback(t, 'taskEdit.discardChangesDesc', 'Your changes will be lost if you leave now.')}
+            onCancel={cancelDiscardDraft}
+            onConfirm={discardDraft}
+            tc={tc}
+            title={tFallback(t, 'taskEdit.discardChanges', 'Discard unsaved changes?')}
+          />
+        ) : null}
         {pendingBulkLines ? (
           <BulkQuickAddConfirm
             cancelLabel={t('common.cancel')}

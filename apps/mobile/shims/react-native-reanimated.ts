@@ -14,6 +14,7 @@ export const useAnimatedStyle = (factory: () => unknown) => factory();
 export const useAnimatedProps = (factory: () => unknown) => factory();
 export const useDerivedValue = (factory: () => unknown) => ({ value: factory() });
 export const useAnimatedRef = () => useRef(null);
+export const measure = (_ref: unknown) => null;
 export const useAnimatedScrollHandler = (handlers: unknown) => handlers;
 export const useAnimatedReaction = (prepare: () => unknown, react: (value: unknown, previous: unknown) => void) => useEffect(() => { react(prepare(), null); }, [prepare, react]);
 export const withTiming = <T,>(value: T, _config?: unknown, _callback?: unknown): T => value;

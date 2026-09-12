@@ -145,11 +145,13 @@ export function ProjectRow({
             <TouchableOpacity
                 style={styles.projectTouchArea}
                 onPress={() => onOpenProject(project)}
+                accessibilityRole="button"
+                accessibilityLabel={`${project.title}, ${taskCountLabel}`}
             >
                 <View style={styles.projectContent}>
                     <View style={styles.projectTitleRow}>
                         <View style={styles.projectTitleContent}>
-                            <Text style={[styles.projectTitle, { color: tc.text }]} numberOfLines={1}>
+                            <Text style={[styles.projectTitle, { color: tc.text }]} numberOfLines={2}>
                                 {project.title}
                             </Text>
                             {project.tagIds?.length ? (

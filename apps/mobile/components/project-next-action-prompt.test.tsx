@@ -9,6 +9,9 @@ import {
     ProjectNextActionPromptProvider,
 } from './project-next-action-prompt';
 
+const promptPreference = vi.hoisted(() => ({ enabled: true }));
+vi.mock('../moe/preferences', () => ({ getMoePreferences: () => ({ nextActionPrompt: promptPreference.enabled }) }));
+
 const { addTask, updateTask, updateProject, showToast, parseNextActionInput, storeState } = vi.hoisted(() => ({
     addTask: vi.fn(),
     updateTask: vi.fn(),
@@ -125,6 +128,7 @@ describe('ProjectNextActionPromptProvider', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        promptPreference.enabled = true;
         storeState.projects = [project];
         storeState._allProjects = [project];
         storeState.tasks = [currentTask, candidateTask];
@@ -136,6 +140,13 @@ describe('ProjectNextActionPromptProvider', () => {
         addTask.mockResolvedValue({ success: true, id: 'created-task' });
         updateTask.mockResolvedValue({ success: true });
         updateProject.mockResolvedValue({ success: true });
+    });
+
+    it('leaves completion unobstructed when the local next-action preference is off', () => {
+        promptPreference.enabled = false;
+        expect(presentProjectNextActionPrompt({ ...currentTask, status: 'done' } as any)).toBe(false);
+        expect(addTask).not.toHaveBeenCalled();
+        expect(updateTask).not.toHaveBeenCalled();
     });
 
     it('builds prompt data from an optimistic completed task snapshot', () => {

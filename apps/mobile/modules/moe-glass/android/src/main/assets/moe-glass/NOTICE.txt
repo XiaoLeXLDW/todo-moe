@@ -1,0 +1,19 @@
+Todo Moe Android glass lens
+
+The rounded-rectangle SDF, gradient, circle-map refraction and seven-sample
+dispersion in GlassLensShader.kt are adapted from SukiSU-Ultra's explicitly
+Apache-2.0 liquid/Lens.kt, based on Kyant0/AndroidLiquidGlass and the
+compose-miuix-ui examples. compose-miuix-ui contributors: Copyright 2026.
+
+MoeLiquidTabBar additionally adapts the complete Apache-attributed floating bar,
+CombinedBackdrop, Lens, Vibrancy and InnerShadow from that fixed source; its
+animation sources come from the explicit Apache ancestors documented alongside.
+The vendored miuix-blur sources (including dual BloomStroke and device tilt)
+are Copyright 2026 compose-miuix-ui contributors, SPDX Apache-2.0.
+Compose AndroidX libraries are dependencies under their original licenses;
+the published miuix binary and SukiSU application/root-management code or
+application branding are not included.
+
+See THIRD_PARTY.md for the sheet lens and SUKISU-COMPOSE-SOURCES.md for the full
+bar's immutable sources, Android bindings and intentional bridge/CANCEL changes.
+The complete Apache 2.0 license is included as Apache-2.0.txt.

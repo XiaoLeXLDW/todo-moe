@@ -11,6 +11,10 @@ const luminance = (hex: string) => {
 const contrast = (a: string, b: string) => { const values = [luminance(a), luminance(b)].sort((x, y) => y - x); return (values[0] + 0.05) / (values[1] + 0.05); };
 
 describe('device presentation contract', () => {
+  it('keeps automatic next-action prompts opt-in while retaining the choice', () => {
+    expect(parseMoePreferences({}).nextActionPrompt).toBe(false);
+    expect(parseMoePreferences({ nextActionPrompt: true }).nextActionPrompt).toBe(true);
+  });
   it('drops unknown keys and recovers corrupt enum/boolean values', () => {
     expect(parseMoePreferences({ theme: 'unknown', haptics: false, motion: 8, glass: '<script>', cloudPassword: 'secret' })).toEqual(DEFAULT_MOE_PREFERENCES);
     expect(parseMoePreferences(null)).toEqual(DEFAULT_MOE_PREFERENCES);

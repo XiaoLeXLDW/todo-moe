@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { getHeaderTitle } from '@react-navigation/elements';
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useLanguage } from '../../contexts/language-context';
 import { useThemeColors } from '@/hooks/use-theme-colors';
+import { MoeCompletionFeedbackHost } from '@/moe/MoeCompletionFeedback';
 
 function DrawerHeader({
   title,
@@ -67,8 +68,10 @@ export default function AppLayout() {
   const tc = useThemeColors();
   const { t } = useLanguage();
   const backAccessibilityLabel = t('common.back');
+  const pathname = usePathname();
 
   return (
+    <MoeCompletionFeedbackHost scopeKey={pathname}>
     <Stack
       screenOptions={{
         header: ({ navigation, route, options, back }) => (
@@ -109,6 +112,7 @@ export default function AppLayout() {
       />
       <Stack.Screen name="saved-search/[id]" options={{ title: t('search.title') }} />
     </Stack>
+    </MoeCompletionFeedbackHost>
   );
 }
 
