@@ -39,15 +39,17 @@ export function useMoeCompletionRow(taskId: string, completed: boolean) {
     if (restored.current === undefined) restored.current = takeRestore(taskId);
     const visual = useSharedValue({ operationId: 0, armed: false });
     const cancel = useCallback((operationId?: number, undo = false) => {
+        console.info('[DEBUG-moe-exit15] cancel', taskId, operationId, undo, mounted.current);
         if (operationId !== undefined && operation.current !== operationId) return;
         visual.value = { operationId: operation.current, armed: false };
         if (restores.get(taskId)?.operationId === operation.current) restores.delete(taskId);
         if (undo && !mounted.current && AppState.currentState === 'active') markRestore(taskId, operation.current);
     }, [taskId, visual]);
     const arm = useCallback((operationId: number) => {
+        console.info('[DEBUG-moe-exit15] arm', taskId, operationId, motion.reduced, AppState.currentState, navigation?.isFocused());
         operation.current = operationId;
         visual.value = { operationId, armed: !motion.reduced && AppState.currentState === 'active' && navigation?.isFocused() !== false };
-    }, [motion.reduced, navigation, visual]);
+    }, [motion.reduced, navigation, taskId, visual]);
     const settle = useCallback((operationId: number, succeeded: boolean) => {
         // A successful promise can settle before React commits the filter's
         // unmount. Only a failed write disarms here; retained Done rows disarm
@@ -66,6 +68,7 @@ export function useMoeCompletionRow(taskId: string, completed: boolean) {
         const blur = navigation?.addListener('blur', inactive);
         const leave = navigation?.addListener('beforeRemove', inactive);
         return () => {
+            console.info('[DEBUG-moe-exit15] unmount', taskId, visual.value.armed);
             mounted.current = false;
             subscription.remove(); blur?.(); leave?.();
             // Do not clear the visual SharedValue here: React unmount is the
@@ -75,6 +78,7 @@ export function useMoeCompletionRow(taskId: string, completed: boolean) {
     const exiting = useMemo(() => () => {
         'worklet';
         const current = visual.value;
+        console.info('[DEBUG-moe-exit15] native-exit', current.armed, motion.reduced, motion.exitMs);
         if (!current.armed || motion.reduced) return { initialValues: {}, animations: {} };
         visual.value = { operationId: current.operationId, armed: false };
         return {
