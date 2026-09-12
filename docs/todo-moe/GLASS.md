@@ -27,7 +27,7 @@ vc26 在“同步、数据与高级设置”导航时出现 RenderThread SIGSEGV
 
 后续补丁用 `GlassAncestorHistory` 的 WeakHashMap 键记录“曾经是 glass 祖先”的容器，值仅 Boolean；在 glass attach（包括 Off）和来源检查时标记 parent 链，不随公开子节点移除、主题或 scene 重建清空。这些容器始终只记录背景并递归，不再整体 View.draw。新排除标记递增 revision，owner 即使早于 scene 的 pre-draw listener 调用 currentFrame，也必须先应用新排除并刷新来源，再使用缓存帧。弱键不强留 View/Window。该策略排除私有转场中的 glass，不承诺重放其退出前景；仍须在新候选重走原崩溃导航确认。
 
-源 dirty/layout、层级与绘制属性变化才重录对应内容；glass 自身传播到祖先的 dirty 不当作源变化，因此仅 lens 动画不会触发重复来源录制。主题切换显式失效来源缓存，覆盖 RN CompositeDrawable 颜色/圆角原位变化而 identity/state/bounds 不变的情况；恢复采样也强制失效。其他需要自定义祖先 onDraw/foreground 或无主题事件的原位自定义 Drawable 变化不在通用重放契约内。每个 surface 只在来源版本或相对坐标改变时重录其效果节点，静止不无条件 invalidate；没有 JS 截图、循环定时器或自建 Choreographer frame callback。
+源真实 dirty、已提交几何、层级与绘制属性变化才重录对应内容；glass 自身传播到祖先的 dirty 不当作源变化。不能把 `isLayoutRequested` 本身作为变化：vc28私有探针确认可见ReactTextView会长期保留该标记，同时dirty=false、几何未变，曾导致静止持续重录。修复不清真实View标记，交由Yoga处理布局。主题切换显式失效来源缓存，覆盖 RN CompositeDrawable 颜色/圆角原位变化而 identity/state/bounds 不变的情况；恢复采样也强制失效。其他需要自定义祖先 onDraw/foreground 或无主题事件的原位自定义 Drawable 变化不在通用重放契约内。每个 surface 只在来源版本或相对坐标改变时重录其效果节点，静止不无条件 invalidate；没有 JS 截图、循环定时器或自建 Choreographer frame callback。
 
 40dp 外扩继续为折射和模糊提供边缘内容；效果节点每方向最多 768 像素，倍率仍为柔和 0.35、液态 0.25。RN 前景与原生 rim 保持全分辨率，shader 半径和折射距离仍按 density × sampleScale 换算。本次改变的是 CPU 软件栅格路径，未继续降低倍率来掩盖来源成本。
 

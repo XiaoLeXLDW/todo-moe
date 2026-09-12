@@ -58,9 +58,8 @@ internal class HardwareBackdropScene private constructor(private val root: View)
 
   internal data class Frame(val node: RenderNode, val version: Long)
   private data class Plan(val view: View, val children: List<Plan>, val hasGlass: Boolean,
-    val signature: Long, val dirty: Boolean, val drawable: Boolean = true,
-    val ownGeometry: Long = 0L, val ownAppearance: Long = 0L)
-  private data class Cached(val signature: Long, val node: RenderNode, val probePlan: Plan?)
+    val signature: Long, val dirty: Boolean, val drawable: Boolean = true)
+  private data class Cached(val signature: Long, val node: RenderNode)
   private var references = 0
   private var activeReferences = 0
   private var observing = false
@@ -150,8 +149,6 @@ internal class HardwareBackdropScene private constructor(private val root: View)
     include(view.scrollX); include(view.scrollY); include(view.alpha.toBits()); include(view.z.toBits())
     view.matrix.getValues(matrixValues)
     matrixValues.forEach { include(it.toBits()) }
-    val ownGeometry = signature
-    signature = 17L
     include(view.clipBounds?.hashCode() ?: 0); include(if (view.clipToOutline) 1 else 0)
     val background = view.background
     include(System.identityHashCode(background)); include(background?.bounds?.hashCode() ?: 0)
@@ -163,25 +160,20 @@ internal class HardwareBackdropScene private constructor(private val root: View)
     }
     if (view is ReactViewGroup) include(view.overflow?.hashCode() ?: 0)
     include(if (hasGlass) 1 else 0)
-    val ownAppearance = signature
-    signature = ownGeometry * 31L + ownAppearance
     sources.forEach { signature = signature * 31L + it.signature }
     // Glass invalidations propagate to its ancestors. Counting those as source
     // dirt would make our own invalidate -> preDraw -> invalidate loop forever.
-    // Real source descendants retain their own dirty/layout signals.
-    val dirty = sources.any { it.dirty } || view.isLayoutRequested || (!hasGlass && view.isDirty)
-    return Plan(view, sources, hasGlass, signature, dirty, true, ownGeometry, ownAppearance)
+    // Yoga-managed children can keep a pending FORCE_LAYOUT after their pixels
+    // settle. Committed geometry/hierarchy above tracks actual layout changes;
+    // never treat that pending flag alone as new source pixels or clear it.
+    val dirty = sources.any { it.dirty } || (!hasGlass && view.isDirty)
+    return Plan(view, sources, hasGlass, signature, dirty)
   }
 
   private fun record(plan: Plan): RenderNode {
     val view = plan.view
     val previous = cache[view]
     if (previous != null && previous.signature == plan.signature && !plan.dirty) return previous.node
-    if (GlassSourceProbe.enabled && previous != null) {
-      // Probe before any View.draw can clear the actual native flags.
-      if (previous.signature == plan.signature && plan.dirty) probeUnchangedDirty(plan)
-      else previous.probePlan?.let { probeSignatureChange(it, plan) }
-    }
     val node = RenderNode("TodoMoeBackdropContent")
     node.setPosition(0, 0, view.width, view.height)
     node.clipToBounds = false
@@ -210,32 +202,8 @@ internal class HardwareBackdropScene private constructor(private val root: View)
         drawChildren(target, view as ViewGroup, plan.children)
       }
     } finally { node.endRecording() }
-    cache[view] = Cached(plan.signature, node, if (GlassSourceProbe.enabled) plan else null)
+    cache[view] = Cached(plan.signature, node)
     return node
-  }
-
-  private fun probeUnchangedDirty(plan: Plan) {
-    fun contributor(node: Plan): Plan? {
-      node.children.firstNotNullOfOrNull { if (it.dirty) contributor(it) else null }?.let { return it }
-      return if (node.view.isLayoutRequested || (!node.hasGlass && node.view.isDirty)) node else null
-    }
-    val cause = contributor(plan) ?: return
-    GlassSourceProbe.node(cause.view, if (cause.view.isLayoutRequested) "unchanged-layout-request" else "unchanged-dirty", cause.hasGlass)
-  }
-
-  private fun probeSignatureChange(old: Plan, next: Plan) {
-    val reason = when {
-      old.ownGeometry != next.ownGeometry -> "geometry-or-matrix"
-      old.ownAppearance != next.ownAppearance -> "clip-or-background-state"
-      old.children.size != next.children.size || old.children.indices.any { old.children[it].view !== next.children[it].view } -> "hierarchy-or-order"
-      else -> null
-    }
-    if (reason != null) {
-      GlassSourceProbe.node(next.view, reason, next.hasGlass)
-      return
-    }
-    val changed = old.children.indices.firstOrNull { old.children[it].signature != next.children[it].signature }
-    if (changed != null) probeSignatureChange(old.children[changed], next.children[changed])
   }
 
   private fun drawChildren(target: Canvas, group: ViewGroup, children: List<Plan>) {

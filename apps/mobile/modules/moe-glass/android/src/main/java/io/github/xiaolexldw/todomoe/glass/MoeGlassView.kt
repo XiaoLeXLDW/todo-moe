@@ -164,7 +164,6 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
 
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
-    GlassSourceProbe.initialize(context)
     // Mark even in Off mode, before any hardware source records these parents.
     if (Build.VERSION.SDK_INT >= 31) HardwareBackdropScene.markGlassAncestors(this)
     updateObservers()
@@ -265,11 +264,6 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
       val geometry = listOf(width.toFloat(), height.toFloat(), scale, padding, if (dark) 1f else 0f)
       val oldNode = effectNode as? RenderNode
       if (oldNode?.hasDisplayList() == true && sources == capturedSources && geometry == capturedGeometry) return false
-      if (oldNode != null && GlassSourceProbe.enabled) {
-        val versionsChanged = sources.map { it.first } != capturedSources.map { it.first }
-        val matricesChanged = sources.map { it.second } != capturedSources.map { it.second }
-        GlassSourceProbe.output(versionsChanged, matricesChanged, geometry != capturedGeometry, oldNode.hasDisplayList())
-      }
       val node = oldNode ?: RenderNode("TodoMoeGlass").also { effectNode = it }
       node.setPosition(0, 0, bw, bh)
       val target = node.beginRecording(bw, bh)
