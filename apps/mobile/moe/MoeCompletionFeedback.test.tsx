@@ -1,11 +1,13 @@
 import React from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { AppState } from 'react-native';
+import { AppState, Text } from 'react-native';
 import { measure } from 'react-native-reanimated';
 import { runOnUISync } from 'react-native-worklets';
 import { MoeCompletionFeedbackHost, useMoeCompletionFeedbackActive } from './MoeCompletionFeedback';
-import { useMoeCompletionRow } from './MoeCompletionRow';
+import { MoeCompletionRow, useMoeCompletionRow } from './MoeCompletionRow';
+import { settleStoreAction } from '../components/store-action-result';
+import { MoeCompletionCell } from './MoeCompletionCell';
 import type { FeedbackAppearance } from './MoeCompletionFeedbackState';
 
 const state = vi.hoisted(() => ({ reduced: false, listeners: new Set<(value: string) => void>() }));
@@ -24,10 +26,13 @@ const appearance: FeedbackAppearance = { backgroundColor: '#fff', borderColor: '
 const details = { title: 'Only the visible task title', appearance };
 type Transition = ReturnType<typeof useMoeCompletionRow>;
 let transition: Transition; let feedbackActive = false; let tree: ReactTestRenderer | undefined;
-function Row({ done = false }: { done?: boolean }) { transition = useMoeCompletionRow('task-a', done); return null; }
+function Row({ done = false, focused = true }: { done?: boolean; focused?: boolean }) {
+    transition = useMoeCompletionRow('task-a', done);
+    return <MoeCompletionCell style={undefined} item={{ type: 'task', task: { id: 'task-a' } }}><MoeCompletionRow transition={transition}><Text testID="restore-star-state">{focused ? 'filled' : 'hollow'}</Text></MoeCompletionRow></MoeCompletionCell>;
+}
 function Active() { feedbackActive = useMoeCompletionFeedbackActive(); return null; }
-function layout({ row = true, done = false, scope = '/focus', active = true } = {}) {
-    return <MoeCompletionFeedbackHost scopeKey={scope} active={active}><Active />{row ? <Row done={done} /> : null}</MoeCompletionFeedbackHost>;
+function layout({ row = true, done = false, focused = true, scope = '/focus', active = true } = {}) {
+    return <MoeCompletionFeedbackHost scopeKey={scope} active={active}><Active />{row ? <Row key={focused ? 'focus' : 'next'} done={done} focused={focused} /> : null}</MoeCompletionFeedbackHost>;
 }
 function mount() {
     act(() => { tree = create(layout()); });
@@ -116,4 +121,59 @@ it('a failed native hide gate cancels the snapshot before falling back to the or
     const write = vi.fn(); act(() => { transition.arm(13, details); write(); });
     expect(write).toHaveBeenCalledOnce(); expect(feedbackActive).toBe(false); expect(paints()).toHaveLength(0);
     expect(transition.exiting().initialValues.opacity).toBe(1); expect(vi.getTimerCount()).toBe(0);
+});
+
+const rowPaint = () => tree!.root.findByType(MoeCompletionRow).findAllByType('View' as unknown as React.ElementType)[0];
+const cellPaint = () => tree!.root.findByType(MoeCompletionCell).findAllByType('View' as unknown as React.ElementType)[0];
+type UndoVisual = Transition;
+
+it('hides the real unfocused intermediate row until both original Undo writes settle', async () => {
+    mount(); geometry(); const old = transition as UndoVisual;
+    act(() => { old.arm(30, details); tree!.update(layout({ row: false })); });
+    let statusDone!: () => void; let focusDone!: () => void;
+    const statusWrite = new Promise<void>((resolve) => { statusDone = resolve; });
+    const focusWrite = new Promise<void>((resolve) => { focusDone = resolve; });
+    const undo = vi.fn(async () => {
+        tree!.update(layout({ focused: false })); // original moveTask notification
+        await statusWrite;
+        tree!.update(layout({ focused: true })); // original focus update notification
+        await focusWrite;
+    });
+    let pending!: ReturnType<typeof settleStoreAction>;
+    act(() => {
+        old.cancel(30, true); old.beginUndo(30);
+        pending = settleStoreAction(undo).then((outcome) => { old.finishUndo(30); return outcome; });
+    });
+    expect(undo).toHaveBeenCalledOnce(); expect(paints()).toHaveLength(0);
+    expect(tree!.root.findAllByProps({ testID: 'restore-star-state' }).at(-1)!.props.children).toBe('hollow');
+    expect(rowPaint().props.style).toEqual({ opacity: 0 });
+    expect(rowPaint().props.pointerEvents).toBe('none');
+    expect(cellPaint().props.layout).toBeUndefined();
+    await act(async () => { statusDone(); await Promise.resolve(); });
+    expect(rowPaint().props.style).toEqual({ opacity: 0 });
+    await act(async () => { focusDone(); await pending; });
+    expect(rowPaint().props.style).toBeUndefined();
+    expect(cellPaint().props.layout).toBeUndefined();
+    expect(tree!.root.findAllByProps({ testID: 'restore-star-state' }).at(-1)!.props.children).toBe('filled');
+    expect(feedbackActive).toBe(false); expect(vi.getTimerCount()).toBe(0);
+});
+
+it('failed Undo clears its gate and exposes the actual partial result without inventing a star', async () => {
+    mount(); geometry(); const old = transition as UndoVisual;
+    act(() => { old.arm(31, details); tree!.update(layout({ row: false })); });
+    let fail!: (error: Error) => void;
+    const focusWrite = new Promise<void>((_, reject) => { fail = reject; });
+    let pending!: ReturnType<typeof settleStoreAction>;
+    act(() => {
+        old.cancel(31, true); old.beginUndo(31);
+        pending = settleStoreAction(() => { tree!.update(layout({ focused: false })); return focusWrite; })
+            .then((outcome) => { old.finishUndo(31); return outcome; });
+    });
+    expect(rowPaint().props.style).toEqual({ opacity: 0 });
+    await act(async () => { fail(new Error('focus persistence failed')); await pending; });
+    expect((await pending).ok).toBe(false);
+    expect(rowPaint().props.style).toBeUndefined();
+    expect(cellPaint().props.layout).toBeUndefined();
+    expect(tree!.root.findAllByProps({ testID: 'restore-star-state' }).at(-1)!.props.children).toBe('hollow');
+    expect(feedbackActive).toBe(false); expect(vi.getTimerCount()).toBe(0);
 });

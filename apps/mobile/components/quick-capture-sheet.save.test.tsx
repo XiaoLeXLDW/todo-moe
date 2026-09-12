@@ -7,6 +7,9 @@ import { QuickCaptureSheet } from './quick-capture-sheet';
 
 const selectedAreaIdForNewTasksMock = vi.hoisted(() => ({ current: undefined as string | null | undefined }));
 const audioHookMock = vi.hoisted(() => ({ params: null as Record<string, any> | null }));
+const focusDiagnostics = vi.hoisted(() => ({ channel: 'development', info: vi.fn() }));
+vi.mock('../lib/app-log', () => ({ logInfo: focusDiagnostics.info, logWarn: vi.fn(), logError: vi.fn() }));
+vi.mock('../lib/app-identity', () => ({ getAppIdentity: () => ({ channel: focusDiagnostics.channel }) }));
 
 const {
   addTask,
@@ -173,6 +176,7 @@ vi.mock('react-native', async () => {
   const actual = await vi.importActual<typeof import('react-native')>('react-native');
   return {
     ...actual,
+    findNodeHandle: () => 71,
     useWindowDimensions: () => ({
       fontScale: 1,
       height: 800,
@@ -299,6 +303,8 @@ describe('QuickCaptureSheet save handling', () => {
 
   beforeEach(() => {
     AppState.currentState = 'active';
+    focusDiagnostics.channel = 'development';
+    focusDiagnostics.info.mockReset().mockResolvedValue(null);
     addTask.mockReset();
     addTasks.mockReset();
     addProject.mockReset();
@@ -1629,6 +1635,53 @@ describe('QuickCaptureSheet save handling', () => {
     if (reason === 'busy') { act(() => audioHookMock.params?.onSubmissionBusyChange(false)); expect(focus).not.toHaveBeenCalled(); }
     act(() => tree.unmount()); AppState.currentState = 'active';
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+
+  it('records Dev guard/command/native-focus phases without draft text or whole events', async () => {
+    const onClose = vi.fn(); let tree!: ReturnType<typeof create>;
+    await act(async () => { tree = create(<QuickCaptureSheet visible openRequestId={7} initialValue="PRIVATE_CAPTURE_TEXT" onClose={onClose} />); });
+    const body = () => tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetBody')[0];
+    let jsFocused = true;
+    body().props.inputRef.current = { isFocused: () => jsFocused, blur: () => { jsFocused = false; }, focus: () => { jsFocused = true; } };
+    act(() => body().props.handleClose());
+    act(() => findBulkConfirm(tree)?.props.onCancel());
+    act(() => { body().props.onInputFocusDiagnostic(true, 71); body().props.onImeVisibilityDiagnostic(true); });
+    const messages = focusDiagnostics.info.mock.calls.map(([message]) => message);
+    expect(messages).toEqual(['close-request', 'cancel-request', 'restore-effect', 'before-blur', 'after-blur', 'after-focus', 'native-focus', 'ime-change'].map((phase) => '[T06-FOCUS-DIAG] ' + phase));
+    const context = (phase: string) => focusDiagnostics.info.mock.calls.find(([message]) => message.endsWith(phase))?.[1];
+    expect(context('restore-effect')).toMatchObject({ scope: 'capture-focus', force: true, extra: { sameResume: true, visible: true, saving: false, appState: 'active', inputPresent: true } });
+    expect(context('after-blur')?.extra.jsFocused).toBe(false);
+    expect(context('after-focus')?.extra.jsFocused).toBe(true);
+    expect(context('native-focus')?.extra.nativeTarget).toBe(71);
+    expect(context('ime-change')?.extra.imeVisible).toBe(true);
+    expect(JSON.stringify(focusDiagnostics.info.mock.calls)).not.toContain('PRIVATE_CAPTURE_TEXT');
+    expect(onClose).not.toHaveBeenCalled();
+    act(() => tree.unmount());
+  });
+
+  it('records a blocked focus guard instead of claiming a native command was issued', async () => {
+    let tree!: ReturnType<typeof create>;
+    await act(async () => { tree = create(<QuickCaptureSheet visible initialValue="PRIVATE_CAPTURE_TEXT" onClose={vi.fn()} />); });
+    const body = () => tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetBody')[0];
+    const focus = vi.fn(); body().props.inputRef.current = { focus, blur: vi.fn() };
+    act(() => body().props.handleClose()); AppState.currentState = 'background';
+    act(() => findBulkConfirm(tree)?.props.onCancel());
+    const blocked = focusDiagnostics.info.mock.calls.find(([message]) => message.endsWith('restore-blocked'));
+    expect(blocked?.[1].extra.appState).toBe('background');
+    expect(focusDiagnostics.info.mock.calls.some(([message]) => message.endsWith('before-blur'))).toBe(false);
+    expect(focus).not.toHaveBeenCalled();
+    act(() => tree.unmount()); AppState.currentState = 'active';
+  });
+
+  it('keeps temporary focus logging out of Stable without changing cancellation behavior', async () => {
+    focusDiagnostics.channel = 'stable'; let tree!: ReturnType<typeof create>;
+    await act(async () => { tree = create(<QuickCaptureSheet visible initialValue="Stable draft" onClose={vi.fn()} />); });
+    const body = () => tree.root.findAll((node) => String(node.type) === 'QuickCaptureSheetBody')[0];
+    const focus = vi.fn(); body().props.inputRef.current = { focus, blur: vi.fn() };
+    act(() => body().props.handleClose()); act(() => findBulkConfirm(tree)?.props.onCancel());
+    expect(focusDiagnostics.info).not.toHaveBeenCalled(); expect(focus).toHaveBeenCalledOnce();
+    act(() => tree.unmount());
   });
 
 });

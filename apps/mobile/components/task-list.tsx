@@ -41,6 +41,7 @@ import { useThemeColors } from '@/hooks/use-theme-colors';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import Animated from 'react-native-reanimated';
 import { useMoeCompletionListLayout } from '@/moe/MoeCompletionRow';
+import { useMoeCompletionFeedbackActive } from '@/moe/MoeCompletionFeedback';
 import { useMobileAreaFilter } from '@/hooks/use-mobile-area-filter';
 import { useToast } from '@/contexts/toast-context';
 import { PullSyncIndicator } from '@/components/PullSyncIndicator';
@@ -309,6 +310,7 @@ function TaskListComponent({
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reduceMotion = useReducedMotion();
   const completionListLayout = useMoeCompletionListLayout();
+  const completionFeedbackActive = useMoeCompletionFeedbackActive();
   // Tracks the highlightTaskId we already scrolled to, so an id is centred once
   // (when it first appears in the rendered data) rather than re-scrolling on
   // every unrelated list re-render during its ~3.5s highlight window (#916).
@@ -1585,7 +1587,7 @@ function TaskListComponent({
               progressBackgroundColor="transparent"
             />
           }
-          ListEmptyComponent={
+          ListEmptyComponent={completionFeedbackActive ? null : (
             <ListEmptyState
               message={filteredEmptyMessage}
               hint={filteredEmptyHint}
@@ -1596,7 +1598,7 @@ function TaskListComponent({
               actionLabel={filteredEmptyActionLabel}
               onAction={filteredEmptyAction}
             />
-          }
+          )}
         />
       )}
 

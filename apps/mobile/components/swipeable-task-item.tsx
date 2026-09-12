@@ -300,7 +300,8 @@ function SwipeableTaskItemInner({
     const [completionPending, setCompletionPending] = useState(false);
     const rowTransition = useMoeCompletionRow(task.id, task.status === 'done');
     const completionAppearance = useRef<FeedbackAppearance | null>(null);
-    const { arm: armRowExit, cancel: cancelRowExit, settle: settleRowExit } = rowTransition;
+    const { arm: armRowExit, cancel: cancelRowExit, settle: settleRowExit,
+        beginUndo: beginRowUndo, finishUndo: finishRowUndo } = rowTransition;
     const [projectNextActionPrompt, setProjectNextActionPrompt] = useState<ProjectNextActionPromptState | null>(null);
     const [projectNextActionTitle, setProjectNextActionTitle] = useState('');
     const [isProjectNextActionSubmitting, setIsProjectNextActionSubmitting] = useState(false);
@@ -388,9 +389,11 @@ function SwipeableTaskItemInner({
                         onAction: () => {
                             cancelMoeCompletion(task.id);
                             cancelRowExit(operation.id, true);
+                            if (wasFocusedToday) beginRowUndo(operation.id);
                             void settleStoreAction(() => (
                                 undoTaskCompletion(task.id, previousStatus, wasFocusedToday)
                             )).then((outcome) => {
+                                finishRowUndo(operation.id);
                                 if (!outcome.ok) {
                                     cancelRowExit(operation.id);
                                     showActionFailure(outcome.message);
@@ -402,7 +405,7 @@ function SwipeableTaskItemInner({
                     openProjectNextActionPromptIfNeeded(task.id);
                 }
             });
-    }, [armRowExit, cancelRowExit, interactionDisabled, onStatusChange, openProjectNextActionPromptIfNeeded, settleRowExit, showActionFailure, showToast, t, task.id, task.isFocusedToday, task.status, task.title]);
+    }, [armRowExit, beginRowUndo, cancelRowExit, finishRowUndo, interactionDisabled, onStatusChange, openProjectNextActionPromptIfNeeded, settleRowExit, showActionFailure, showToast, t, task.id, task.isFocusedToday, task.status, task.title]);
 
     const [completedAtPicker, setCompletedAtPicker] = useState<null | 'complete' | 'edit'>(null);
     useEffect(() => {

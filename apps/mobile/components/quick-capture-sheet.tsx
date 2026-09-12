@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppState,
+  findNodeHandle,
   Keyboard,
   Platform,
   Pressable,
@@ -56,7 +57,8 @@ import { useThemeTokens } from '@/hooks/use-theme-tokens';
 import { useToast } from '@/contexts/toast-context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeyboardInset } from '../lib/use-android-keyboard-inset';
-import { logError, logWarn } from '../lib/app-log';
+import { logError, logInfo, logWarn } from '../lib/app-log';
+import { getAppIdentity } from '../lib/app-identity';
 import { showInvalidDateCommandToast } from '@/lib/quick-add-toast';
 import { createMobileRecoverySnapshot } from '../lib/recovery-snapshot';
 import { openTaskScreen } from '@/lib/task-meta-navigation';
@@ -229,6 +231,7 @@ export function QuickCaptureSheet({
   const discardDraftOpen = discardDraftSession !== null;
   const [resumeTitleFocusSession, setResumeTitleFocusSession] = useState<CaptureSessionId | null>(null);
   const draftBaselineRef = useRef('');
+  const focusDiagnosticSequenceRef = useRef(0);
   const reducedMotion = useReducedMotion();
   const [saving, setSaving] = useState(false);
   // Refreshed by resetDraftState — which runs on open AND after each capture in
@@ -710,6 +713,34 @@ export function QuickCaptureSheet({
     visible,
   });
 
+  // Temporary [T06-FOCUS-DIAG] instrumentation for the vc21/vc22 device RED.
+  // Whitelisted control state only: never include draft text or whole events.
+  const traceCaptureFocus = useCallback((phase: string, event: { target?: number | null; imeVisible?: boolean } = {}) => {
+    try {
+      if (getAppIdentity().channel !== 'development') return;
+      const input = inputRef.current;
+      const activeSession = activeSubmissionSessionRef.current;
+      let jsFocused: boolean | null = null;
+      let refTag: number | null = null;
+      try { jsFocused = input?.isFocused?.() ?? null; refTag = input ? findNodeHandle(input) : null; } catch { /* A detached ref is itself diagnostic. */ }
+      void logInfo(`[T06-FOCUS-DIAG] ${phase}`, {
+        scope: 'capture-focus', force: true,
+        extra: {
+          sequence: ++focusDiagnosticSequenceRef.current, generation: openRequestId ?? null,
+          visible, overlayOpen: discardDraftOpen, pending: resumeTitleFocusSession !== null,
+          sameDiscard: discardDraftSession !== null && activeSession === discardDraftSession,
+          sameResume: resumeTitleFocusSession !== null && activeSession === resumeTitleFocusSession,
+          hasActiveCapture: activeSession !== null, appState: AppState.currentState,
+          saving, recording: Boolean(recording), recordingBusy,
+          submitting: activeSession !== null && submissionCoordinatorRef.current.isSubmitting(activeSession),
+          inputPresent: input !== null, jsFocused, refTag,
+          ...(event.target === undefined ? {} : { nativeTarget: event.target }),
+          ...(event.imeVisible === undefined ? {} : { imeVisible: event.imeVisible }),
+        },
+      }).catch(() => {});
+    } catch { /* Diagnostics must never alter capture or focus control flow. */ }
+  }, [discardDraftOpen, discardDraftSession, openRequestId, recording, recordingBusy, resumeTitleFocusSession, saving, visible]);
+
   const discardDraft = useCallback(() => {
     if (recordingBusy) return;
     if (recording) void stopRecording({ saveTask: false });
@@ -717,6 +748,7 @@ export function QuickCaptureSheet({
   }, [finalizeClose, recording, recordingBusy, stopRecording]);
 
   const handleClose = useCallback(() => {
+    traceCaptureFocus('close-request');
     const session = activeSubmissionSessionRef.current;
     if (recordingBusy || (session !== null && submissionCoordinatorRef.current.isSubmitting(session))) return;
     clearInitialFocusTimer();
@@ -727,31 +759,42 @@ export function QuickCaptureSheet({
     }, draftBaselineRef.current);
     if (dirty) { setDiscardDraftSession(session); return; }
     discardDraft();
-  }, [clearContextOptionsLoad, clearInitialFocusTimer, contextTags, discardDraft, dueDate, dueDateHasTime, focusNewTask, noteValue, priority, projectId, recording, recordingBusy, selectedAreaId, startTime, value]);
+  }, [clearContextOptionsLoad, clearInitialFocusTimer, contextTags, discardDraft, dueDate, dueDateHasTime, focusNewTask, noteValue, priority, projectId, recording, recordingBusy, selectedAreaId, startTime, traceCaptureFocus, value]);
 
   const cancelDiscardDraft = useCallback(() => {
     // The callback belongs to the confirmation's opening session, not whichever
     // draft happens to be mounted when an old event is eventually delivered.
-    if (discardDraftSession === null || activeSubmissionSessionRef.current !== discardDraftSession) return;
+    traceCaptureFocus('cancel-request');
+    if (discardDraftSession === null || activeSubmissionSessionRef.current !== discardDraftSession) {
+      traceCaptureFocus('cancel-rejected');
+      return;
+    }
     setDiscardDraftSession(null);
     setResumeTitleFocusSession(discardDraftSession);
-  }, [discardDraftSession]);
+  }, [discardDraftSession, traceCaptureFocus]);
 
   useEffect(() => {
     if (resumeTitleFocusSession === null) return;
     setResumeTitleFocusSession(null);
+    traceCaptureFocus('restore-effect');
     // Runs after the confirmation overlay has left the committed tree. Never
     // refocus a hidden/reopened draft, background app or active audio/save.
     if (!visible || discardDraftOpen || AppState.currentState !== 'active'
       || saving || recording || recordingBusy
       || activeSubmissionSessionRef.current !== resumeTitleFocusSession
-      || submissionCoordinatorRef.current.isSubmitting(resumeTitleFocusSession)) return;
+      || submissionCoordinatorRef.current.isSubmitting(resumeTitleFocusSession)) {
+      traceCaptureFocus('restore-blocked');
+      return;
+    }
     // Native focus can be lost before TextInputState's JS registry catches up.
     // Clear that cached ownership so focus() actually sends a native command.
     const input = inputRef.current;
+    traceCaptureFocus('before-blur');
     input?.blur();
+    traceCaptureFocus('after-blur');
     input?.focus();
-  }, [discardDraftOpen, recording, recordingBusy, resumeTitleFocusSession, saving, visible]);
+    traceCaptureFocus('after-focus');
+  }, [discardDraftOpen, recording, recordingBusy, resumeTitleFocusSession, saving, traceCaptureFocus, visible]);
 
   const formatBulkConfirmTitle = useCallback((count: number) => (
     tFallback(t, 'quickAdd.bulkConfirmTitle', 'Create {{count}} tasks?')
@@ -1243,6 +1286,8 @@ export function QuickCaptureSheet({
         insetsBottom={insets.bottom}
         insetsTop={insets.top}
         inputRef={inputRef}
+        onInputFocusDiagnostic={(focused, target) => traceCaptureFocus(focused ? 'native-focus' : 'native-blur', { target })}
+        onImeVisibilityDiagnostic={(imeVisible) => traceCaptureFocus('ime-change', { imeVisible })}
         keyboardAvoidingEnabled={androidKeyboardAvoidingEnabled}
         noteValue={noteValue}
         onNoteChange={setNoteValue}

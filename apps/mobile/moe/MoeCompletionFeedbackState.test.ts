@@ -53,4 +53,23 @@ describe('bounded read-only completion paint state', () => {
         expect(activity.getSnapshot()).toEqual([]); expect(modal.getSnapshot()).toHaveLength(1); expect(vi.getTimerCount()).toBe(1);
         modal.clear(); expect(vi.getTimerCount()).toBe(0);
     });
+    it('bounds Undo identity tokens and ignores an older completion without adding timers', () => {
+        const store = createCompletionFeedbackStore();
+        for (let i = 1; i <= 4; i++) expect(store.beginUndo(`undo-${i}`, i)).toBe(true);
+        expect(store.beginUndo('overflow', 5)).toBe(false);
+        expect(store.beginUndo('undo-1', 10)).toBe(true);
+        store.finishUndo('undo-1', 1);
+        expect(store.isUndoing('undo-1')).toBe(true);
+        store.finishUndo('undo-1', 10);
+        expect(store.isUndoing('undo-1')).toBe(false);
+        expect(store.getSnapshot()).toEqual([]);
+        expect(store.hasFeedback()).toBe(true); expect(vi.getTimerCount()).toBe(0);
+        store.clear(); expect(store.hasFeedback()).toBe(false); expect(vi.getTimerCount()).toBe(0);
+    });
+    it('a new same-task action clears an Undo gate and page cleanup discards every identity', () => {
+        const store = createCompletionFeedbackStore();
+        store.beginUndo('a', 1); store.beginUndo('b', 2);
+        store.cancel('a'); expect(store.isUndoing('a')).toBe(false); expect(store.isUndoing('b')).toBe(true);
+        store.clear(); expect(store.isUndoing('b')).toBe(false); expect(store.hasFeedback()).toBe(false);
+    });
 });

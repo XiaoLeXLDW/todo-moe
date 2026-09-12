@@ -39,7 +39,8 @@ export function useMoeCompletionRow(taskId: string, completed: boolean) {
     const operation = useRef(0);
     const undoneOperation = useRef<number | null>(null);
     const feedbackOperation = useRef<number | null>(null);
-    const { refs: measurementRefs, present: presentFeedback, cancel: cancelFeedback } = useMoeCompletionFeedback();
+    const { refs: measurementRefs, present: presentFeedback, cancel: cancelFeedback,
+        beginUndo: beginHostUndo, finishUndo: finishHostUndo, undoPending } = useMoeCompletionFeedback(taskId);
     const restored = useRef<boolean | undefined>(undefined);
     if (restored.current === undefined) restored.current = takeRestore(taskId);
     const visual = useSharedValue({ operationId: 0, armed: false });
@@ -88,6 +89,13 @@ export function useMoeCompletionRow(taskId: string, completed: boolean) {
         if (!succeeded) cancel(operationId);
         return true;
     }, [cancel]);
+    const beginUndo = useCallback((operationId: number) => {
+        if (operation.current !== operationId) return false;
+        const guarded = beginHostUndo(taskId, operationId);
+        if (guarded) restores.delete(taskId);
+        return guarded;
+    }, [beginHostUndo, taskId]);
+    const finishUndo = useCallback((operationId: number) => finishHostUndo(taskId, operationId), [finishHostUndo, taskId]);
     useLayoutEffect(() => {
         // A Done row still present (All/expanded Completed) must not animate a
         // later ordinary filter, deletion, navigation or virtualization removal.
@@ -130,13 +138,17 @@ export function useMoeCompletionRow(taskId: string, completed: boolean) {
             return { initialValues: { opacity: 0 }, animations: { opacity: withTiming(1, { duration: motion.enterMs }) } };
         };
     }, [motion.enterMs, motion.reduced]);
-    return { arm, cancel, settle, entering, exiting, measurementRefs };
+    return { arm, cancel, settle, entering, exiting, measurementRefs, beginUndo, finishUndo, undoPending };
 }
 
 export function MoeCompletionRow({ transition, children }: {
     transition: ReturnType<typeof useMoeCompletionRow>; children: React.ReactNode;
 }) {
-    return <Animated.View collapsable={false} entering={transition.entering} exiting={transition.exiting}>{children}</Animated.View>;
+    return <Animated.View collapsable={false} entering={transition.entering} exiting={transition.exiting}
+        style={transition.undoPending ? { opacity: 0 } : undefined}
+        pointerEvents={transition.undoPending ? 'none' : undefined}
+        accessibilityElementsHidden={transition.undoPending}
+        importantForAccessibility={transition.undoPending ? 'no-hide-descendants' : 'auto'}>{children}</Animated.View>;
 }
 
 export function useMoeCompletionListLayout() {

@@ -16,7 +16,13 @@ const falseSnapshot = () => false;
 
 export function useMoeCompletionFeedbackActive() {
     const host = useContext(Context);
-    const getSnapshot = useCallback(() => Boolean(host?.store.getSnapshot().length), [host]);
+    const getSnapshot = useCallback(() => host?.store.hasFeedback() ?? false, [host]);
+    return useSyncExternalStore(host?.store.subscribe ?? noSubscribe, getSnapshot, falseSnapshot);
+}
+
+export function useMoeCompletionUndoPending(taskId?: string) {
+    const host = useContext(Context);
+    const getSnapshot = useCallback(() => taskId ? host?.store.isUndoing(taskId) ?? false : false, [host, taskId]);
     return useSyncExternalStore(host?.store.subscribe ?? noSubscribe, getSnapshot, falseSnapshot);
 }
 
@@ -60,8 +66,9 @@ export function MoeCompletionFeedbackHost({ children, active = true, scopeKey = 
     );
 }
 
-export function useMoeCompletionFeedback() {
+export function useMoeCompletionFeedback(taskId: string) {
     const host = useContext(Context);
+    const undoPending = useMoeCompletionUndoPending(taskId);
     const row = useAnimatedRef<View>();
     const title = useAnimatedRef<Text>();
     const check = useAnimatedRef<View>();
@@ -82,7 +89,10 @@ export function useMoeCompletionFeedback() {
         } catch { return false; }
     }, [check, host, row, title]);
     const cancel = useCallback((taskId: string, operationId?: number) => host?.store.cancel(taskId, operationId), [host]);
-    return { refs, present, cancel };
+    const beginUndo = useCallback((taskId: string, operationId: number) => host?.available() && AppState.currentState === 'active'
+        ? host.store.beginUndo(taskId, operationId) : false, [host]);
+    const finishUndo = useCallback((taskId: string, operationId: number) => host?.store.finishUndo(taskId, operationId), [host]);
+    return { refs, present, cancel, beginUndo, finishUndo, undoPending };
 }
 
 function FeedbackPaint({ entry }: { entry: CompletionFeedback }) {

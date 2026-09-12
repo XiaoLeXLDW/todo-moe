@@ -32,6 +32,8 @@ export function feedbackGeometry(host: FeedbackMeasurement, row: FeedbackMeasure
 
 export function createCompletionFeedbackStore() {
     let entries: readonly CompletionFeedback[] = [];
+    // Only identity tokens while the original two-stage Undo promise is pending.
+    const undoing = new Map<string, number>();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const listeners = new Set<() => void>();
     const notify = () => listeners.forEach((listener) => listener());
@@ -47,7 +49,20 @@ export function createCompletionFeedbackStore() {
     };
     return {
         getSnapshot: () => entries,
+        hasFeedback: () => entries.length > 0 || undoing.size > 0,
+        isUndoing: (taskId: string) => undoing.has(taskId),
         subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
+        beginUndo(taskId: string, operationId: number) {
+            if (!Number.isSafeInteger(operationId) || operationId < 1) return false;
+            const previous = undoing.get(taskId);
+            if (previous !== undefined && previous > operationId) return false;
+            if (previous === undefined && undoing.size >= 4) return false;
+            undoing.set(taskId, operationId); notify(); return true;
+        },
+        finishUndo(taskId: string, operationId: number) {
+            if (undoing.get(taskId) !== operationId) return;
+            undoing.delete(taskId); notify();
+        },
         present(entry: CompletionFeedback) {
             if (!Number.isSafeInteger(entry.operationId) || entry.operationId < 1 || !Number.isFinite(entry.expiresAt) || entry.expiresAt <= Date.now() || entry.expiresAt > Date.now() + 400) return false;
             // Pick fields explicitly: even a structurally wider caller object
@@ -65,14 +80,16 @@ export function createCompletionFeedbackStore() {
         },
         cancel(taskId: string, operationId?: number) {
             const next = entries.filter((entry) => entry.taskId !== taskId || (operationId !== undefined && entry.operationId !== operationId));
-            if (next.length === entries.length) return;
+            const removeUndo = undoing.has(taskId) && (operationId === undefined || undoing.get(taskId) === operationId);
+            if (next.length === entries.length && !removeUndo) return;
+            if (removeUndo) undoing.delete(taskId);
             entries = next; notify(); schedule();
         },
         clear() {
             if (timer !== undefined) clearTimeout(timer);
             timer = undefined;
-            if (!entries.length) return;
-            entries = []; notify();
+            if (!entries.length && !undoing.size) return;
+            entries = []; undoing.clear(); notify();
         },
     };
 }
