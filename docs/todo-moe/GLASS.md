@@ -19,7 +19,9 @@ vc20 截图 219/222/241 已观察到透镜轮廓比外框偏软。下一候选�
 
 ## 采样坐标和生命周期
 
-采样在 UI native pre-draw 中完成。40dp 外扩为折射和模糊提供边缘像素；双缓冲每个方向最多 768 像素，采样倍率不超过 0.35。每次 root draw 跳过所有 MoeGlassView 整组，避免采到自己的玻璃、图标或文本。像素与上次相同时不再 invalidate；没有 JS 截图、循环定时器或持续 Choreographer 回调。多个 surface 目前各自有区域双缓冲，不能据此声称没有重复 root-draw 成本；T08 应测实际多 surface 场景。
+采样在 UI native pre-draw 中完成。40dp 外扩为折射和模糊提供边缘像素；双缓冲每个方向最多 768 像素，倍率上限为柔和 0.35、液态 0.25。倍率只影响背景采样，RN 前景与原生 rim 保持全分辨率；shader 的模糊、折射距离继续按 density × sampleScale 换算，物理单位不变。每次 root draw 跳过所有 MoeGlassView 整组，避免采到自己的玻璃、图标或文本。像素与上次相同时不再 invalidate；没有 JS 截图、循环定时器或持续 Choreographer 回调。多个 surface 目前各自有区域双缓冲，不能据此声称没有重复 root-draw 成本；T08 应测实际多 surface 场景。
+
+本次降采样针对 vc24 外屏 440dpi、机温 30.2°C 的限定 lab 对照：预热一组后进行三组 500ms 滑动，无录屏；关闭为 469 帧、P95 13ms、卡顿 8 帧（1.71%），液态为 481 帧、P95 18ms、卡顿 78 帧（16.22%）。0.25 倍率尚待下一统一候选按同条件对照，不将参数调整写成性能验收通过。
 
 普通 RN 层级绘制自己的 root。若 surface 的 root 与当前 Activity decor 不同（RN Modal/Dialog），先绘 Activity，再叠本 dialog root 内的非 glass 内容。两层分别使用 `transformMatrixToGlobal`，经 glass 的逆矩阵映射到本地，再加 padding 和下采样倍率，包含窗口偏移、滚动和 View 变换。并监听两个 root 的 pre-draw。
 

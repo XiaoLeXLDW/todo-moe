@@ -12,7 +12,7 @@ export type CompletionFeedback = {
     row: FeedbackRect; titleRect: FeedbackRect; check: FeedbackRect; expiresAt: number;
 };
 export type FeedbackMeasurement = { pageX: number; pageY: number; width: number; height: number };
-export type FeedbackLayoutGate = { epoch: number; pending: boolean; until: number };
+export type FeedbackLayoutGate = { epoch: number; pending: boolean; until: number; canceledOperationIds: readonly number[] };
 
 const valid = (rect: FeedbackMeasurement) => [rect.pageX, rect.pageY, rect.width, rect.height].every(Number.isFinite)
     && rect.width > 0 && rect.height > 0;
@@ -35,9 +35,16 @@ export function createCompletionFeedbackStore() {
     let entries: readonly CompletionFeedback[] = [];
     // Only identity tokens while the original two-stage Undo promise is pending.
     const undoing = new Map<string, number>();
-    let layoutGate: FeedbackLayoutGate = { epoch: 0, pending: false, until: 0 };
+    let layoutGate: FeedbackLayoutGate = { epoch: 0, pending: false, until: 0, canceledOperationIds: [] };
+    // Native paint can outlive React's cancellation commit by a frame. Retain
+    // only the latest four unique visual IDs until host cleanup, without timers.
+    const cancelPaint = (operationIds: readonly number[]) => {
+        if (!operationIds.length) return;
+        const canceledOperationIds = [...layoutGate.canceledOperationIds.filter((id) => !operationIds.includes(id)), ...operationIds].slice(-4);
+        layoutGate = { ...layoutGate, canceledOperationIds };
+    };
     const finishLayoutHandoff = () => {
-        if (!undoing.size) layoutGate = { epoch: layoutGate.epoch, pending: false, until: Date.now() + 340 };
+        if (!undoing.size) layoutGate = { ...layoutGate, pending: false, until: Date.now() + 340 };
     };
     let timer: ReturnType<typeof setTimeout> | undefined;
     const listeners = new Set<() => void>();
@@ -64,7 +71,8 @@ export function createCompletionFeedbackStore() {
             if (previous !== undefined && previous > operationId) return false;
             if (previous === undefined && undoing.size >= 4) return false;
             undoing.set(taskId, operationId);
-            layoutGate = { epoch: layoutGate.epoch + 1, pending: true, until: 0 };
+            cancelPaint([operationId]);
+            layoutGate = { ...layoutGate, epoch: layoutGate.epoch + 1, pending: true, until: 0 };
             notify(); return true;
         },
         finishUndo(taskId: string, operationId: number) {
@@ -87,9 +95,12 @@ export function createCompletionFeedbackStore() {
             notify(); schedule(); return true;
         },
         cancel(taskId: string, operationId?: number) {
+            const removedIds = entries.filter((entry) => entry.taskId === taskId && (operationId === undefined || entry.operationId === operationId))
+                .map((entry) => entry.operationId);
             const next = entries.filter((entry) => entry.taskId !== taskId || (operationId !== undefined && entry.operationId !== operationId));
             const removeUndo = undoing.has(taskId) && (operationId === undefined || undoing.get(taskId) === operationId);
             if (next.length === entries.length && !removeUndo) return;
+            cancelPaint(removedIds);
             if (removeUndo) { undoing.delete(taskId); finishLayoutHandoff(); }
             entries = next; notify(); schedule();
         },
@@ -97,7 +108,7 @@ export function createCompletionFeedbackStore() {
             if (timer !== undefined) clearTimeout(timer);
             timer = undefined;
             entries = []; undoing.clear();
-            layoutGate = { epoch: layoutGate.epoch + 1, pending: false, until: 0 };
+            layoutGate = { epoch: layoutGate.epoch + 1, pending: false, until: 0, canceledOperationIds: [] };
             notify();
         },
     };

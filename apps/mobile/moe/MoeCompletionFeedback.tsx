@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { Animated as NativeAnimated, AppState, StyleSheet, Text, View } from 'react-native';
-import Animated, { measure, useAnimatedRef, useSharedValue, type AnimatedRef, type SharedValue } from 'react-native-reanimated';
+import Animated, { measure, useAnimatedRef, useAnimatedStyle, useSharedValue, type AnimatedRef, type SharedValue } from 'react-native-reanimated';
 import { runOnUISync } from 'react-native-worklets';
 import { Check } from 'lucide-react-native';
 import { NavigationContext } from '@react-navigation/core';
@@ -109,6 +109,11 @@ export function useMoeCompletionFeedback(taskId: string) {
 }
 
 function FeedbackPaint({ entry }: { entry: CompletionFeedback }) {
+    const gate = useMoeCompletionLayoutGate();
+    const operationId = entry.operationId;
+    // The same UI gate that snaps neighboring cells hides this old paint before
+    // React commits its removal. Other task feedback remains visible.
+    const visibility = useAnimatedStyle(() => ({ opacity: gate?.value.canceledOperationIds.includes(operationId) ? 0 : 1 }), [gate, operationId]);
     const progress = useRef(new NativeAnimated.Value(0)).current;
     const mark = useRef(new NativeAnimated.Value(0)).current;
     useEffect(() => {
@@ -122,9 +127,11 @@ function FeedbackPaint({ entry }: { entry: CompletionFeedback }) {
     }, [entry.expiresAt, mark, progress]);
     const { appearance: a, row, titleRect, check } = entry;
     return (
-        <NativeAnimated.View pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants"
-            testID={`moe-completion-feedback-${entry.operationId}`} style={[styles.paint, {
+        <Animated.View collapsable={false} pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants"
+            testID={`moe-completion-feedback-${entry.operationId}`} style={[styles.paintGate, {
                 left: row.x, top: row.y, width: row.width, height: row.height,
+            }, visibility]}>
+        <NativeAnimated.View style={[styles.paint, { left: 0, top: 0, width: row.width, height: row.height,
                 backgroundColor: a.backgroundColor, borderColor: a.borderColor, borderWidth: a.borderWidth, borderRadius: a.borderRadius,
                 opacity: progress.interpolate({ inputRange: [0, 0.35, 1], outputRange: [1, 1, 0] }),
                 transform: [{ translateX: progress.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 0, 10] }) }],
@@ -140,7 +147,9 @@ function FeedbackPaint({ entry }: { entry: CompletionFeedback }) {
                 transform: [{ scale: mark.interpolate({ inputRange: [0, 0.65, 1], outputRange: [0.88, 1.12, 1] }) }],
             }}><Check size={Math.min(check.width, check.height) * 0.67} color={a.checkForeground} strokeWidth={3} /></NativeAnimated.View>
         </NativeAnimated.View>
+        </Animated.View>
     );
 }
 
-const styles = StyleSheet.create({ host: { flex: 1 }, layer: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' }, paint: { position: 'absolute', overflow: 'hidden' } });
+const styles = StyleSheet.create({ host: { flex: 1 }, layer: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+    paintGate: { position: 'absolute' }, paint: { position: 'absolute', overflow: 'hidden' } });

@@ -70,9 +70,6 @@ interface QuickCaptureSheetBodyProps {
   insetsBottom: number;
   insetsTop?: number;
   inputRef: RefObject<TextInput | null>;
-  /** Temporary [T06-FOCUS-DIAG]: report event identity only, never event text. */
-  onInputFocusDiagnostic?: (focused: boolean, target: number | null) => void;
-  onImeVisibilityDiagnostic?: (visible: boolean) => void;
   keyboardAvoidingEnabled?: boolean;
   /** Legacy caller input; Android now measures its own Dialog's WindowInsets. */
   androidKeyboardInset?: number;
@@ -141,8 +138,6 @@ export function QuickCaptureSheetBody({
   insetsBottom,
   insetsTop = 0,
   inputRef,
-  onInputFocusDiagnostic,
-  onImeVisibilityDiagnostic,
   keyboardAvoidingEnabled = true,
   noteValue,
   onOpenAreaPicker,
@@ -191,7 +186,6 @@ export function QuickCaptureSheetBody({
   // The full token reference is long; fold it so the More panel stays compact
   // on a keyboard-shrunk sheet (#1120 follow-up). Resets per open on purpose.
   const [syntaxHelpVisible, setSyntaxHelpVisible] = React.useState(false);
-  const diagnosticImeVisible = React.useRef<boolean | undefined>(undefined);
   const [dialogKeyboardFrame, setDialogKeyboardFrame] = React.useState<DialogKeyboardFrame | null>(null);
   const legacyKeyboardInset = useAndroidKeyboardInset(presentation.presented && !hasNativeKeyboardInsets);
   const androidKeyboardOverlap = Platform.OS === 'android'
@@ -268,14 +262,7 @@ export function QuickCaptureSheetBody({
         {Platform.OS === 'android' && hasNativeKeyboardInsets ? (
           <DialogKeyboardInsetsProbe
             style={StyleSheet.absoluteFillObject}
-            onInsetsChange={(event) => {
-              setDialogKeyboardFrame(event.nativeEvent);
-              const imeVisible = event.nativeEvent.imeVisible;
-              if (diagnosticImeVisible.current !== imeVisible) {
-                diagnosticImeVisible.current = imeVisible;
-                onImeVisibilityDiagnostic?.(imeVisible);
-              }
-            }}
+            onInsetsChange={(event) => setDialogKeyboardFrame(event.nativeEvent)}
           />
         ) : null}
         <Animated.View pointerEvents="none" style={[styles.backdrop, { opacity: presentation.progress }]} />
@@ -348,8 +335,6 @@ export function QuickCaptureSheetBody({
                 placeholderTextColor={tc.secondaryText}
                 value={value}
                 onChangeText={onValueChange}
-                onFocus={(event) => onInputFocusDiagnostic?.(true, typeof event.nativeEvent.target === 'number' ? event.nativeEvent.target : null)}
-                onBlur={(event) => onInputFocusDiagnostic?.(false, typeof event.nativeEvent.target === 'number' ? event.nativeEvent.target : null)}
                 editable={!saving}
                 accessibilityState={{ busy: saving, disabled: saving }}
                 accessibilityLabel={t('quickAdd.inputLabel')}

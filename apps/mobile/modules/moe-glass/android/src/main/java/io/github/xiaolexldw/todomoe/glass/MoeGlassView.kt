@@ -18,7 +18,6 @@ import android.graphics.RenderNode
 import android.graphics.RuntimeShader
 import android.graphics.Shader
 import android.os.Build
-import android.os.SystemClock
 import android.util.Log
 import android.view.View
 import android.view.ViewTreeObserver
@@ -40,20 +39,6 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
   private var samplingEnabled = true
   private var cornerRadiusDp = 28f
   private var lens = GlassLensState.Disabled
-  // Temporary Dev-only idle diagnostics. Flush at lifecycle boundaries only;
-  // no clock schedules drawing, and no backdrop pixels/content are retained.
-  private val idleDiagnostics = context.packageName == "io.github.xiaolexldw.todomoe.dev"
-  private var diagnosticStartedAt = SystemClock.uptimeMillis()
-  private var diagnosticPreDraws = 0L
-  private var diagnosticCaptures = 0L
-  private var diagnosticCaptureChanged = 0L
-  private var diagnosticSamePixels = 0L
-  private var diagnosticCaptureFailed = 0L
-  private var diagnosticLensCalls = 0L
-  private var diagnosticLensChanged = 0L
-  private var diagnosticLensInvalidations = 0L
-  private var diagnosticDraws = 0L
-  private var diagnosticExcludedDraws = 0L
   private var failed = false
   private var liquidFailed = false
   private var fallbackLogged = false
@@ -79,9 +64,7 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
   private val sourceToGlass = Matrix()
   private val observers = mutableListOf<ViewTreeObserver>()
   private val preDraw = ViewTreeObserver.OnPreDrawListener {
-    if (idleDiagnostics) diagnosticPreDraws++
     if (!sampling && canSample()) {
-      if (idleDiagnostics) diagnosticCaptures++
       // Only changed source pixels schedule another traversal. The comparison
       // on that traversal is equal, so a static scene cannot self-invalidate.
       if (captureBackground()) invalidate()
@@ -99,7 +82,6 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
   fun setMode(value: String) {
     val next = if (value in setOf("off", "soft", "liquid")) value else "off"
     if (mode == next) return
-    flushIdleDiagnostics("mode:$next")
     mode = next
     failed = false
     liquidFailed = false
@@ -129,18 +111,13 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
     invalidate()
   }
   fun setLensState(values: List<Double>) {
-    if (idleDiagnostics) diagnosticLensCalls++
     val next = GlassLensState.from(values)
     if (lens == next) return
-    if (idleDiagnostics) diagnosticLensChanged++
     lens = next
     lensRimDirty = true
     effectDirty = true
     // UI-thread animatedProps update only optics. No JS capture or native timer.
-    if (mode == "liquid" && !reducedMotion && Build.VERSION.SDK_INT >= 33) {
-      if (idleDiagnostics) diagnosticLensInvalidations++
-      invalidate()
-    }
+    if (mode == "liquid" && !reducedMotion && Build.VERSION.SDK_INT >= 33) invalidate()
   }
   fun setSamplingEnabled(value: Boolean) {
     if (samplingEnabled == value) return
@@ -156,33 +133,6 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
     fallbackLogged = true
     // Fixed reasons only: never log sampled pixels, task text or app payloads.
     Log.w("MoeGlass", reason)
-  }
-
-  private fun flushIdleDiagnostics(reason: String) {
-    Log.w("DEBUG-MoeGlassIdle-v23", "flush=$reason enabled=$idleDiagnostics package=${context.packageName}")
-    if (!idleDiagnostics) return
-    val now = SystemClock.uptimeMillis()
-    if (diagnosticPreDraws + diagnosticLensCalls + diagnosticDraws + diagnosticExcludedDraws > 0L) {
-      val activityRoot = appContext.currentActivity?.window?.decorView
-      val windowKind = if (activityRoot == null) "unknown" else if (activityRoot === rootView) "activity" else "dialog"
-      Log.w("DEBUG-MoeGlassIdle-v23",
-        "reason=$reason mode=$mode view=$id window=$windowKind size=${width}x${height} " +
-          "elapsedMs=${now - diagnosticStartedAt} preDraw=$diagnosticPreDraws captures=$diagnosticCaptures " +
-          "captureChanged=$diagnosticCaptureChanged samePixels=$diagnosticSamePixels captureFailed=$diagnosticCaptureFailed " +
-          "lensCalls=$diagnosticLensCalls lensChanged=$diagnosticLensChanged lensInvalidates=$diagnosticLensInvalidations " +
-          "draws=$diagnosticDraws excludedDraws=$diagnosticExcludedDraws lastLens=$lens")
-    }
-    diagnosticStartedAt = now
-    diagnosticPreDraws = 0L
-    diagnosticCaptures = 0L
-    diagnosticCaptureChanged = 0L
-    diagnosticSamePixels = 0L
-    diagnosticCaptureFailed = 0L
-    diagnosticLensCalls = 0L
-    diagnosticLensChanged = 0L
-    diagnosticLensInvalidations = 0L
-    diagnosticDraws = 0L
-    diagnosticExcludedDraws = 0L
   }
 
   /** A dialog root does not contain the Activity behind its window. Composite
@@ -213,7 +163,6 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
 
   override fun onAttachedToWindow() { super.onAttachedToWindow(); updateObservers() }
   override fun onDetachedFromWindow() {
-    flushIdleDiagnostics("detach")
     removeObservers()
     releaseBuffer()
     super.onDetachedFromWindow()
@@ -268,7 +217,8 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
       val padding = 40f * density
       val paddedWidth = width + padding * 2f
       val paddedHeight = height + padding * 2f
-      val scale = min(0.35f, min(768f / paddedWidth, 768f / paddedHeight))
+      val maxScale = if (mode == "liquid") 0.25f else 0.35f
+      val scale = min(maxScale, min(768f / paddedWidth, 768f / paddedHeight))
       val bw = ceil(paddedWidth * scale).toInt().coerceAtLeast(1)
       val bh = ceil(paddedHeight * scale).toInt().coerceAtLeast(1)
       if (sampleBitmap?.let { it.width != bw || it.height != bh } == true ||
@@ -301,24 +251,18 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
           } finally { target.restoreToCount(count) }
         }
       } finally { sampling = false }
-      if (bitmap?.sameAs(sampled) == true) {
-        if (idleDiagnostics) diagnosticSamePixels++
-        return false
-      }
-      if (idleDiagnostics) diagnosticCaptureChanged++
+      if (bitmap?.sameAs(sampled) == true) return false
       val previous = bitmap
       bitmap = sampled
       sampleBitmap = previous
       sampleCanvas = previous?.let { Canvas(it) }
       return true
     } catch (_: RuntimeException) {
-      if (idleDiagnostics) diagnosticCaptureFailed++
       noteFallback("Backdrop capture failed; using a solid surface.")
       failed = true
       releaseBuffer()
       return true
     } catch (_: OutOfMemoryError) {
-      if (idleDiagnostics) diagnosticCaptureFailed++
       noteFallback("Backdrop allocation failed; using a solid surface.")
       failed = true
       releaseBuffer()
@@ -326,13 +270,9 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
     }
   }
 
-  override fun draw(canvas: Canvas) {
-    if (!sampling) super.draw(canvas)
-    else if (idleDiagnostics) diagnosticExcludedDraws++
-  }
+  override fun draw(canvas: Canvas) { if (!sampling) super.draw(canvas) }
   override fun onDraw(canvas: Canvas) {
     if (sampling) return
-    if (idleDiagnostics) diagnosticDraws++
     super.onDraw(canvas)
     val count = canvas.save()
     canvas.clipPath(clip)

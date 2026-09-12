@@ -72,4 +72,19 @@ describe('bounded read-only completion paint state', () => {
         store.cancel('a'); expect(store.isUndoing('a')).toBe(false); expect(store.isUndoing('b')).toBe(true);
         store.clear(); expect(store.isUndoing('b')).toBe(false); expect(store.hasFeedback()).toBe(false);
     });
+    it('keeps at most four canceled paint IDs through Undo settlement without retaining task data or a timer', () => {
+        const store = createCompletionFeedbackStore();
+        for (let i = 1; i <= 6; i++) {
+            const taskId = `task-${i}`;
+            store.present(entry(i, taskId)); store.cancel(taskId, i);
+            store.beginUndo(taskId, i); store.finishUndo(taskId, i);
+        }
+        expect(store.getLayoutGate().canceledOperationIds).toEqual([3, 4, 5, 6]);
+        expect(store.getSnapshot()).toEqual([]); expect(vi.getTimerCount()).toBe(0);
+        store.present(entry(7, 'task-6')); store.cancel('task-6', 6);
+        expect(store.getSnapshot().map((paint) => paint.operationId)).toEqual([7]);
+        expect(store.getLayoutGate().canceledOperationIds).not.toContain(7);
+        store.clear(); expect(store.getLayoutGate().canceledOperationIds).toEqual([]);
+        expect(vi.getTimerCount()).toBe(0);
+    });
 });

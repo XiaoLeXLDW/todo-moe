@@ -2,9 +2,9 @@ import React from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AppState, Text } from 'react-native';
-import { measure } from 'react-native-reanimated';
+import { measure, useAnimatedStyle } from 'react-native-reanimated';
 import { runOnUISync } from 'react-native-worklets';
-import { MoeCompletionFeedbackHost, useMoeCompletionFeedbackActive } from './MoeCompletionFeedback';
+import { MoeCompletionFeedbackHost, useMoeCompletionFeedback, useMoeCompletionFeedbackActive } from './MoeCompletionFeedback';
 import { MoeCompletionRow, useMoeCompletionRow } from './MoeCompletionRow';
 import { settleStoreAction } from '../components/store-action-result';
 import { MoeCompletionCell } from './MoeCompletionCell';
@@ -16,6 +16,7 @@ vi.mock('../hooks/use-reduced-motion', () => ({ useReducedMotion: () => state.re
 vi.mock('@react-navigation/core', () => ({ NavigationContext: React.createContext(undefined) }));
 vi.mock('lucide-react-native', () => ({ Check: (props: object) => React.createElement('Check', props) }));
 vi.mock('react-native-reanimated', async (original) => ({ ...await original() as object, measure: vi.fn(),
+    useAnimatedStyle: vi.fn((updater: () => object) => updater()),
     withTiming: vi.fn((target: number, config: { duration: number; easing?: (progress: number) => number }) => ({ target, config })),
 }));
 vi.mock('react-native-worklets', () => ({ runOnUISync: vi.fn((worklet, ...args) => worklet(...args)) }));
@@ -70,6 +71,29 @@ it('quick Undo clears host paint before the undo API and does not request old na
     expect(undo).toHaveBeenCalledOnce(); expect(paints()).toHaveLength(0); expect(feedbackActive).toBe(false);
     expect(transition.entering).toBeUndefined(); expect(vi.getTimerCount()).toBe(0);
     expect(old.settle(2, true)).toBe(false);
+});
+
+it('hides only the canceled operation on UI before React removes the old paint', () => {
+    let other!: ReturnType<typeof useMoeCompletionFeedback>;
+    function Other() { other = useMoeCompletionFeedback('task-b'); return null; }
+    act(() => { tree = create(<MoeCompletionFeedbackHost><Row /><Other /></MoeCompletionFeedbackHost>); });
+    act(() => tree!.root.findAllByProps({ testID: 'moe-completion-feedback-host' }).at(-1)!.props.onLayout());
+    geometry(); act(() => transition.arm(60, details));
+    geometry(); act(() => { other.present('task-b', 61, details, 340); });
+    const oldPaints = paints();
+    const updaters = vi.mocked(useAnimatedStyle).mock.calls.slice(-2).map(([updater]) => updater);
+    expect(oldPaints).toHaveLength(2); expect(updaters).toHaveLength(2);
+    expect(updaters.map((updater) => updater())).toEqual([{ opacity: 1 }, { opacity: 1 }]);
+    act(() => {
+        transition.cancel(60, true); transition.beginUndo(60);
+        // React has not committed this act yet. Re-evaluate the already-mounted
+        // UI updaters against the synchronously delivered gate, not new props.
+        expect(paints()).toHaveLength(2);
+        expect(updaters.map((updater) => updater())).toEqual([{ opacity: 0 }, { opacity: 1 }]);
+    });
+    expect(paints().map((paint) => paint.props.testID)).toEqual(['moe-completion-feedback-61']);
+    act(() => { transition.finishUndo(60); });
+    expect(updaters[0]()).toEqual({ opacity: 0 });
 });
 
 it('a retained Done row uses its real checkbox and clears the feedback', () => {
