@@ -3,7 +3,6 @@ package io.github.xiaolexldw.todomoe.glass
 import android.annotation.TargetApi
 import android.content.Context
 import android.content.res.Configuration
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ColorMatrix
@@ -32,7 +31,6 @@ import kotlin.math.sqrt
 /** RN keeps foreground layout/touches. Native samples only during real pre-draw
  * traversals, excludes glass groups, and never owns an animation clock or task. */
 class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
-  companion object { private var sampling = false }
   private var mode = "off"
   private var dark = false
   private var reducedMotion = false
@@ -42,11 +40,11 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
   private var failed = false
   private var liquidFailed = false
   private var fallbackLogged = false
-  private var bitmap: Bitmap? = null
-  private var sampleBitmap: Bitmap? = null
-  private var sampleCanvas: Canvas? = null
   // Keep newer framework classes out of fields verified on older Android.
   private var effectNode: Any? = null
+  private val sourceLeases = mutableListOf<Any>()
+  private var capturedSources: List<Pair<Long, List<Float>>> = emptyList()
+  private var capturedGeometry: List<Float> = emptyList()
   private var runtimeShader: Any? = null
   private var effectDirty = true
   private var sampleScale = 1f
@@ -62,11 +60,12 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
   private val screenToGlass = Matrix()
   private val sourceToScreen = Matrix()
   private val sourceToGlass = Matrix()
+  private val transformValues = FloatArray(9)
   private val observers = mutableListOf<ViewTreeObserver>()
   private val preDraw = ViewTreeObserver.OnPreDrawListener {
-    if (!sampling && canSample()) {
-      // Only changed source pixels schedule another traversal. The comparison
-      // on that traversal is equal, so a static scene cannot self-invalidate.
+    if (canSample()) {
+      // Shared source generations exclude this glass's dirty ancestry. Optical
+      // animation can update the effect without re-recording the backdrop.
       if (captureBackground()) invalidate()
     }
     true
@@ -92,6 +91,7 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
   fun setDark(value: Boolean) {
     if (dark == value) return
     dark = value
+    if (Build.VERSION.SDK_INT >= 31) sourceLeases.forEach { (it as HardwareBackdropScene.Lease).scene.invalidateSource() }
     lensRimDirty = true
     effectDirty = true
     invalidate()
@@ -122,8 +122,9 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
   fun setSamplingEnabled(value: Boolean) {
     if (samplingEnabled == value) return
     samplingEnabled = value
+    if (Build.VERSION.SDK_INT >= 31) sourceLeases.forEach { (it as HardwareBackdropScene.Lease).setActive(value) }
     updateObservers()
-    // Preserve the final backdrop for keyboard-driven opacity/translation exit.
+    // Retain the recorded backdrop for keyboard-driven opacity/translation exit.
     invalidate()
   }
   private fun active() = mode != "off" && Build.VERSION.SDK_INT >= 31 && !failed && width > 0 && height > 0
@@ -196,10 +197,13 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
     clip.addRoundRect(bounds, radius, radius, Path.Direction.CW)
   }
   private fun releaseBuffer() {
-    bitmap?.recycle(); bitmap = null
-    sampleBitmap?.recycle(); sampleBitmap = null
-    sampleCanvas = null
-    if (Build.VERSION.SDK_INT >= 31) (effectNode as? RenderNode)?.discardDisplayList()
+    if (Build.VERSION.SDK_INT >= 31) {
+      (effectNode as? RenderNode)?.discardDisplayList()
+      sourceLeases.forEach { (it as HardwareBackdropScene.Lease).release() }
+    }
+    sourceLeases.clear()
+    capturedSources = emptyList()
+    capturedGeometry = emptyList()
     effectNode = null
     runtimeShader = null
     lensRimPaint.shader = null
@@ -209,7 +213,7 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
 
   @TargetApi(31)
   private fun captureBackground(): Boolean {
-    if (!canSample() || sampling) return false
+    if (!canSample()) return false
     try {
       val density = resources.displayMetrics.density
       // Outer 24dp refraction + the moving 14dp lens need samples outside the
@@ -221,62 +225,75 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
       val scale = min(maxScale, min(768f / paddedWidth, 768f / paddedHeight))
       val bw = ceil(paddedWidth * scale).toInt().coerceAtLeast(1)
       val bh = ceil(paddedHeight * scale).toInt().coerceAtLeast(1)
-      if (sampleBitmap?.let { it.width != bw || it.height != bh } == true ||
-          bitmap?.let { it.width != bw || it.height != bh } == true) releaseBuffer()
-      if (sampleBitmap == null) {
-        sampleBitmap = Bitmap.createBitmap(bw, bh, Bitmap.Config.ARGB_8888)
-        sampleCanvas = Canvas(sampleBitmap!!)
-      }
       if (sampleScale != scale || samplePadding != padding) effectDirty = true
       sampleScale = scale
       samplePadding = padding
       glassToScreen.reset()
       transformMatrixToGlobal(glassToScreen)
       if (!glassToScreen.invert(screenToGlass)) return false
-      val target = sampleCanvas ?: return false
-      val sampled = sampleBitmap ?: return false
-      sampled.eraseColor(if (dark) Color.rgb(20, 24, 35) else Color.rgb(248, 247, 253))
-      sampling = true
+      val roots = captureRoots().filter { it !== this && it.isShown }
+      if (roots.isEmpty()) return false
+      val previousLeases = sourceLeases.map { it as HardwareBackdropScene.Lease }
+      if (previousLeases.size != roots.size || roots.indices.any { !previousLeases[it].scene.owns(roots[it]) }) {
+        previousLeases.forEach { it.release() }
+        sourceLeases.clear()
+        roots.forEach { root ->
+          sourceLeases.add(HardwareBackdropScene.acquire(root) {
+            if (canSample() && captureBackground()) invalidate()
+          })
+        }
+        capturedSources = emptyList()
+      }
+      val frames = sourceLeases.map { (it as HardwareBackdropScene.Lease).scene.currentFrame() ?: return false }
+      val transforms = roots.map { root ->
+        sourceToScreen.reset()
+        root.transformMatrixToGlobal(sourceToScreen)
+        sourceToGlass.setConcat(screenToGlass, sourceToScreen)
+        Matrix(sourceToGlass)
+      }
+      val sources = frames.indices.map { index ->
+        transforms[index].getValues(transformValues)
+        frames[index].version to transformValues.toList()
+      }
+      val geometry = listOf(width.toFloat(), height.toFloat(), scale, padding, if (dark) 1f else 0f)
+      val oldNode = effectNode as? RenderNode
+      if (oldNode?.hasDisplayList() == true && sources == capturedSources && geometry == capturedGeometry) return false
+      val node = oldNode ?: RenderNode("TodoMoeGlass").also { effectNode = it }
+      node.setPosition(0, 0, bw, bh)
+      val target = node.beginRecording(bw, bh)
       try {
-        captureRoots().filter { it !== this && it.isShown }.forEach { root ->
-          sourceToScreen.reset()
-          root.transformMatrixToGlobal(sourceToScreen)
-          sourceToGlass.setConcat(screenToGlass, sourceToScreen)
+        target.drawColor(if (dark) Color.rgb(20, 24, 35) else Color.rgb(248, 247, 253))
+        frames.indices.forEach { index ->
           val count = target.save()
           try {
             target.scale(scale, scale)
             target.translate(padding, padding)
-            target.concat(sourceToGlass)
-            root.draw(target)
+            target.concat(transforms[index])
+            target.drawRenderNode(frames[index].node)
           } finally { target.restoreToCount(count) }
         }
-      } finally { sampling = false }
-      if (bitmap?.sameAs(sampled) == true) return false
-      val previous = bitmap
-      bitmap = sampled
-      sampleBitmap = previous
-      sampleCanvas = previous?.let { Canvas(it) }
+      } finally { node.endRecording() }
+      capturedSources = sources
+      capturedGeometry = geometry
       return true
     } catch (_: RuntimeException) {
-      noteFallback("Backdrop capture failed; using a solid surface.")
+      noteFallback("Hardware backdrop recording failed; using a solid surface.")
       failed = true
       releaseBuffer()
       return true
     } catch (_: OutOfMemoryError) {
-      noteFallback("Backdrop allocation failed; using a solid surface.")
+      noteFallback("Hardware backdrop allocation failed; using a solid surface.")
       failed = true
       releaseBuffer()
       return true
     }
   }
 
-  override fun draw(canvas: Canvas) { if (!sampling) super.draw(canvas) }
   override fun onDraw(canvas: Canvas) {
-    if (sampling) return
     super.onDraw(canvas)
     val count = canvas.save()
     canvas.clipPath(clip)
-    var hasGlass = active() && bitmap != null && canvas.isHardwareAccelerated
+    var hasGlass = active() && effectNode != null && canvas.isHardwareAccelerated
     if (hasGlass && Build.VERSION.SDK_INT >= 31) {
       try { drawEffect(canvas) } catch (_: RuntimeException) {
         noteFallback("Native render effect failed; using a solid surface.")
@@ -339,9 +356,7 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
 
   @TargetApi(31)
   private fun drawEffect(canvas: Canvas) {
-    val image = bitmap ?: return
-    val node = (effectNode as? RenderNode) ?: RenderNode("TodoMoeGlass").also { effectNode = it }
-    node.setPosition(0, 0, image.width, image.height)
+    val node = effectNode as? RenderNode ?: return
     if (effectDirty) {
       val liquid = mode == "liquid" && !reducedMotion && !liquidFailed && Build.VERSION.SDK_INT >= 33
       val radius = (if (liquid) 4f else 12f) * resources.displayMetrics.density * sampleScale
@@ -361,10 +376,6 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
       node.setRenderEffect(effect)
       effectDirty = false
     }
-    val recording = node.beginRecording(image.width, image.height)
-    paint.color = Color.WHITE
-    recording.drawBitmap(image, 0f, 0f, paint)
-    node.endRecording()
     val count = canvas.save()
     try {
       canvas.translate(-samplePadding, -samplePadding)

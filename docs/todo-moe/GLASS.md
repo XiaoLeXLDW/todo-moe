@@ -1,6 +1,6 @@
 # Android 玻璃实现与验证
 
-当前 T02 路线为 `apps/mobile/modules/moe-glass` 的 Expo View/Kotlin/AGSL 适配，不引入 Compose/Miuix。圆角 SDF、梯度、circle-map 折射和七采样色散来自已固定来源的 LanMoe/SukiSU lens；JS/RN 继续拥有前景、手势与导航。**本轮渲染器尚待候选 APK 和设备效果/性能验证；下文 vc3 的旧实现数据不能证明新实现通过。** 完整设备矩阵与 v1.0 也未由此次代码实现放行。
+当前 T02 路线为 `apps/mobile/modules/moe-glass` 的 Expo View/Kotlin/AGSL 适配，不引入 Compose/Miuix。圆角 SDF、梯度、circle-map 折射和七采样色散来自已固定来源的 LanMoe/SukiSU lens；JS/RN 继续拥有前景、手势与导航。vc25 真机 Inbox 性能未通过，现将软件 Bitmap/root.draw 采样替换为单一硬件 RenderNode 来源。**新硬件来源仍待候选 APK 的画面与性能验证；vc25 和下文 vc3 的旧实现数据不能证明它通过。** 完整设备矩阵与 v1.0 也未由此次代码实现放行。
 
 ## T02 原生契约
 
@@ -8,7 +8,7 @@
 |---|---|
 | `lensState` | 原子 8 元素数组 `[enabled, centerX, centerY, width, height, press, velocityX, velocityY]`。位置和尺寸按本 GlassSurface 的 layout 宽高归一化到 0..1；UI 内边距应在归一化前计入。速度单位为该框宽/高每秒，原生截断到 -4..4；press 截断到 0..1。长度不为 8 或出现 NaN/Infinity 会禁用整个 lens。0 尺寸不创建透镜区域。 |
 | `cornerRadius` | 原生外框圆角，dp；默认 28，输入限制 0..128，绘制再限制为短边一半。 |
-| `samplingEnabled` | 默认 true。false 移除 pre-draw 采样观察者并保留最后双缓冲供键盘淡出；后续 optics props 仍可重绘静态背景。窗口隐藏、卸载、尺寸/密度变化或 mode=off 会释放缓冲。 |
+| `samplingEnabled` | 默认 true。false 停止本 surface 的记录更新；当窗口没有活跃采样者时也移除共享来源观察者。保留最后显示列表供键盘淡出，后续 optics props 仍可更新效果。恢复采样时重新记录来源。窗口隐藏、卸载、尺寸/密度变化或 mode=off 释放节点与来源引用。显示列表仍可能引用框架子节点，不保证 RenderThread 独立动画的逐像素冻结。 |
 | `mode/dark/reducedMotion` | 延续原接口。API 31–32 使用模糊；API 33+ 才构造 RuntimeShader。减少动画使用柔和路径；失效保留 RN 前景和触控。 |
 
 JS 可用 UI 线程 `useAnimatedProps` 一次发送 lensState。原生不计算业务选中项、不驱动手势/弹簧、不读取任务。每次实际变化只标记 optics dirty，下一 draw 更新 uniforms 并重建轻量 RenderEffect；编译好的 RuntimeShader 持续复用。RenderEffect/Skia 保存 shader builder 的副本，所以仅修改 uniforms 而复用旧 RenderEffect 不足以更新画面。
@@ -19,19 +19,27 @@ vc20 截图 219/222/241 已观察到透镜轮廓比外框偏软。下一候选�
 
 ## 采样坐标和生命周期
 
-采样在 UI native pre-draw 中完成。40dp 外扩为折射和模糊提供边缘像素；双缓冲每个方向最多 768 像素，倍率上限为柔和 0.35、液态 0.25。倍率只影响背景采样，RN 前景与原生 rim 保持全分辨率；shader 的模糊、折射距离继续按 density × sampleScale 换算，物理单位不变。每次 root draw 跳过所有 MoeGlassView 整组，避免采到自己的玻璃、图标或文本。像素与上次相同时不再 invalidate；没有 JS 截图、循环定时器或持续 Choreographer 回调。多个 surface 目前各自有区域双缓冲，不能据此声称没有重复 root-draw 成本；T08 应测实际多 surface 场景。
+`HardwareBackdropScene` 通过 API 29 起公开的 `RenderNode.beginRecording()` 获取硬件 `RecordingCanvas`，API 31 起将显示列表交给既有 RenderEffect/AGSL；不再创建背景 Bitmap、执行软件 root.draw 或比较 sameAs。该链只在支持硬件 Canvas 的 API 31+ 启用，失败使用实底，不保留软件采样作为另一套渲染器。[Android RenderNode API](https://developer.android.com/reference/android/graphics/RenderNode)
 
-本次降采样针对 vc24 外屏 440dpi、机温 30.2°C 的限定 lab 对照：预热一组后进行三组 500ms 滑动，无录屏；关闭为 469 帧、P95 13ms、卡顿 8 帧（1.71%），液态为 481 帧、P95 18ms、卡顿 78 帧（16.22%）。0.25 倍率尚待下一统一候选按同条件对照，不将参数调整写成性能验收通过。
+每个 Activity/Dialog root 共享一个来源场景与一个 pre-draw 观察者，通过明确的引用计数 lease 持有；最后一个 glass 释放时移除观察者、池条目及缓存显示列表。遍历在任何 MoeGlassView 处剪枝，连同它的前景整组排除。含 glass 的祖先不调用 View.draw，只画背景并递归非 glass 内容；确定不含 glass 的子树才记录到子 RenderNode。隐藏的容器也检查 glass 后代，避免把暂时隐藏的 glass 误判为可整体录制的来源。子节点顺序、z、局部 matrix、滚动、alpha、clipBounds/outline、clipChildren/clipToPadding 参与组合；RN 圆角 overflow 使用当前已安装 runtime 的公开 `BackgroundStyleApplicator.clipToPaddingBox`。模块只 compileOnly 引用应用原有 react-android，不附带另一份 runtime。
+
+源 dirty/layout、层级与绘制属性变化才重录对应内容；glass 自身传播到祖先的 dirty 不当作源变化，因此仅 lens 动画不会触发重复来源录制。主题切换显式失效来源缓存，覆盖 RN CompositeDrawable 颜色/圆角原位变化而 identity/state/bounds 不变的情况；恢复采样也强制失效。其他需要自定义祖先 onDraw/foreground 或无主题事件的原位自定义 Drawable 变化不在通用重放契约内。每个 surface 只在来源版本或相对坐标改变时重录其效果节点，静止不无条件 invalidate；没有 JS 截图、循环定时器或自建 Choreographer frame callback。
+
+40dp 外扩继续为折射和模糊提供边缘内容；效果节点每方向最多 768 像素，倍率仍为柔和 0.35、液态 0.25。RN 前景与原生 rim 保持全分辨率，shader 半径和折射距离仍按 density × sampleScale 换算。本次改变的是 CPU 软件栅格路径，未继续降低倍率来掩盖来源成本。
+
+历史倍率试验：vc24 外屏 440dpi、机温 30.2°C 的限定 lab 对照中，关闭为 469 帧、P95 13ms、卡顿 8 帧（1.71%），液态为 481 帧、P95 18ms、卡顿 78 帧（16.22%）。vc25 改到 0.25 后 lab P95 仍为 18ms；实际 Inbox 关闭为 308 帧、P95 13ms、卡顿 0.97%，液态为 185 帧、P95 20ms、卡顿 39.46%。这些是软件来源的性能 RED，不能标作硬件路线的改进结果；硬件候选仍须以相同真实页面复测。[vc25 Inbox off 原始帧记录](../../evidence/development/device-20260911-153f8f46/taskpage-vc25-off-frames.txt)、[liquid 原始帧记录](../../evidence/development/device-20260911-153f8f46/taskpage-vc25-liquid-frames.txt)
 
 普通 RN 层级绘制自己的 root。若 surface 的 root 与当前 Activity decor 不同（RN Modal/Dialog），先绘 Activity，再叠本 dialog root 内的非 glass 内容。两层分别使用 `transformMatrixToGlobal`，经 glass 的逆矩阵映射到本地，再加 padding 和下采样倍率，包含窗口偏移、滚动和 View 变换。并监听两个 root 的 pre-draw。
 
-这只覆盖 **当前 Activity + 当前 dialog 前景**：其他堆叠 Dialog/Popup 独立窗口、系统键盘/WindowManager dim 合成层、SurfaceView/视频和不能画入软件 Canvas 的硬件内容不在此来源链中。透明 RN scrim 若属于当前 dialog 的 View 树则可采入；系统合成 dim 不可冒充已覆盖。采样异常/内存不足回退实底，GPU shader 异常回退 blur；每个 view 首次失效使用 `Log.w("MoeGlass", 固定原因)`，不输出像素、任务或异常载荷。不能把这类 fallback 的截图当作 shader 成功。该坐标实现仍须通过键盘、Modal、折叠/旋转的真机检查。
+这只覆盖 **当前 Activity + 当前 dialog 前景**：其他堆叠 Dialog/Popup 独立窗口、系统键盘/WindowManager dim 合成层、SurfaceView/视频、独立 Surface，以及隐藏在自定义 ViewOverlay/私有转场列表中的绘制不在此来源链中。透明 RN scrim 若属于当前 dialog 的 View 树则可采入；系统合成 dim 不可冒充已覆盖。含 glass 的祖先自定义 onDraw/foreground、私有静态 transformation 与混合隔离效果也不能声称通用等价重放。记录异常/内存不足回退实底，GPU shader 异常仍在同一硬件来源上回退 blur；每个 view 首次失效使用 `Log.w("MoeGlass", 固定原因)`，不输出像素、任务或异常载荷。不能把 fallback 的截图当作 shader 成功。硬件显示列表可能引用仍由框架更新的子节点，所以 sampling=false 仅承诺停止本模块记录，不承诺所有 GPU 动画像素冻结。该坐标实现仍须通过键盘、Modal、明暗主题及实际 Inbox 的真机检查。
 
 ## 来源与当前验证边界
 
 固定来源是 [SukiSU Lens.kt / 9fbe8fe8ca90c62c259c5894bf96d02ac31209b9](https://github.com/SukiSU-Ultra/SukiSU-Ultra/blob/9fbe8fe8ca90c62c259c5894bf96d02ac31209b9/manager/app/src/main/java/com/sukisu/ultra/ui/component/liquid/Lens.kt)，该文件明确标注 Apache-2.0 的 Kyant0/AndroidLiquidGlass / compose-miuix-ui 祖先。读取的 LanMoe 参考源码未修改。改动声明、NOTICE 与完整许可证随模块放在 `android/src/main/assets/moe-glass/`，可由 Android assets 合并入候选 APK。
 
 原生单测复用本仓库已有 JUnit 4.13.2，覆盖 8 值原子契约、超范围/非有限输入、禁用及重复值稳定性。定向 `:moe-glass:compileReleaseKotlin :moe-glass:testReleaseUnitTest` 已通过，5 项 JVM 测试无失败；本地报告在模块 `android/build/test-results/testReleaseUnitTest/`，编译日志在 `android/build/verification/`。Kotlin 编译和单测不验证 AGSL 在手机 GPU 的输出。新 renderer 的 APK、shader 实际执行、移动透镜画面、Modal 和 T08 性能证据由本轮候选记录另填。
+
+硬件来源补丁已单独运行上述两个 Gradle 任务，最终 `BUILD SUCCESSFUL`；5 项既有光学参数测试通过，没有用 JVM stub 冒充真实 RecordingCanvas 测试。首轮缺少 RN 编译 API 与误用非公开 Choreographer 帧时间接口的编译失败已修正，最终代码通过 SDK 36/Kotlin 编译且完全移除该帧时间调用。本地证据为 `evidence/development/glass-hardware-backdrop-compile.log`（首轮）、`glass-hardware-backdrop-compile-final.log`（最终）和 `glass-hardware-backdrop-structure-final.json`（仅结构检查）。此次未构建 APK、操作 ADB、提交或发布；真机同 Inbox、键盘、Modal、浅/深色和静止检查仍是交付条件。
 
 ## 以下是旧渲染器 vc2/vc3 历史证据
 

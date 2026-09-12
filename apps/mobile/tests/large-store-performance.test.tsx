@@ -422,6 +422,12 @@ vi.mock('expo-linking', () => ({
   openURL: vi.fn(),
 }));
 
+// These render measurements run without a NavigationContainer. Keep the real
+// celebration component while supplying its host focus state, as on a visible screen.
+vi.mock('@react-navigation/native', () => ({
+  useIsFocused: () => true,
+}));
+
 vi.mock('expo-router', () => ({
   usePathname: () => '/projects-screen',
   router: {

@@ -14,6 +14,9 @@ android {
 }
 
 dependencies {
+  // Already supplied by the app. Compile against its RN overflow clipping API;
+  // do not package a second React runtime or resolve a different version.
+  compileOnly 'com.facebook.react:react-android'
   // Same native unit-test framework/version already used by android-widget.
   testImplementation 'junit:junit:4.13.2'
 }
