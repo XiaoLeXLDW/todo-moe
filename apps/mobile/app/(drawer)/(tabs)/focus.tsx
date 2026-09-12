@@ -62,6 +62,7 @@ import {
   type SortField,
 } from '@mindwtr/core';
 import { SwipeableTaskItem, type TaskRowActions } from '@/components/swipeable-task-item';
+import { MoeCompletionCell } from '@/moe/MoeCompletionCell';
 import { settleStoreAction } from '@/components/store-action-result';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { useFilledButtonColors } from '@/hooks/use-filled-button-colors';
@@ -1323,6 +1324,7 @@ export default function FocusScreen() {
     // margins, matching the cell frames VirtualizedList measures natively.
     const measureRow = (node: React.ReactNode) => (
       <View
+        collapsable={false}
         onLayout={(event) => registerFocusItemHeight(
           focusItemLayoutKey(section.type, item),
           event.nativeEvent.layout.height,
@@ -1420,6 +1422,7 @@ export default function FocusScreen() {
 
     return measureRow(
       <View
+        collapsable={false}
         style={[
           styles.itemWrapper,
           item.grouped ? [styles.contextGroupTaskWrapper, { borderLeftColor: tc.border }] : null,
@@ -1600,6 +1603,7 @@ export default function FocusScreen() {
         </View>
       ) : (
       <SectionList
+        CellRendererComponent={MoeCompletionCell}
         sections={hasTasks ? sections : []}
         extraData={focusListVersion}
         keyExtractor={(item) => item.type === 'task' ? item.task.id : item.type === 'project' ? `project:${item.project.id}` : item.id}
