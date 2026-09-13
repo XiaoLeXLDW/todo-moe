@@ -12,6 +12,7 @@
 - `family-mascot-v1-source.png`：历史原始家族素材，保留追溯；不再用于当前图标打包。
 - `family-mascot-v2-transparent.png`：1254px 真 Alpha 主体源，移除底板、边框与外部棋盘背景，保留猫咪、铃铛、清单及贴纸轮廓。
 - `family-mascot-v3-skin.png`：当前打包源，在v2基础上按Lan Moe统一脸部肤色和腮红；保留原Alpha与非脸部像素。
+- `family-mascot-v4-light.png`：最新打包源。用户指出v3偏黑后，提亮肤色，保留轻暖底色和淡腮红；取代v3。
 - `icon.png`：1024px 全幅深色标准图标，用于应用与启动画面，无内嵌圆角框。
 - `background.png`：1024px 独立不透明渐变背景；Expo adaptive backgroundImage 实际使用此资源，可见区域从 RGB(44,54,63) 渐变至 RGB(9,14,18)。
 - `foreground.png`：1024px 真透明自适应前景。按 Lan Moe 人物占比封装到108dp图层中的72dp可见区域；具体版位见下方最新记录。
@@ -49,3 +50,9 @@ vc34/vc35 当时的前景透明/半透明/不透明像素为 888212 / 2579 / 157
 用户确认将偏亮粉的皮肤调成Lan Moe的暖米色、弱化腮红。使用内置imagegen，输入为v2透明源（编辑对象）和Lan Moe原插画（仅肤色参考）。生成结果附带棋盘背景，未直接打包；只从脸部肤色区域提取编辑结果，原Alpha逐像素保留，脸部区域外RGB逐像素不变。实际改变86,694个像素；Alpha变化0，脸部区域外变化0。版位和渐变背景代码不变。
 
 提示词：[skin-edit-prompt.md](skin-edit-prompt.md)。编辑输出、提取记录和对比在 `evidence/development/icon-skin/`；当前源文件为 `family-mascot-v3-skin.png`，已经重建标准图与自适应前景。此肤色更新尚未打入新APK，vc38仍是此前肤色版本。
+
+## 2026-09-14 提亮修正（最新）
+
+用户指出v3偏黑，批准只提亮。内置imagegen基于原v2编辑，保留轻暖肤色和淡腮红。为避免v3局部提取边界在大图中显现，改为从脸颊肤色连通区提取并柔化边缘；保留原Alpha和连通区外RGB。变化89,020像素；Alpha变化0、区域外变化0。放大查看面部过渡和并排图已完成。大小、位置和渐变背景保持不变。源码打包已切到v4，未重新构建APK。
+
+预览与验证：`evidence/development/icon-skin-light/`；提示词见同目录品牌文档 `skin-edit-prompt.md` 的提亮节。

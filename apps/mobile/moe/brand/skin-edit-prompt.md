@@ -7,3 +7,11 @@ Precise local color edit. Image 1 is the EDIT TARGET: Todo Moe transparent cat m
 ```
 
 生成结果的棋盘背景未采用；只提取脸部肤色并保留原图Alpha和其他区域像素。最终源为 `family-mascot-v3-skin.png`；原v2保留。
+
+## 提亮修正
+
+内置imagegen，编辑对象为v2透明源，输出经脸部连通区提取保存为 `family-mascot-v4-light.png`；不采用生成图的棋盘背景。
+
+```text
+Precise minimal color edit of this exact icon mascot. Keep all original geometry, framing, linework, facial expression, eye, mouth, hair, ears, bell and clipboard unchanged. Only facial skin and blush: keep skin LIGHT and luminous, near the original brightness, add a VERY SUBTLE warm cream undertone and soften the pink blush slightly. Do not darken or tan the face. Preserve seamless soft skin shading; no hard edged patches, polygonal shadows or changes to mouth. Genuine transparent RGBA background, no checkerboard. Original 1254x1254 framing and scale. No new objects or redraw.
+```
