@@ -30,8 +30,8 @@ async function fit(radiusTarget, background, name, offsetX=0, offsetY=0){
   const canvas=new Jimp(1024,1024,background).composite(fg,Math.round((1024-fg.bitmap.width)/2+offsetX),Math.round((1024-fg.bitmap.height)/2+offsetY));
   await canvas.writeAsync(fileURLToPath(new URL(name,target)));
 }
-await fit(350,0x00000000,'foreground.png',24,-4);
-await fit(525,backgroundColor,'icon.png',36,-6);
+await fit(380,0x00000000,'foreground.png',26,-4);
+await fit(570,backgroundColor,'icon.png',39,-6);
 await new Jimp(1024,1024,backgroundColor).writeAsync(fileURLToPath(new URL('background.png',target)));
 function crc32(data) { let crc = 0xffffffff; for (const byte of data) { crc ^= byte; for (let i = 0; i < 8; i++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0); } return (crc ^ 0xffffffff) >>> 0; }
 function chunk(type, data) { const name = Buffer.from(type); const n = Buffer.alloc(4); n.writeUInt32BE(data.length); const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(Buffer.concat([name, data]))); return Buffer.concat([n, name, data, crc]); }

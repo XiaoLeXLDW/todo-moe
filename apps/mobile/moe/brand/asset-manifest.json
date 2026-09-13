@@ -15,13 +15,13 @@
     },
     {
       "file": "icon.png",
-      "bytes": 689253,
-      "sha256": "10ab0bc93be46210cb3ed3d62088bc06598194a552844a3b1edbd19a22e4c741"
+      "bytes": 788926,
+      "sha256": "6376a1fc6b8d917b3fa939e02ddb708b0f12d141bdbfae44f91715549a0f348a"
     },
     {
       "file": "foreground.png",
-      "bytes": 359259,
-      "sha256": "15c1186b9db2f9b8b153b3ea58c92ebe181f4a4edb4c2f0aa1d4e358cc1668bd"
+      "bytes": 412088,
+      "sha256": "c267ade7d91c989d059aaf6340bdd79b9bc7f7df2b368512bb746ca6c17d09dd"
     },
     {
       "file": "background.png",
