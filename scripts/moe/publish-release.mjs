@@ -43,7 +43,8 @@ export async function inspectApprovedSource(repoDirectory, sha, versionRecord) {
     const recordTree = git('ls-tree', '-z', sha, '--', versionRecord);
     if (!/^100(?:644|755) blob [a-f0-9]{40}\t[^\0]+\0$/.test(recordTree)) throw new Error('Version record must be an ordinary blob at the approved SHA.');
     const record = execFileSync('git', ['show', `${sha}:${versionRecord}`], { cwd: repoDirectory });
-    return { head, reachable: true, version: brand.version, packageName: brand.androidPackage, recordSha256: hash(record) };
+    const license = execFileSync('git', ['show', `${sha}:LICENSE`], { cwd: repoDirectory });
+    return { head, reachable: true, version: brand.version, packageName: brand.androidPackage, recordSha256: hash(record), licenseSha256: hash(license), licenseBytes: license.length };
 }
 
 function loadSignedFiles(options) {
@@ -141,6 +142,12 @@ export async function publishRelease(options, dependencies = {}) {
         assertRelease(release);
         const assets = await all(`releases/${release.id}/assets`);
         const expected = new Map(local.assets.map((asset) => [asset.name, asset]));
+        // A post-release legal supplement may accompany the original signed set.
+        // Accept only the exact LICENSE bytes from the approved source commit;
+        // this does not alter the four-file intent or allow arbitrary extra assets.
+        if (validHash(source.licenseSha256) && Number.isSafeInteger(source.licenseBytes) && source.licenseBytes > 0) {
+            expected.set('LICENSE-AGPL-3.0.txt', { name: 'LICENSE-AGPL-3.0.txt', size: source.licenseBytes, sha256: source.licenseSha256 });
+        }
         const seen = new Set();
         for (const asset of assets) {
             const file = expected.get(asset.name);

@@ -3,6 +3,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { Animated, AppState } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MoeCelebration } from './MoeCelebration';
+import { MoeCompletionBurst } from './MoeCheckButton';
 import { cancelMoeCompletion, publishListCompleted } from './completion';
 import { setMoePreferences } from './preferences';
 import { DEFAULT_MOE_PREFERENCES } from './preference-model';
@@ -54,7 +55,7 @@ beforeEach(async () => {
   native.focused = true;
   native.reduced = false;
   AppState.currentState = 'active';
-  await setMoePreferences({ ...DEFAULT_MOE_PREFERENCES });
+  await setMoePreferences({ ...DEFAULT_MOE_PREFERENCES, motion: 'standard' });
   vi.useFakeTimers();
   runs = [];
   vi.spyOn(Animated, 'timing').mockImplementation(() => {
@@ -75,6 +76,17 @@ afterEach(() => {
 });
 
 describe('Moe Moment completion feedback', () => {
+  it('keeps amplified lively feedback for one second and cancels it immediately on Undo', async () => {
+    await setMoePreferences({ motion: 'lively' });
+    await mount(); complete(77);
+    expect(tree!.root.findByType(MoeCompletionBurst).props.motion).toMatchObject({ burstSize: 180, burstParticles: 14 });
+    act(() => { vi.advanceTimersByTime(650); });
+    expect(visibleText()).toContain('✓ 清单已完成');
+    act(() => cancelMoeCompletion('completed-task'));
+    expect(tree?.toJSON()).toBeNull();
+    act(() => { vi.advanceTimersByTime(500); });
+    expect(tree?.toJSON()).toBeNull();
+  });
   it.each(['system', 'simple'])('keeps only static text with %s reduced motion', async mode => {
     if (mode === 'system') native.reduced = true;
     else await setMoePreferences({ motion: 'simple' });
@@ -172,18 +184,14 @@ describe('Moe Moment completion feedback', () => {
     expect(visibleText()).toContain('恢复前台后的新清单');
   });
 
-  it('fades its card in and out with three decorative particles moving away from the centre', async () => {
+  it('fades its shared emblem with a ring and outward decorative particles', async () => {
     await mount();
     complete(1);
     const cards = tree!.root.findAll(node => String(node.type) === 'Animated.View' && node.props.accessibilityLiveRegion === 'polite');
     expect(renderedStyle(cards[0].props.style).opacity.outputRange).toEqual([0, 1, 1, 0]);
-    const particles = tree!.root.findAll(node => String(node.type) === 'Animated.View' && node.props.testID === 'moe-moment-particle');
-    expect(particles).toHaveLength(3);
-    expect(particles.map(particle => renderedStyle(particle.props.style).transform.map(
-      (axis: Record<string, { outputRange: number[] }>) => Object.values(axis)[0].outputRange,
-    ))).toEqual([[[0, -24], [0, -24]], [[0, 0], [0, 24]], [[0, 24], [0, -24]]]);
-    expect(particles.every(particle => particle.props.accessibilityElementsHidden === true
-      && particle.props.importantForAccessibility === 'no-hide-descendants')).toBe(true);
+    const burst = tree!.root.findByType(MoeCompletionBurst);
+    expect(burst.props.motion).toMatchObject({ burstSize: 160, burstParticles: 8 });
+    expect(burst.findAll(node => String(node.type) === 'View' && node.props.pointerEvents === 'none' && node.props.accessibilityElementsHidden)).toHaveLength(1);
     expect(Animated.timing).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ duration: 600, useNativeDriver: true }));
   });
 

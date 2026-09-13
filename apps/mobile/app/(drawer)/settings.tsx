@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useMemo, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
     Bell,
@@ -21,6 +20,8 @@ import { isSandboxMode } from '@mindwtr/core';
 
 import { useMobileSyncBadge } from '@/hooks/use-mobile-sync-badge';
 import { useThemeColors } from '@/hooks/use-theme-colors';
+import { MoeAppearanceSettings, MoeMotionSettings } from '@/moe/MoeSettings';
+import { useMoePreferences } from '@/moe/preferences';
 import { AboutSettingsScreen } from '@/components/settings/about-settings-screen';
 import { AISettingsScreen } from '@/components/settings/ai-settings-screen';
 import { CalendarSettingsScreen } from '@/components/settings/calendar-settings-screen';
@@ -38,7 +39,6 @@ import {
     settingsMenuMatchesQuery,
     type SettingsMenuRowId,
     type SettingsScreen,
-    UPDATE_BADGE_AVAILABLE_KEY,
 } from '@/components/settings/settings.constants';
 import { useSettingsLocalization, useSettingsScrollContent } from '@/components/settings/settings.hooks';
 import { SandboxSettingsScreen } from '@/components/settings/sandbox-settings-screen';
@@ -51,21 +51,18 @@ export default function SettingsPage() {
 function PersonalSettingsPage() {
     const router = useRouter();
     const tc = useThemeColors();
-    const { t } = useSettingsLocalization();
+    const { t, language } = useSettingsLocalization();
+    const zh = language.startsWith('zh');
+    const label = (cn: string, en: string) => zh ? cn : en;
+    const preferences = useMoePreferences();
     const scrollContentStyle = useSettingsScrollContent();
     const { onboardingHandoff, settingsScreen } = useLocalSearchParams<{
         onboardingHandoff?: string | string[];
         settingsScreen?: string | string[];
     }>();
-    const { syncBadgeAccessibilityLabel, syncBadgeColor } = useMobileSyncBadge();
+    const { syncBadgeAccessibilityLabel, syncBadgeColor, syncConfigured, lastSyncAt } = useMobileSyncBadge();
     const [hasUpdateBadge, setHasUpdateBadge] = useState(false);
     const [search, setSearch] = useState('');
-
-    useEffect(() => {
-        AsyncStorage.getItem(UPDATE_BADGE_AVAILABLE_KEY)
-            .then((value) => setHasUpdateBadge(value === 'true'))
-            .catch(() => setHasUpdateBadge(false));
-    }, []);
 
     const currentScreen = useMemo<SettingsScreen>(() => {
         const rawScreen = Array.isArray(settingsScreen) ? settingsScreen[0] : settingsScreen;
@@ -76,7 +73,6 @@ function PersonalSettingsPage() {
         const rawHandoff = Array.isArray(onboardingHandoff) ? onboardingHandoff[0] : onboardingHandoff;
         return rawHandoff === '1';
     }, [onboardingHandoff]);
-    const dataLabel = t('settings.data');
     const menuDescriptions = useMemo(
         () => ({
             general: t('settings.menuDesc.general'),
@@ -100,6 +96,10 @@ function PersonalSettingsPage() {
         }
         router.push({ pathname: '/settings', params: { settingsScreen: nextScreen } });
     };
+
+    if (currentScreen === 'appearance') return <MoeAppearanceSettings />;
+    if (currentScreen === 'motion') return <MoeMotionSettings />;
+    if (currentScreen === 'tasks') return <SafeAreaView style={[styles.container, { backgroundColor: tc.bg }]} edges={['bottom']}><SettingsTopBar title={label('任务与提醒', 'Tasks & reminders')} /><ScrollView contentContainerStyle={scrollContentStyle}><View style={[styles.menuCard, { backgroundColor: tc.cardBg }]}><MenuItem title={label('任务行为', 'Task behavior')} description={menuDescriptions.gtd} icon={ListChecks} onPress={() => pushSettingsScreen('gtd')} /><MenuItem title={label('文件夹、标签与情境', 'Folders, tags & contexts')} icon={Layers} onPress={() => pushSettingsScreen('manage')} /><MenuItem title={label('提醒与通知', 'Reminders & notifications')} icon={Bell} onPress={() => pushSettingsScreen('notifications')} isLast /></View></ScrollView></SafeAreaView>;
 
     if (currentScreen === 'notifications') {
         return <NotificationsSettingsScreen />;
@@ -182,38 +182,24 @@ function PersonalSettingsPage() {
         indicatorAccessibilityLabel?: string;
     };
 
+    const syncDate = lastSyncAt ? new Date(lastSyncAt) : null;
+    const syncDescription = !syncConfigured ? label('仅本机，尚未配置同步', 'On this device · sync not configured')
+        : syncBadgeAccessibilityLabel ?? (syncDate && Number.isFinite(syncDate.getTime()) ? label('最近同步：', 'Last sync: ') + syncDate.toLocaleString() : label('已配置同步', 'Sync configured'));
+    const modeDescription = preferences.appearance === 'dark' ? label('深色', 'Dark') : preferences.appearance === 'light' ? label('浅色', 'Light') : label('跟随系统', 'System');
     const menuGroups: MenuRow[][] = [
         [
-            { id: 'general', title: t('settings.general'), description: menuDescriptions.general, icon: Monitor, onPress: () => pushSettingsScreen('general') },
-            { id: 'gtd', title: t('settings.gtd'), description: menuDescriptions.gtd, icon: ListChecks, onPress: () => pushSettingsScreen('gtd') },
-            { id: 'manage', title: t('settings.manage'), description: menuDescriptions.manage, icon: Layers, onPress: () => pushSettingsScreen('manage') },
-            { id: 'notifications', title: t('settings.notifications'), description: menuDescriptions.notifications, icon: Bell, onPress: () => pushSettingsScreen('notifications') },
+            { id: 'sync', title: label('同步', 'Sync'), description: syncDescription, icon: RefreshCw, onPress: () => pushSettingsScreen('sync'), showIndicator: Boolean(syncBadgeColor), indicatorColor: syncBadgeColor, indicatorAccessibilityLabel: syncBadgeAccessibilityLabel },
+            { id: 'data', title: label('备份与恢复', 'Backup & restore'), description: label('导出、恢复与导入', 'Export, restore & import'), icon: Database, onPress: () => pushSettingsScreen('data') },
         ],
         [
-            {
-                id: 'sync',
-                title: t('settings.sync'),
-                description: menuDescriptions.sync,
-                icon: RefreshCw,
-                onPress: () => pushSettingsScreen('sync'),
-                showIndicator: Boolean(syncBadgeColor),
-                indicatorColor: syncBadgeColor,
-                indicatorAccessibilityLabel: syncBadgeAccessibilityLabel,
-            },
-            { id: 'data', title: dataLabel, description: menuDescriptions.data, icon: Database, onPress: () => pushSettingsScreen('data') },
+            { id: 'appearance', title: label('外观', 'Appearance'), description: modeDescription + ' · ' + (preferences.colorSource === 'custom' ? label('自定义配色', 'Custom colors') : label('系统动态色', 'System colors')), icon: Monitor, onPress: () => pushSettingsScreen('appearance') },
+            { id: 'motion', title: label('动画与触感', 'Motion & haptics'), description: label('强度、即时预览与完成庆祝', 'Intensity, live preview & celebration'), icon: Sparkles, onPress: () => pushSettingsScreen('motion') },
         ],
         [
-            { id: 'advanced', title: t('settings.advanced'), description: menuDescriptions.advanced, icon: Settings2, onPress: () => pushSettingsScreen('advanced') },
-            {
-                id: 'about',
-                title: t('settings.about'),
-                description: menuDescriptions.about,
-                icon: Info,
-                onPress: () => pushSettingsScreen('about'),
-                showIndicator: hasUpdateBadge,
-                indicatorAccessibilityLabel: hasUpdateBadge ? t('settings.updateAvailable') : undefined,
-            },
+            { id: 'tasks', title: label('任务与提醒', 'Tasks & reminders'), description: label('记录、整理、文件夹与通知', 'Capture, organization, folders & notifications'), icon: ListChecks, onPress: () => pushSettingsScreen('tasks') },
+            { id: 'general', title: label('通用与隐私', 'General & privacy'), description: label('语言、显示、隐私与可选集成', 'Language, display, privacy & optional integrations'), icon: Settings2, onPress: () => pushSettingsScreen('general') },
         ],
+        [{ id: 'about', title: label('帮助与关于', 'Help & about'), description: label('使用帮助、更新、隐私与开源许可', 'Help, updates, privacy & open-source licenses'), icon: Info, onPress: () => pushSettingsScreen('about'), showIndicator: hasUpdateBadge, indicatorAccessibilityLabel: hasUpdateBadge ? t('settings.updateAvailable') : undefined }],
     ];
 
     const filteredGroups = menuGroups

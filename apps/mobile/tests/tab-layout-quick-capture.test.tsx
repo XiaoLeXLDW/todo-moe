@@ -741,7 +741,7 @@ describe('mobile tab quick capture', () => {
     expect(getAddTaskButton(tree).props.accessibilityRole).toBe('button');
   });
 
-  it('opens settings from the top right while retaining search and upstream settings', () => {
+  it('routes the header to the single settings page while retaining search', () => {
     let tree!: ReturnType<typeof create>;
     act(() => { tree = create(<TabLayout />); });
     const tabs = tree.root.find((node) => String(node.type) === 'Tabs');
@@ -749,7 +749,8 @@ describe('mobile tab quick capture', () => {
     expect(headerRight.props.children).toHaveLength(2);
     const settings = tree.root.findAllByType(TouchableOpacity).find((node) => node.props.accessibilityLabel === 'Settings')!;
     act(() => { settings.props.onPress(); });
-    expect(tree.root.findAll((node) => String(node.type) === 'MoeSettings')).toHaveLength(1);
+    expect(mockRouterPush).toHaveBeenCalledWith('/settings');
+    expect(tree.root.findAll((node) => String(node.type) === 'MoeSettings')).toHaveLength(0);
   });
 
   it('opens the restored compact More grid and navigates to Calendar', () => {

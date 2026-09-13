@@ -162,7 +162,7 @@ describe('completion-only native row configuration (not a Fabric animation simul
         mocks.preference = 'standard'; mocks.reduced = true; const reduced = mount('system'); act(() => reduced.handle.current.arm(13));
         expect(reduced.handle.current.exiting().animations).toEqual({ opacity: 0 });
         mocks.reduced = false; mocks.preference = 'lively'; const lively = mount('lively'); act(() => lively.handle.current.arm(14));
-        expect(lively.handle.current.exiting().animations.opacity).toEqual({ target: 0, duration: 340 });
+        expect(lively.handle.current.exiting().animations.opacity).toEqual({ target: 0, duration: 460 });
     });
     it('keeps list layout duration on the shared completion parameters', () => {
         let result: any;

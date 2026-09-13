@@ -1,21 +1,50 @@
 import type { ThemeColors } from '../hooks/use-theme-tokens';
 import type { MoePreferences } from './preference-model';
 
-const soft: ThemeColors = {
-  bg: '#F1F3FA', cardBg: '#FFFFFF', taskItemBg: '#FFFFFF', text: '#202438', secondaryText: '#626A80', icon: '#626A80',
-  border: '#DDE2EF', tint: '#515CC7', onTint: '#FFFFFF', tabIconDefault: '#626A80', tabIconSelected: '#515CC7',
-  inputBg: '#E9EDF7', filterBg: '#E9EDF7', danger: '#B4233A', success: '#17734C', warning: '#8B580B',
-};
-const ink: ThemeColors = {
-  bg: '#10131D', cardBg: '#1B2130', taskItemBg: '#1B2130', text: '#F0F2FC', secondaryText: '#ABB5CB', icon: '#ABB5CB',
-  border: '#323B50', tint: '#B9BEFF', onTint: '#242A64', tabIconDefault: '#ABB5CB', tabIconSelected: '#B9BEFF',
-  inputBg: '#252E42', filterBg: '#252E42', danger: '#FFA4AE', success: '#82D9B1', warning: '#F4CA80',
-};
-const family = { ...soft, bg: '#F2F9F7', tint: '#166D68', tabIconSelected: '#166D68', inputBg: '#E5F3EF', filterBg: '#E5F3EF' };
-const familyDark = { ...ink, bg: '#101B1C', tint: '#80DFD3', tabIconSelected: '#80DFD3', onTint: '#073D37', inputBg: '#213B39', filterBg: '#213B39' };
-
-export function resolveMoeTheme(preferences: Pick<MoePreferences, 'theme' | 'followSystem'>, systemDark: boolean) {
-  const isDark = preferences.followSystem ? systemDark : preferences.theme === 'ink';
-  const colors = preferences.theme === 'family' ? (isDark ? familyDark : family) : isDark ? ink : soft;
-  return { colors, isDark };
+export type SystemPalette = { supported: boolean; light?: ThemeColors; dark?: ThemeColors };
+export const DEFAULT_SEED = '#6750A4';
+const rgb = (hex: string) => [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16));
+const hex = (channels: number[]) => '#' + channels.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('').toUpperCase();
+export function mixColor(a: string, b: string, weight: number): string {
+  const aa = rgb(a), bb = rgb(b);
+  return hex(aa.map((v, i) => v * (1 - weight) + bb[i] * weight));
+}
+export function colorContrast(a: string, b: string): number {
+  const luminance = (color: string) => rgb(color).map((v) => v / 255).map((v) => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i], 0);
+  const first = luminance(a), second = luminance(b);
+  return (Math.max(first, second) + .05) / (Math.min(first, second) + .05);
+}
+export function readableAccent(seed: string, background: string | string[], dark: boolean): string {
+  const surfaces = Array.isArray(background) ? background : [background];
+  for (let step = 0; step <= 20; step++) {
+    const candidate = mixColor(seed, dark ? '#FFFFFF' : '#000000', step / 20);
+    if (surfaces.every((surface) => colorContrast(candidate, surface) >= 4.5)) return candidate;
+  }
+  return dark ? '#FFFFFF' : '#000000';
+}
+const generated = new Map<string, ThemeColors>();
+export function customTheme(seed: string, dark: boolean): ThemeColors {
+  const safe = /^#[a-f0-9]{6}$/i.test(seed) ? seed.toUpperCase() : DEFAULT_SEED;
+  const key = `${safe}:${dark}`;
+  const cached = generated.get(key); if (cached) return cached;
+  const neutral = (lightWeight: number, darkWeight: number) => mixColor(safe, dark ? '#000000' : '#FFFFFF', dark ? darkWeight : lightWeight);
+  const bg = neutral(.965, .94), cardBg = neutral(.99, .86), inputBg = neutral(.91, .78);
+  const tint = readableAccent(safe, [bg, cardBg, inputBg], dark);
+  const onTint = colorContrast(tint, '#FFFFFF') >= colorContrast(tint, '#000000') ? '#FFFFFF' : '#000000';
+  const text = dark ? '#F4F1F5' : '#211E25';
+  const secondaryText = dark ? '#C8C1CC' : '#625C68';
+  const result = { bg, cardBg, taskItemBg: cardBg, text, secondaryText, icon: secondaryText,
+    border: neutral(.77, .52), tint, onTint, tabIconDefault: secondaryText, tabIconSelected: tint,
+    inputBg, filterBg: inputBg, danger: dark ? '#FFB4AB' : '#BA1A1A', success: dark ? '#8CD6AB' : '#166D42', warning: dark ? '#F3CD83' : '#805600' };
+  if (generated.size >= 64) generated.clear();
+  generated.set(key, result); return result;
+}
+export function moeIsDark(preferences: Pick<MoePreferences, 'theme' | 'followSystem' | 'appearance'>, systemDark: boolean): boolean {
+  const mode = preferences.appearance ?? (preferences.followSystem ? 'system' : preferences.theme === 'ink' ? 'dark' : 'light');
+  return mode === 'system' ? systemDark : mode === 'dark';
+}
+export function resolveMoeTheme(preferences: Pick<MoePreferences, 'theme' | 'followSystem' | 'appearance' | 'colorSource' | 'customColor'>, systemDark: boolean, palette?: SystemPalette) {
+  const isDark = moeIsDark(preferences, systemDark);
+  const dynamic = preferences.colorSource !== 'custom' && palette?.supported ? (isDark ? palette.dark : palette.light) : undefined;
+  return { colors: dynamic ?? customTheme(preferences.colorSource === 'custom' ? preferences.customColor ?? DEFAULT_SEED : DEFAULT_SEED, isDark), isDark };
 }

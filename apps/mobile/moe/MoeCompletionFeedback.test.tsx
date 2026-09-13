@@ -60,7 +60,7 @@ it('measures synchronously before business dispatch and survives the original ro
     expect(paints()[0].props.pointerEvents).toBe('none'); expect(paints()[0].props.importantForAccessibility).toBe('no-hide-descendants');
     expect(paints()[0].props.style[1]).toMatchObject({ left: 12, top: 170, width: 320, height: 64 });
     expect(transition.exiting().animations).toEqual({ opacity: 0 });
-    act(() => { vi.advanceTimersByTime(340); }); expect(paints()).toHaveLength(0); expect(feedbackActive).toBe(false);
+    act(() => { vi.advanceTimersByTime(460); }); expect(paints()).toHaveLength(0); expect(feedbackActive).toBe(false);
 });
 
 it('quick Undo clears host paint before the undo API and does not request old native restore entering', () => {
@@ -230,7 +230,7 @@ it('one Host gate snaps waiting row/header/neighbor layouts together and later p
     act(() => { vi.advanceTimersByTime(341); });
     cells.forEach((cell) => {
         const fresh = cell.props.layout(layoutValues).animations.originY;
-        expect(fresh.config.duration).toBe(340);
+        expect(fresh.config.duration).toBe(460);
         expect(fresh.config.easing(0.1)).toBe(0);
         expect(fresh.config.easing(0.8)).toBeGreaterThan(0);
         expect(fresh.config.easing(0.8)).toBeLessThan(1);

@@ -7,18 +7,31 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 const target = new URL('../../apps/mobile/moe/brand/', import.meta.url);
 const projectRoot = fileURLToPath(new URL('../../', import.meta.url));
-const sourcePath = fileURLToPath(new URL('family-mascot-v1-source.png', target));
-process.env.EXPO_IMAGE_UTILS_NO_SHARP = '1';
-const { generateImageAsync, generateImageBackgroundAsync, compositeImagesAsync } = await import('@expo/image-utils');
-const options = { projectRoot, cacheType: 'todo-moe-family-v1' };
-const backgroundColor = '#0D141B';
-const icon = await generateImageAsync(options, { src: sourcePath, width: 1024, height: 1024, resizeMode: 'contain', backgroundColor, removeTransparency: true });
-writeFileSync(fileURLToPath(new URL('icon.png', target)), icon.source);
-// Adaptive foreground is an inset artwork, preserving the bell and clipboard
-// under the launcher's circular/squircle masks (108dp layer / 72dp mask).
-const foreground = await generateImageAsync(options, { src: sourcePath, width: 676, height: 676, resizeMode: 'contain', backgroundColor, removeTransparency: true });
-const background = await generateImageBackgroundAsync({ width: 1024, height: 1024, resizeMode: 'contain', backgroundColor });
-writeFileSync(fileURLToPath(new URL('foreground.png', target)), await compositeImagesAsync({ foreground: foreground.source, background, x: 174, y: 174 }));
+const sourcePath = fileURLToPath(new URL('family-mascot-v2-transparent.png', target));
+const { default: Jimp } = await import('jimp-compact');
+const source = await Jimp.read(sourcePath);
+const backgroundColor = 0x0d141bff;
+let left=source.bitmap.width, top=source.bitmap.height, right=0, bottom=0, transparent=0;
+source.scan(0,0,source.bitmap.width,source.bitmap.height,(x,y,i)=>{
+  if(source.bitmap.data[i+3]===0){transparent++;return;}
+  left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x);bottom=Math.max(bottom,y);
+});
+if(transparent < source.bitmap.width*source.bitmap.height*0.1) throw new Error('Mascot source must have real transparent alpha.');
+const cropped=source.clone().crop(left,top,right-left+1,bottom-top+1);
+let radius=0;
+cropped.scan(0,0,cropped.bitmap.width,cropped.bitmap.height,(x,y,i)=>{
+  if(cropped.bitmap.data[i+3]>0)radius=Math.max(radius,Math.hypot(x-(cropped.bitmap.width-1)/2,y-(cropped.bitmap.height-1)/2));
+});
+// Fit the actual silhouette once into the 66dp safe circle on a 108dp layer.
+// No baked plate and no second inset of an already padded full icon.
+async function fit(radiusTarget, background, name){
+  const fg=cropped.clone().resize(Math.round(cropped.bitmap.width*radiusTarget/radius),Math.round(cropped.bitmap.height*radiusTarget/radius));
+  const canvas=new Jimp(1024,1024,background).composite(fg,Math.round((1024-fg.bitmap.width)/2),Math.round((1024-fg.bitmap.height)/2));
+  await canvas.writeAsync(fileURLToPath(new URL(name,target)));
+}
+await fit(310,0x00000000,'foreground.png');
+await fit(465,backgroundColor,'icon.png');
+await new Jimp(1024,1024,backgroundColor).writeAsync(fileURLToPath(new URL('background.png',target)));
 function crc32(data) { let crc = 0xffffffff; for (const byte of data) { crc ^= byte; for (let i = 0; i < 8; i++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0); } return (crc ^ 0xffffffff) >>> 0; }
 function chunk(type, data) { const name = Buffer.from(type); const n = Buffer.alloc(4); n.writeUInt32BE(data.length); const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(Buffer.concat([name, data]))); return Buffer.concat([n, name, data, crc]); }
 function distance(x, y, ax, ay, bx, by) { const t = Math.max(0, Math.min(1, ((x-ax)*(bx-ax)+(y-ay)*(by-ay))/((bx-ax)**2+(by-ay)**2))); return Math.hypot(x-ax-t*(bx-ax), y-ay-t*(by-ay)); }
@@ -30,6 +43,6 @@ for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
 const header = Buffer.alloc(13); header.writeUInt32BE(size); header.writeUInt32BE(size,4); header[8]=8; header[9]=6;
 writeFileSync(fileURLToPath(new URL('monochrome.png', target)), Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',header),chunk('IDAT',deflateSync(bytes)),chunk('IEND',Buffer.alloc(0))]));
 writeFileSync(fileURLToPath(new URL('monochrome.svg', target)), '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="m170 260 61 61 111-108" fill="none" stroke="black" stroke-width="46" stroke-linecap="round" stroke-linejoin="round"/><circle cx="341" cy="164" r="23"/></svg>\n');
-const files = ['family-mascot-v1-source.png','icon.png','foreground.png','monochrome.png','monochrome.svg'];
-writeFileSync(fileURLToPath(new URL('asset-manifest.json', target)), JSON.stringify({ artwork: 'family-mascot-checklist-v1', generator: 'built-in image_gen', packaging: 'Node 22 / pinned Expo image-utils Jimp backend', files: files.map(file => { const b = readFileSync(fileURLToPath(new URL(file,target))); return { file, bytes:b.length, sha256:createHash('sha256').update(b).digest('hex') }; }) }, null, 2)+'\n');
+const files = ['family-mascot-v1-source.png','family-mascot-v2-transparent.png','icon.png','foreground.png','background.png','monochrome.png','monochrome.svg'];
+writeFileSync(fileURLToPath(new URL('asset-manifest.json', target)), JSON.stringify({ artwork: 'family-mascot-checklist-v2-alpha', generator: 'built-in image_gen + user-authorized boundary-connected alpha extraction', packaging: 'Node 22 / pinned Expo image-utils Jimp backend', files: files.map(file => { const b = readFileSync(fileURLToPath(new URL(file,target))); return { file, bytes:b.length, sha256:createHash('sha256').update(b).digest('hex') }; }) }, null, 2)+'\n');
 console.log('Packaged Todo Moe family icon, adaptive foreground and monochrome check mark.');

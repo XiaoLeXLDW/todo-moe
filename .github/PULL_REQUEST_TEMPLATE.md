@@ -1,22 +1,15 @@
-## Summary
+## 问题与改动
 
-<!-- What changed, and why? -->
+<!-- 说明具体触发条件、原行为和改后行为。一个 PR 一个目的。 -->
 
-## Related issue
+## 验证
 
-<!-- Link to GitHub issue if applicable, e.g. "Fixes #123" -->
+<!-- 写实际执行的检查与结果；UI 改动附截图或录像。未验收项明确说明。 -->
 
-## Testing
+## 数据与来源
 
-<!-- Commands run, platforms/devices checked, and outcomes -->
+<!-- 是否涉及持久化、同步、包身份或签名？复用代码保留版权、来源和许可。 -->
 
-## Screenshots / recordings
+## 相关问题
 
-<!-- Required for UI changes. Otherwise write "N/A". -->
-
-## Checklist
-
-- [ ] I have signed the [Contributor License Agreement (CLA)](https://gist.github.com/dongdongbh/0446c35e1d5c1a73c344b16cba4aeeaa)
-- [ ] I have tested this change locally
-- [ ] I linked the relevant issue (or explained why there isn't one)
-- [ ] I added or updated tests/docs if needed
+<!-- 没有则写无。不要附凭据、私人任务或未脱敏日志。 -->

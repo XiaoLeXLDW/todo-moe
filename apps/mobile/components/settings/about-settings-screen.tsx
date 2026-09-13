@@ -1,503 +1,88 @@
-import { getAppIdentity, TODO_MOE_RELEASES_API, TODO_MOE_RELEASES_URL, TODO_MOE_ISSUES_URL, TODO_MOE_REPOSITORY } from '@/lib/app-identity';
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { FlatList, Image, Linking, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Constants from 'expo-constants';
 import * as Application from 'expo-application';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { submitFeedbackSubmission } from '@mindwtr/core';
-import { useToast } from '@/contexts/toast-context';
-import { getDeviceLocale, resolveMobileAnalyticsVersion } from '@/lib/analytics-heartbeat';
-import { collectFeedbackDiagnostics } from '@/lib/app-log';
+import { getAppIdentity, TODO_MOE_RELEASES_URL, TODO_MOE_ISSUES_URL, TODO_MOE_REPOSITORY } from '@/lib/app-identity';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { useThemeColors } from '@/hooks/use-theme-colors';
-import { getPlayStoreUpdateInfoAsync } from '@/lib/play-store-updates';
-import { compareVersions, logSettingsError, logSettingsWarn } from '@/lib/settings-utils';
-
-import {
-    MobileExtraConfig,
-    UPDATE_BADGE_AVAILABLE_KEY,
-    UPDATE_BADGE_INTERVAL_MS,
-    UPDATE_BADGE_LAST_CHECK_KEY,
-    UPDATE_BADGE_LATEST_KEY,
-} from './settings.constants';
-import { FeedbackSettingsModal, type FeedbackSubmitInput } from './feedback-settings-modal';
-import { useSettingsLocalization, useSettingsScrollContent } from './settings.hooks';
+import { useToast } from '@/contexts/toast-context';
+import { productHelp, productPrivacy } from '@/moe/legal/product-information';
+import { bundledNotices, noticeCoverage } from '@/moe/legal/notices.generated';
+import { UPDATE_BADGE_AVAILABLE_KEY, UPDATE_BADGE_LATEST_KEY } from './settings.constants';
+import { useSettingsScrollContent } from './settings.hooks';
 import { SettingsTopBar } from './settings.shell';
 import { styles } from './settings.styles';
 
-const appIconSource = require('../../moe/brand/icon.png');
-const GITHUB_ISSUES_URL = TODO_MOE_ISSUES_URL;
-const GITHUB_RELEASES_API = TODO_MOE_RELEASES_API;
-const GITHUB_RELEASES_URL = TODO_MOE_RELEASES_URL;
-
-const parseExtraBool = (value: unknown): boolean =>
-    value === true || value === 1 || value === '1' || value === 'true';
-
-export function AboutSettingsScreen({
-    onUpdateBadgeChange,
-}: {
-    onUpdateBadgeChange: (next: boolean) => void;
-}) {
+export function AboutSettingsScreen({ onUpdateBadgeChange }: { onUpdateBadgeChange: (next: boolean) => void }) {
     const tc = useThemeColors();
+    const reduced = useReducedMotion();
     const { showToast } = useToast();
-    const { tr, t } = useSettingsLocalization();
     const scrollContentStyle = useSettingsScrollContent();
-    const extraConfig = Constants.expoConfig?.extra as MobileExtraConfig | undefined;
-    const isFossBuild = parseExtraBool(extraConfig?.isFossBuild);
-    const isExpoGo = Constants.appOwnership === 'expo';
-    const currentVersion = Constants.expoConfig?.version || '0.0.0';
-    const displayVersion = resolveMobileAnalyticsVersion(currentVersion, extraConfig?.analyticsReleaseVersion);
-    const feedbackEndpointUrl = String(extraConfig?.feedbackEndpointUrl ?? '').trim();
-    const appName = Constants.expoConfig?.name || Application.applicationName || 'Todo Moe';
-    const buildInfo = Constants.expoConfig?.extra?.todoMoe as {
-        channel?: string; versionCode?: number; sourceSha?: string; dirty?: boolean;
-        upstreamVersion?: string; upstreamSha?: string; artworkStatus?: string;
-    } | undefined;
-    const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
-    const [feedbackOpen, setFeedbackOpen] = useState(false);
-    const [androidInstallerSource, setAndroidInstallerSource] = useState<'play-store' | 'sideload' | 'unknown'>(
-        Platform.OS === 'android' ? 'unknown' : 'play-store'
-    );
-
+    const [buildOpen, setBuildOpen] = useState(false);
+    const [document, setDocument] = useState<{ title: string; text: string } | null>(null);
+    const [licensesOpen, setLicensesOpen] = useState(false);
+    const [query, setQuery] = useState('');
+    const identity = getAppIdentity();
+    const build = Constants.expoConfig?.extra?.todoMoe as { versionCode?: number; sourceSha?: string; dirty?: boolean; upstreamVersion?: string; upstreamSha?: string } | undefined;
+    const version = Application.nativeApplicationVersion || Constants.expoConfig?.version || '未知版本';
+    const versionCode = Application.nativeBuildVersion || build?.versionCode || '未知';
     useEffect(() => {
-        if (Platform.OS !== 'android') {
-            setAndroidInstallerSource('play-store');
-            return;
-        }
-        if (isFossBuild) {
-            setAndroidInstallerSource('sideload');
-            return;
-        }
-        let cancelled = false;
-        Application.getInstallReferrerAsync()
-            .then((referrer) => {
-                if (cancelled) return;
-                const normalized = (referrer || '').trim().toLowerCase();
-                setAndroidInstallerSource(normalized ? 'play-store' : 'sideload');
-            })
-            .catch((error) => {
-                if (!cancelled) {
-                    setAndroidInstallerSource('unknown');
-                }
-                logSettingsWarn('Failed to detect Android installer source', error);
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [isFossBuild]);
-
-    const openLink = (url: string) => Linking.openURL(url);
-    const ANDROID_PACKAGE_NAME = getAppIdentity().packageName;
-    const PLAY_STORE_URL = `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE_NAME}`;
-    const PLAY_STORE_MARKET_URL = `market://details?id=${ANDROID_PACKAGE_NAME}`;
-    const APP_STORE_BUNDLE_ID = Constants.expoConfig?.ios?.bundleIdentifier || Application.applicationId || 'tech.dongdongbh.mindwtr';
-    const APP_STORE_LOOKUP_URL = `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(APP_STORE_BUNDLE_ID)}&country=US`;
-    const APP_STORE_LOOKUP_FALLBACK_URL = `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(APP_STORE_BUNDLE_ID)}`;
-    const canRateInStore = !isFossBuild && (Platform.OS === 'android' || Platform.OS === 'ios');
-
-    type AndroidComparableVersionResult =
-        | { source: 'play-store'; updateAvailable: boolean; availableVersionCode: number | null }
-        | { source: 'github-release'; version: string };
-
-    const persistUpdateBadge = useCallback(async (next: boolean, latestVersion?: string) => {
-        onUpdateBadgeChange(next);
-        try {
-            await AsyncStorage.setItem(UPDATE_BADGE_AVAILABLE_KEY, next ? 'true' : 'false');
-            if (next && latestVersion) {
-                await AsyncStorage.setItem(UPDATE_BADGE_LATEST_KEY, latestVersion);
-            } else {
-                await AsyncStorage.removeItem(UPDATE_BADGE_LATEST_KEY);
-            }
-        } catch (error) {
-            logSettingsWarn('Failed to persist update badge state', error);
-        }
+        // Releases are opened explicitly. Discard badges left by the upstream store checker.
+        onUpdateBadgeChange(false);
+        void AsyncStorage.multiRemove([UPDATE_BADGE_AVAILABLE_KEY, UPDATE_BADGE_LATEST_KEY]).catch(() => undefined);
     }, [onUpdateBadgeChange]);
-
-    const fetchLatestRelease = useCallback(async () => {
-        const response = await fetch(GITHUB_RELEASES_API, {
-            headers: {
-                Accept: 'application/vnd.github.v3+json',
-                'User-Agent': 'Mindwtr-App',
-            },
-        });
-        if (!response.ok) {
-            throw new Error(`GitHub API error: ${response.status}`);
-        }
-        return response.json();
-    }, []);
-
-    const fetchLatestAppStoreInfo = useCallback(async (): Promise<{ version: string; trackViewUrl: string | null }> => {
-        const lookupUrls = [APP_STORE_LOOKUP_FALLBACK_URL, APP_STORE_LOOKUP_URL];
-        let lastError: Error | null = null;
-        let bestMatch: { version: string; trackViewUrl: string | null } | null = null;
-
-        for (const baseUrl of lookupUrls) {
-            const separator = baseUrl.includes('?') ? '&' : '?';
-            const url = `${baseUrl}${separator}_=${Date.now()}`;
-            const response = await fetch(url, {
-                headers: {
-                    Accept: 'application/json',
-                    'User-Agent': 'Mindwtr-App',
-                },
-                cache: 'no-store',
-            });
-            if (!response.ok) {
-                lastError = new Error(`App Store lookup failed (${url}): ${response.status}`);
-                continue;
-            }
-            const payload = await response.json() as { results?: { version?: unknown; trackViewUrl?: unknown }[] };
-            const candidate = Array.isArray(payload.results) ? payload.results[0] : null;
-            const version = typeof candidate?.version === 'string' ? candidate.version.trim() : '';
-            if (!version) {
-                lastError = new Error(`Unable to parse App Store version from ${url}`);
-                continue;
-            }
-            const trackViewUrl = typeof candidate?.trackViewUrl === 'string' && candidate.trackViewUrl.trim()
-                ? candidate.trackViewUrl.trim()
-                : null;
-            if (!bestMatch || compareVersions(version, bestMatch.version) > 0) {
-                bestMatch = { version, trackViewUrl };
-            }
-        }
-
-        if (bestMatch) return bestMatch;
-        if (lastError) throw lastError;
-        throw new Error('Unable to fetch App Store version');
-    }, [APP_STORE_LOOKUP_FALLBACK_URL, APP_STORE_LOOKUP_URL]);
-
-    const fetchAndroidComparableVersion = useCallback(async (): Promise<AndroidComparableVersionResult> => {
-        if (androidInstallerSource === 'sideload') {
-            const release = await fetchLatestRelease();
-            return { version: release.tag_name?.replace(/^v/, '') || '0.0.0', source: 'github-release' };
-        }
-        try {
-            const info = await getPlayStoreUpdateInfoAsync();
-            return {
-                source: 'play-store',
-                updateAvailable: info.updateAvailable,
-                availableVersionCode: info.availableVersionCode,
-            };
-        } catch (error) {
-            logSettingsWarn('Play Store update API failed; falling back to GitHub release', error);
-            const release = await fetchLatestRelease();
-            return { version: release.tag_name?.replace(/^v/, '') || '0.0.0', source: 'github-release' };
-        }
-    }, [androidInstallerSource, fetchLatestRelease]);
-
-    const fetchLatestComparableVersion = useCallback(async (): Promise<{ version: string; source: 'app-store' | 'github-release' }> => {
-        if (Platform.OS === 'ios') {
-            const { version } = await fetchLatestAppStoreInfo();
-            return { version, source: 'app-store' };
-        }
-        const release = await fetchLatestRelease();
-        return { version: release.tag_name?.replace(/^v/, '') || '0.0.0', source: 'github-release' };
-    }, [fetchLatestAppStoreInfo, fetchLatestRelease]);
-
-    useEffect(() => {
-        let cancelled = false;
-
-        const checkUpdates = async () => {
-            if (isExpoGo || isFossBuild) return;
-            try {
-                const lastCheckedRaw = await AsyncStorage.getItem(UPDATE_BADGE_LAST_CHECK_KEY);
-                const lastChecked = Number.parseInt(lastCheckedRaw || '0', 10);
-                if (Date.now() - lastChecked < UPDATE_BADGE_INTERVAL_MS) {
-                    const storedBadge = await AsyncStorage.getItem(UPDATE_BADGE_AVAILABLE_KEY);
-                    if (!cancelled) onUpdateBadgeChange(storedBadge === 'true');
-                    return;
-                }
-                const comparable = Platform.OS === 'android'
-                    ? await fetchAndroidComparableVersion()
-                    : await fetchLatestComparableVersion();
-                if (cancelled) return;
-                const hasUpdate = comparable.source === 'play-store'
-                    ? comparable.updateAvailable
-                    : compareVersions(comparable.version, currentVersion) > 0;
-                await AsyncStorage.setItem(UPDATE_BADGE_LAST_CHECK_KEY, String(Date.now()));
-                await persistUpdateBadge(
-                    hasUpdate,
-                    hasUpdate && comparable.source !== 'play-store' ? comparable.version : undefined
-                );
-            } catch (error) {
-                logSettingsWarn('Silent update check failed', error);
-            }
-        };
-
-        void checkUpdates();
-        return () => {
-            cancelled = true;
-        };
-    }, [currentVersion, fetchAndroidComparableVersion, fetchLatestComparableVersion, isExpoGo, isFossBuild, onUpdateBadgeChange, persistUpdateBadge]);
-
-    const handleCheckUpdates = async () => {
-        if (isFossBuild) {
-            showToast({
-                title: tr('settings.aboutMobile.updatesAreManagedByYourDistributionSource'),
-                message: tr('settings.aboutMobile.inAppUpdateChecksAreDisabledInThisFossBuild'),
-                tone: 'info',
-                durationMs: 4800,
-            });
-            return;
-        }
-
-        setIsCheckingUpdate(true);
-        try {
-            await AsyncStorage.setItem(UPDATE_BADGE_LAST_CHECK_KEY, String(Date.now()));
-
-            if (Platform.OS === 'android' && androidInstallerSource !== 'sideload') {
-                const canOpenMarket = await Linking.canOpenURL(PLAY_STORE_MARKET_URL);
-                const targetUrl = canOpenMarket ? PLAY_STORE_MARKET_URL : PLAY_STORE_URL;
-                const result = await fetchAndroidComparableVersion();
-                const hasUpdate = result.source === 'play-store'
-                    ? result.updateAvailable
-                    : compareVersions(result.version, currentVersion) > 0;
-                if (hasUpdate) {
-                    const updateMessage = result.source === 'play-store'
-                        ? tr('settings.aboutMobile.updateIsAvailableOnGooglePlayOpenAppListingNow')
-                        : tr('settings.aboutMobile.googlePlayUpdateAvailableWithVersions', { currentVersion: displayVersion, latestVersion: result.version });
-                    Alert.alert(tr('settings.updateAvailable'), updateMessage, [
-                        { text: tr('settings.later'), style: 'cancel' },
-                        { text: tr('attachments.open'), onPress: () => Linking.openURL(targetUrl) },
-                    ]);
-                    await persistUpdateBadge(true, result.source === 'github-release' ? result.version : undefined);
-                } else {
-                    const upToDateMessage = result.source === 'play-store'
-                        ? tr('settings.aboutMobile.youAreUsingTheLatestGooglePlayVersion')
-                        : tr('settings.aboutMobile.googlePlayCheckWasUnavailableButYourVersionMatchesThe');
-                    showToast({
-                        title: tr('settings.aboutMobile.upToDate'),
-                        message: upToDateMessage,
-                        tone: 'success',
-                    });
-                    await persistUpdateBadge(false);
-                }
-                return;
-            }
-
-            if (Platform.OS === 'ios') {
-                const { version: latestVersion, trackViewUrl } = await fetchLatestAppStoreInfo();
-                const hasUpdate = compareVersions(latestVersion, currentVersion) > 0;
-                const trackIdMatch = trackViewUrl?.match(/\/id(\d+)/i);
-                const appStoreDeepLink = trackIdMatch?.[1] ? `itms-apps://apps.apple.com/app/id${trackIdMatch[1]}` : null;
-                const canOpenDeepLink = appStoreDeepLink ? await Linking.canOpenURL(appStoreDeepLink) : false;
-                const targetUrl = canOpenDeepLink ? appStoreDeepLink : trackViewUrl;
-
-                if (hasUpdate) {
-                    Alert.alert(
-                        tr('settings.updateAvailable'),
-                        tr('settings.aboutMobile.appStoreUpdateAvailableWithVersions', { currentVersion: displayVersion, latestVersion }),
-                        [
-                            { text: tr('settings.later'), style: 'cancel' },
-                            ...(targetUrl ? [{ text: tr('attachments.open'), onPress: () => Linking.openURL(targetUrl) }] : []),
-                        ]
-                    );
-                    await persistUpdateBadge(true, latestVersion);
-                } else {
-                    showToast({
-                        title: tr('settings.aboutMobile.upToDate'),
-                        message: tr('settings.aboutMobile.youAreUsingTheLatestAppStoreVersion'),
-                        tone: 'success',
-                    });
-                    await persistUpdateBadge(false);
-                }
-                return;
-            }
-
-            const release = await fetchLatestRelease();
-            const latestVersion = release.tag_name?.replace(/^v/, '') || '0.0.0';
-            const hasUpdate = compareVersions(latestVersion, currentVersion) > 0;
-
-            if (hasUpdate) {
-                const downloadUrl = release.html_url || GITHUB_RELEASES_URL;
-                const changelog = release.body || tr('settings.noChangelog');
-                Alert.alert(
-                    tr('settings.updateAvailable'),
-                    `v${displayVersion} → v${latestVersion}\n\n${tr('settings.changelog')}:\n${changelog.substring(0, 500)}${changelog.length > 500 ? '...' : ''}`,
-                    [
-                        { text: tr('settings.later'), style: 'cancel' },
-                        { text: tr('attachments.download'), onPress: () => Linking.openURL(downloadUrl) },
-                    ]
-                );
-                await persistUpdateBadge(true, latestVersion);
-            } else {
-                showToast({
-                    title: tr('settings.aboutMobile.upToDate'),
-                    message: tr('settings.upToDate'),
-                    tone: 'success',
-                });
-                await persistUpdateBadge(false);
-            }
-        } catch (error) {
-            logSettingsError('Update check failed:', error);
-            showToast({
-                title: tr('settings.syncMobile.error'),
-                message: tr('settings.checkFailed'),
-                tone: 'warning',
-            });
-        } finally {
-            setIsCheckingUpdate(false);
-        }
+    const openLink = async (url: string) => {
+        try { await Linking.openURL(url); }
+        catch { showToast({ title: '无法打开链接', message: '请稍后再试，或在浏览器打开 Todo Moe 仓库。', tone: 'warning' }); }
     };
-
-    const handleRateApp = async () => {
-        try {
-            if (Platform.OS === 'android') {
-                try {
-                    await Linking.openURL(PLAY_STORE_MARKET_URL);
-                } catch {
-                    await Linking.openURL(PLAY_STORE_URL);
-                }
-                return;
-            }
-
-            if (Platform.OS === 'ios') {
-                const { trackViewUrl } = await fetchLatestAppStoreInfo();
-                const trackIdMatch = trackViewUrl?.match(/\/id(\d+)/i);
-                const reviewDeepLink = trackIdMatch?.[1]
-                    ? `itms-apps://itunes.apple.com/app/id${trackIdMatch[1]}?action=write-review`
-                    : null;
-                const canOpenReview = reviewDeepLink ? await Linking.canOpenURL(reviewDeepLink) : false;
-                const targetUrl = canOpenReview ? reviewDeepLink : trackViewUrl;
-                if (!targetUrl) throw new Error('App Store listing unavailable');
-                await Linking.openURL(targetUrl);
-            }
-        } catch (error) {
-            logSettingsWarn('Failed to open app store rating page', error);
-            showToast({
-                title: tr('settings.aboutMobile.storeUnavailable'),
-                message: tr('settings.aboutMobile.couldNotOpenTheAppStoreRatingPagePleaseTry'),
-                tone: 'warning',
-            });
-        }
-    };
-
-    const getInstallChannel = () => {
-        if (isFossBuild) return 'fdroid';
-        if (Platform.OS === 'ios') return 'app-store';
-        if (Platform.OS === 'android') return androidInstallerSource;
-        return Platform.OS || 'mobile';
-    };
-
-    const handleSubmitFeedback = async (input: FeedbackSubmitInput) => {
-        const diagnosticsLogs = input.includeDiagnostics && input.category === 'bug'
-            ? await collectFeedbackDiagnostics()
-            : null;
-        await submitFeedbackSubmission(feedbackEndpointUrl, {
-            category: input.category,
-            email: input.email,
-            message: input.message,
-            metadata: {
-                appVersion: displayVersion,
-                build: Application.nativeBuildVersion ?? undefined,
-                installChannel: getInstallChannel(),
-                locale: getDeviceLocale(),
-                os: `${Platform.OS} ${String(Platform.Version ?? '')}`.trim(),
-                platform: Platform.OS,
-            },
-            diagnostics: diagnosticsLogs ? { logs: diagnosticsLogs } : undefined,
-        });
-    };
-
+    const row = (title: string, subtitle: string, onPress: () => void, external = false) => (
+        <TouchableOpacity accessibilityRole={external ? 'link' : 'button'} onPress={onPress} style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border, minHeight: 60 }]}>
+            <View style={{ flex: 1, paddingVertical: 8 }}>
+                <Text style={[styles.settingLabel, { color: tc.text }]}>{title}</Text>
+                <Text style={{ color: tc.secondaryText, marginTop: 4, lineHeight: 20 }}>{subtitle}</Text>
+            </View>
+            <Text style={{ color: tc.secondaryText, marginLeft: 12 }}>{external ? '↗' : '›'}</Text>
+        </TouchableOpacity>
+    );
+    const closeReader = () => document ? setDocument(null) : setLicensesOpen(false);
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: tc.bg }]} edges={['bottom']}>
-            <SettingsTopBar title={t('settings.about')} />
+            <SettingsTopBar title="关于 Todo Moe" />
             <ScrollView style={styles.scrollView} contentContainerStyle={scrollContentStyle}>
                 <View style={[styles.settingCard, { backgroundColor: tc.cardBg }]}>
                     <View style={[styles.aboutAppHeader, { borderBottomColor: tc.border }]}>
-                        <Image source={appIconSource} style={styles.aboutAppIcon} resizeMode="cover" />
-                        <Text style={[styles.aboutAppName, { color: tc.text }]} numberOfLines={2}>
-                            {appName}
-                        </Text>
-                        <Text style={[styles.aboutAppVersion, { color: tc.secondaryText }]} numberOfLines={2}>
-                            v{displayVersion}
-                        </Text>
+                        <Image source={require('../../moe/brand/icon.png')} style={styles.aboutAppIcon} resizeMode="cover" />
+                        <Text style={[styles.aboutAppName, { color: tc.text }]}>Todo Moe{identity.channel === 'development' ? ' Dev' : ''}</Text>
+                        <Text selectable style={[styles.aboutAppVersion, { color: tc.secondaryText }]}>版本 {version} · {versionCode}</Text>
+                        <Text style={{ color: tc.secondaryText, marginTop: 8 }}>轻巧、顺手的待办清单</Text>
                     </View>
-                    <View style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}>
-                        <Text selectable style={[styles.settingValue, { color: tc.secondaryText, flex: 1 }]}>
-                            {`Todo Moe · ${getAppIdentity().channel} · build ${buildInfo?.versionCode ?? 'unknown'}\n${getAppIdentity().packageName}\nFork: ${buildInfo?.sourceSha ?? 'unknown'}${buildInfo?.dirty ? ' (含未提交改动)' : ''}\nMindwtr: ${buildInfo?.upstreamVersion ?? 'unknown'} · ${buildInfo?.upstreamSha ?? 'unknown'}\n图标：${buildInfo?.artworkStatus ?? '临时开发图标；家族素材待提供'}`}
-                        </Text>
-                    </View>
-                    <TouchableOpacity
-                        accessibilityRole="link"
-                        style={styles.settingRow}
-                        onPress={() => openLink(`${TODO_MOE_REPOSITORY}/releases`)}
-                    >
-                        <Text style={[styles.settingLabel, { color: tc.text }]}>Todo Moe 下载与更新</Text>
-                        <Text style={styles.linkText}>GitHub Releases</Text>
+                    {row('下载与更新', 'GitHub Releases · 正式 APK', () => void openLink(TODO_MOE_RELEASES_URL), true)}
+                    {row('使用帮助', '记录、整理、撤销和备份', () => setDocument({ title: '使用帮助', text: productHelp }))}
+                    {row('反馈问题', '在 Todo Moe 仓库提交问题', () => void openLink(TODO_MOE_ISSUES_URL), true)}
+                    {row('源代码', 'XiaoLeXLDW / todo-moe', () => void openLink(TODO_MOE_REPOSITORY), true)}
+                    {row('隐私说明', '本地数据、可选服务与权限', () => setDocument({ title: '隐私说明', text: productPrivacy }))}
+                    {row('开源许可与致谢', 'AGPL-3.0-only · 离线阅读', () => setLicensesOpen(true))}
+                    <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: buildOpen }} onPress={() => setBuildOpen(!buildOpen)} style={styles.settingRow}>
+                        <Text style={[styles.settingLabel, { color: tc.secondaryText }]}>构建信息 {buildOpen ? '⌃' : '⌄'}</Text>
                     </TouchableOpacity>
-                    {!isFossBuild && (
-                        <TouchableOpacity
-                            style={styles.settingRow}
-                            onPress={() => void handleCheckUpdates()}
-                            disabled={isCheckingUpdate}
-                        >
-                            <Text style={[styles.settingLabel, { color: tc.text }]}>{t('settings.checkForUpdates')}</Text>
-                            {isCheckingUpdate ? (
-                                <ActivityIndicator size="small" color="#3B82F6" />
-                            ) : (
-                                <Text style={styles.linkText}>{tr('settings.aboutMobile.tapToCheck')}</Text>
-                            )}
-                        </TouchableOpacity>
-                    )}
-                    {canRateInStore && (
-                        <TouchableOpacity
-                            style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}
-                            onPress={() => void handleRateApp()}
-                        >
-                            <Text style={[styles.settingLabel, { color: tc.text }]}>{tr('settings.aboutMobile.rateOurApp')}</Text>
-                            <Text style={styles.linkText}>{Platform.OS === 'ios' ? 'App Store' : 'Google Play'}</Text>
-                        </TouchableOpacity>
-                    )}
-                    <TouchableOpacity
-                        style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}
-                        onPress={() => setFeedbackOpen(true)}
-                    >
-                        <Text style={[styles.settingLabel, { color: tc.text }]}>{tr('settings.feedback')}</Text>
-                        <Text style={styles.linkText}>{tr('settings.feedbackSubmit')}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}
-                        onPress={() => openLink('https://mindwtr.app')}
-                    >
-                        <Text style={[styles.settingLabel, { color: tc.text }]}>上游 Mindwtr 网站</Text>
-                        <Text style={styles.linkText}>Mindwtr</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}
-                        onPress={() => openLink('https://youtube.com/playlist?list=PLLwV6zeTfB_k')}
-                    >
-                        <Text style={[styles.settingLabel, { color: tc.text }]}>{t('settings.videoTutorials')}</Text>
-                        <Text style={styles.linkText}>YouTube</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}
-                        onPress={() => openLink('https://mindwtr.app/privacy')}
-                    >
-                        <Text style={[styles.settingLabel, { color: tc.text }]}>上游 Mindwtr 隐私说明</Text>
-                        <Text style={styles.linkText}>{t('settings.privacy')}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}
-                        onPress={() => openLink('https://mindwtr.app/donate?src=app_about')}
-                    >
-                        <Text style={[styles.settingLabel, { color: tc.text }]}>支持上游 Mindwtr</Text>
-                        <Text style={styles.linkText}>{tr('settings.donateLinkValue')}</Text>
-                    </TouchableOpacity>
-                    <View style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: tc.border }]}>
-                        <Text style={[styles.settingLabel, { color: tc.text }]}>{t('settings.license')}</Text>
-                        <Text style={[styles.settingValue, { color: tc.secondaryText }]}>AGPL-3.0</Text>
-                    </View>
+                    {buildOpen && <Text selectable style={{ color: tc.secondaryText, padding: 16, lineHeight: 22 }}>{`${identity.channel}\n${identity.packageName}\n源码：${build?.sourceSha || '未知'}${build?.dirty ? '（含未提交改动）' : ''}\n上游 Mindwtr：${build?.upstreamVersion || '未知'}\n${build?.upstreamSha || ''}`}</Text>}
                 </View>
+                <Text style={{ color: tc.secondaryText, padding: 16, lineHeight: 22 }}>基于 Mindwtr。感谢上游作者、SukiSU-Ultra、compose-miuix-ui、AndroidLiquidGlass 及所有开源贡献者。</Text>
             </ScrollView>
-            <FeedbackSettingsModal
-                visible={feedbackOpen}
-                isConfigured={Boolean(feedbackEndpointUrl)}
-                tr={tr}
-                onClose={() => setFeedbackOpen(false)}
-                onOpenGitHub={() => openLink(GITHUB_ISSUES_URL)}
-                onSubmit={handleSubmitFeedback}
-            />
+            <Modal visible={licensesOpen || document !== null} animationType={reduced ? 'none' : 'slide'} onRequestClose={closeReader}>
+                <SafeAreaView style={{ flex: 1, backgroundColor: tc.bg }}>
+                    <TouchableOpacity accessibilityRole="button" accessibilityLabel="返回" onPress={closeReader} style={{ padding: 20, minHeight: 56 }}>
+                        <Text style={{ color: tc.text, fontSize: 18 }}>‹ {document?.title || '开源许可与致谢'}</Text>
+                    </TouchableOpacity>
+                    {document ? <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}><Text selectable style={{ color: tc.text, fontSize: 15, lineHeight: 24 }}>{document.text}</Text></ScrollView> : <>
+                        <Text style={{ color: tc.secondaryText, paddingHorizontal: 20, lineHeight: 22 }}>完整许可随应用提供，无需联网。依赖清单来自已安装的移动端运行依赖声明，不等同于完整 APK 二进制审计。</Text>
+                        <TextInput accessibilityLabel="搜索开源组件" placeholder="搜索组件或许可证" placeholderTextColor={tc.secondaryText} value={query} onChangeText={setQuery} style={{ color: tc.text, padding: 16, margin: 16, borderWidth: 1, borderColor: tc.border, borderRadius: 12 }} />
+                        <FlatList keyboardShouldPersistTaps="handled" data={bundledNotices.filter(item => item.title.toLowerCase().includes(query.toLowerCase()))} keyExtractor={item => item.source} renderItem={({ item }) => row(item.title, '查看完整文本', () => setDocument(item))} ListFooterComponent={row('清单覆盖范围', '部分组件未附独立根目录许可文件', () => setDocument({ title: '清单覆盖范围', text: `${noticeCoverage.scope}\n\n${noticeCoverage.missing.join('\n')}` }))} />
+                    </>}
+                </SafeAreaView>
+            </Modal>
         </SafeAreaView>
     );
 }

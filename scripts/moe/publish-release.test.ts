@@ -138,6 +138,18 @@ test('finds a draft through the release list when the tag endpoint returns 404',
     expect(server.state.assets).toHaveLength(4);
 });
 
+test('accepts only an exact approved-source license supplement without changing the signed set', async () => {
+    const f = fixture(); const server = remote(true);
+    const license = readFileSync(resolve(import.meta.dir, '../../LICENSE'));
+    const dependencies = { ...server.dependencies, inspectSource: async () => ({ ...await inspectSource(), licenseSha256: digest(license), licenseBytes: license.length }) };
+    await publishRelease({ ...f.options, publish: true }, dependencies);
+    server.state.assets.push({ id: 999, name: 'LICENSE-AGPL-3.0.txt', content: license, state: 'uploaded' });
+    expect((await publishRelease({ ...f.options, publish: true }, dependencies)).status).toBe('already-published');
+    server.state.assets.at(-1)!.content = Buffer.from(license);
+    server.state.assets.at(-1)!.content[0] ^= 1;
+    await expect(publishRelease({ ...f.options, publish: true }, dependencies)).rejects.toThrow('hash mismatch');
+});
+
 test('uploads four verified assets as draft and publishes only after the final remote gate', async () => {
     const f = fixture(); const server = remote();
     const result = await publishRelease({ ...f.options, publish: true }, server.dependencies);
