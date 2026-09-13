@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 const target = new URL('../../apps/mobile/moe/brand/', import.meta.url);
-const sourcePath = fileURLToPath(new URL('family-mascot-v5-mid.png', target));
+const sourcePath = fileURLToPath(new URL('family-mascot-v6-reference.png', target));
 const { default: Jimp } = await import('jimp-compact');
 const source = await Jimp.read(sourcePath);
 let left=source.bitmap.width, top=source.bitmap.height, right=0, bottom=0, transparent=0;
@@ -51,6 +51,6 @@ for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
 const header = Buffer.alloc(13); header.writeUInt32BE(size); header.writeUInt32BE(size,4); header[8]=8; header[9]=6;
 writeFileSync(fileURLToPath(new URL('monochrome.png', target)), Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',header),chunk('IDAT',deflateSync(bytes)),chunk('IEND',Buffer.alloc(0))]));
 writeFileSync(fileURLToPath(new URL('monochrome.svg', target)), '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="m170 260 61 61 111-108" fill="none" stroke="black" stroke-width="46" stroke-linecap="round" stroke-linejoin="round"/><circle cx="341" cy="164" r="23"/></svg>\n');
-const files = ['family-mascot-v1-source.png','family-mascot-v2-transparent.png','family-mascot-v3-skin.png','family-mascot-v4-light.png','family-mascot-v5-mid.png','icon.png','foreground.png','background.png','monochrome.png','monochrome.svg'];
-writeFileSync(fileURLToPath(new URL('asset-manifest.json', target)), JSON.stringify({ artwork: 'family-mascot-checklist-v5-mid', generator: 'built-in image_gen skin edit + face-only extraction preserving original alpha', packaging: 'Node 22 / pinned Expo image-utils Jimp backend', files: files.map(file => { const b = readFileSync(fileURLToPath(new URL(file,target))); return { file, bytes:b.length, sha256:createHash('sha256').update(b).digest('hex') }; }) }, null, 2)+'\n');
+const files = ['family-mascot-v1-source.png','family-mascot-v2-transparent.png','family-mascot-v3-skin.png','family-mascot-v4-light.png','family-mascot-v5-mid.png','family-mascot-v6-reference.png','icon.png','foreground.png','background.png','monochrome.png','monochrome.svg'];
+writeFileSync(fileURLToPath(new URL('asset-manifest.json', target)), JSON.stringify({ artwork: 'family-mascot-checklist-v6-reference', generator: 'built-in image_gen skin edit + face-only extraction preserving original alpha', packaging: 'Node 22 / pinned Expo image-utils Jimp backend', files: files.map(file => { const b = readFileSync(fileURLToPath(new URL(file,target))); return { file, bytes:b.length, sha256:createHash('sha256').update(b).digest('hex') }; }) }, null, 2)+'\n');
 console.log('Packaged Todo Moe family icon, adaptive foreground and monochrome check mark.');
