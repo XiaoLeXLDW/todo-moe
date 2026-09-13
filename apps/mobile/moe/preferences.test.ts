@@ -5,7 +5,7 @@ vi.mock('@react-native-async-storage/async-storage', () => ({ default: storage }
 beforeEach(() => { vi.resetModules(); storage.getItem.mockReset().mockResolvedValue(null); storage.setItem.mockReset().mockResolvedValue(undefined); });
 describe('device preference persistence', () => {
   it('hydrates before applying an edit, preserving other saved preferences', async () => {
-    storage.getItem.mockResolvedValue(JSON.stringify({ theme: 'ink', haptics: 'off' }));
+    storage.getItem.mockResolvedValue(JSON.stringify({ theme: 'ink', followSystem: false, haptics: 'off' }));
     const { setMoePreferences, getMoePreferences } = await import('./preferences');
     await setMoePreferences({ glass: 'off' });
     expect(getMoePreferences()).toMatchObject({ theme: 'ink', haptics: 'off', glass: 'off' });
@@ -16,15 +16,15 @@ describe('device preference persistence', () => {
     storage.setItem.mockImplementationOnce(() => new Promise<void>((resolve) => { release = resolve; }));
     const { setMoePreferences, getMoePreferences, hydrateMoePreferences } = await import('./preferences');
     await hydrateMoePreferences();
-    const first = setMoePreferences({ theme: 'ink' });
+    const first = setMoePreferences({ appearance: 'dark' });
     await vi.waitFor(() => expect(storage.setItem).toHaveBeenCalledTimes(1));
-    const second = setMoePreferences({ theme: 'family' });
+    const second = setMoePreferences({ colorSource: 'custom', customColor: '#FFCC00' });
     await Promise.resolve();
     expect(storage.setItem).toHaveBeenCalledTimes(1);
     release();
     await Promise.all([first, second]);
-    expect(JSON.parse(storage.setItem.mock.calls.at(-1)![1]).theme).toBe('family');
-    expect(getMoePreferences().theme).toBe('family');
+    expect(JSON.parse(storage.setItem.mock.calls.at(-1)![1]).customColor).toBe('#FFCC00');
+    expect(getMoePreferences().customColor).toBe('#FFCC00');
   });
   it('rolls back a failed save and remains editable after corrupt JSON', async () => {
     storage.getItem.mockResolvedValue('{corrupt');

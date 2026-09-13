@@ -70,6 +70,8 @@ export function useMobileSyncBadge() {
 
     return {
         refreshSyncBadgeConfig,
+        syncConfigured,
+        lastSyncAt: settings.lastSyncAt,
         syncBadgeAccessibilityLabel,
         syncBadgeColor,
         syncBadgeState,

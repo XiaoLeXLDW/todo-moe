@@ -67,6 +67,6 @@ describe('completion checkbox interaction', () => {
     act(() => { tree = create(<MoeCheckButton checked disabled={false} label="Undo" onPress={vi.fn()} tc={tc} />); });
     stop.mockClear();
     act(() => { controls.listeners.forEach(listener => listener('background')); });
-    expect(stop).toHaveBeenCalledTimes(2);
+    expect(stop).toHaveBeenCalledTimes(3);
   });
 });

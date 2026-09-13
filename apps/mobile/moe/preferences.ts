@@ -30,6 +30,10 @@ export function hydrateMoePreferences(): Promise<void> {
 /** Serialize writes; a slow older write must never overwrite a newer choice. */
 export async function setMoePreferences(patch: Partial<MoePreferences>): Promise<void> {
   await hydrateMoePreferences();
+  if (patch.appearance === undefined && (patch.theme !== undefined || patch.followSystem !== undefined)) {
+    const followSystem = patch.followSystem ?? value.followSystem;
+    patch = { ...patch, appearance: followSystem ? 'system' : (patch.theme ?? value.theme) === 'ink' ? 'dark' : 'light' };
+  }
   value = parseMoePreferences({ ...value, ...patch });
   const next = value;
   const ownRevision = ++revision;

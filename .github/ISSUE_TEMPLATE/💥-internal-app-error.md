@@ -1,45 +1,25 @@
 ---
-name: "💥 Internal app error"
-about: Report in-app error dialog/pop-up with stack trace or diagnostic ID
-title: "[APP-ERROR]"
-labels: bug,status:needs-triage
+name: '闪退或内部错误'
+about: '报告启动、闪退或错误提示'
+title: '[CRASH] '
+labels: ''
 assignees: ''
 ---
 
-### 💻 Platform
-- [ ] Desktop (Linux)
-- [ ] Desktop (macOS)
-- [ ] Desktop (Windows)
-- [ ] Mobile (Android)
-- [ ] Mobile (iOS)
+## 环境
+- Todo Moe 版本 / versionCode：
+- 正式版或 Dev：
+- Android 版本、手机型号：
+- 内屏或外屏（如适用）：
 
-### ℹ️ Environment
-- **App Version:** 
-- **Install Channel:** (e.g. Flathub / Play Store / MS Store / F-Droid / APT / AUR / release file)
-- **OS Version:** 
+## 操作步骤 / 使用场景
+1.
 
-<details>
-<summary><strong>Install channel examples (Click to expand)</strong></summary>
+## 预期与实际结果
 
-- **Desktop Linux:** Flathub, APT, AUR, distro package, release file (`.deb`, `.rpm`, AppImage), source/dev build
-- **Desktop macOS:** App Store, Homebrew, release file (`.dmg`), source/dev build
-- **Desktop Windows:** Microsoft Store, winget, release file (`.exe` / `.msi`), source/dev build
-- **Android:** Play Store, F-Droid, release file / sideloaded APK, source/dev build
-- **iOS:** App Store, TestFlight, source/dev build
 
-</details>
+## 可选证据
+截图或精简日志；先隐藏私人任务、令牌和账号信息。不要上传完整私人备份。
 
-### 🧾 Error details
-Paste the exact error text, stack trace, or diagnostics ID shown in the app.
-
-### 🔄 What were you doing?
-Describe the action right before the error appeared.
-
-### ♻️ Frequency
-- [ ] Happened once
-- [ ] Happens sometimes
-- [ ] Happens every time
-
-### 📎 Logs / Attachments
-Attach logs if available:
-https://docs.mindwtr.app/data-sync/diagnostics-logs
+## 数据与可选功能
+是否本地使用；如问题涉及同步，请写服务类型，不要写密码。不要为复现而删除原数据或清除应用。

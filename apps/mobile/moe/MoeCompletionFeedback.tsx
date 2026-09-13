@@ -4,6 +4,10 @@ import Animated, { measure, useAnimatedRef, useAnimatedStyle, useSharedValue, ty
 import { runOnUISync } from 'react-native-worklets';
 import { Check } from 'lucide-react-native';
 import { NavigationContext } from '@react-navigation/core';
+import { useMoePreferences } from './preferences';
+import { useReducedMotion } from '../hooks/use-reduced-motion';
+import { resolveMoeCompletionMotion } from './completion-motion';
+import { MoeCompletionBurst } from './MoeCheckButton';
 import { createCompletionFeedbackStore, feedbackGeometry, type CompletionFeedback, type FeedbackAppearance, type FeedbackLayoutGate } from './MoeCompletionFeedbackState';
 
 export type CompletionMeasureRefs = { row: AnimatedRef<View>; title: AnimatedRef<Text>; check: AnimatedRef<View> };
@@ -98,7 +102,7 @@ export function useMoeCompletionFeedback(taskId: string) {
             const geometry = feedbackGeometry(measured.host, measured.row, measured.title, measured.check);
             if (!geometry) return false;
             return host.store.present({ operationId, taskId, title: details.title, appearance: details.appearance,
-                ...geometry, expiresAt: Date.now() + Math.min(340, Math.max(300, durationMs)) });
+                ...geometry, expiresAt: Date.now() + Math.min(500, Math.max(300, durationMs)) });
         } catch { return false; }
     }, [check, host, row, title]);
     const cancel = useCallback((taskId: string, operationId?: number) => host?.store.cancel(taskId, operationId), [host]);
@@ -109,6 +113,9 @@ export function useMoeCompletionFeedback(taskId: string) {
 }
 
 function FeedbackPaint({ entry }: { entry: CompletionFeedback }) {
+    const preferences = useMoePreferences();
+    const reduced = useReducedMotion();
+    const motion = resolveMoeCompletionMotion(preferences.motion, reduced);
     const gate = useMoeCompletionLayoutGate();
     const operationId = entry.operationId;
     // The same UI gate that snaps neighboring cells hides this old paint before
@@ -117,14 +124,15 @@ function FeedbackPaint({ entry }: { entry: CompletionFeedback }) {
     const progress = useRef(new NativeAnimated.Value(0)).current;
     const mark = useRef(new NativeAnimated.Value(0)).current;
     useEffect(() => {
+        if (motion.reduced) { progress.setValue(1); mark.setValue(1); return; }
         const duration = Math.max(1, entry.expiresAt - Date.now());
         const animation = NativeAnimated.parallel([
             NativeAnimated.timing(progress, { toValue: 1, duration, easing: (value) => value, useNativeDriver: true }),
-            NativeAnimated.timing(mark, { toValue: 1, duration: Math.min(150, duration), useNativeDriver: true }),
+            NativeAnimated.timing(mark, { toValue: 1, duration: Math.min(motion.checkMs, duration), useNativeDriver: true }),
         ]);
         animation.start();
         return () => { animation.stop(); progress.stopAnimation(); mark.stopAnimation(); };
-    }, [entry.expiresAt, mark, progress]);
+    }, [entry.expiresAt, mark, progress, motion.reduced, motion.checkMs]);
     const { appearance: a, row, titleRect, check } = entry;
     return (
         <Animated.View collapsable={false} pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants"
@@ -134,7 +142,7 @@ function FeedbackPaint({ entry }: { entry: CompletionFeedback }) {
         <NativeAnimated.View style={[styles.paint, { left: 0, top: 0, width: row.width, height: row.height,
                 backgroundColor: a.backgroundColor, borderColor: a.borderColor, borderWidth: a.borderWidth, borderRadius: a.borderRadius,
                 opacity: progress.interpolate({ inputRange: [0, 0.35, 1], outputRange: [1, 1, 0] }),
-                transform: [{ translateX: progress.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 0, 10] }) }],
+                transform: [{ translateX: progress.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 0, motion.travel] }) }],
             }]}>
             <NativeAnimated.Text numberOfLines={2} style={{ position: 'absolute', left: titleRect.x, top: titleRect.y,
                 width: titleRect.width, height: titleRect.height, color: a.textColor, fontSize: a.fontSize,
@@ -144,12 +152,15 @@ function FeedbackPaint({ entry }: { entry: CompletionFeedback }) {
             <NativeAnimated.View style={{ position: 'absolute', left: check.x, top: check.y, width: check.width, height: check.height,
                 borderRadius: Math.min(9, check.height / 2), backgroundColor: a.checkColor,
                 alignItems: 'center', justifyContent: 'center', opacity: mark,
-                transform: [{ scale: mark.interpolate({ inputRange: [0, 0.65, 1], outputRange: [0.88, 1.12, 1] }) }],
+                transform: [{ scale: mark.interpolate({ inputRange: [0, 0.65, 1], outputRange: [motion.pressedScale, motion.completedScale, 1] }) }],
             }}><Check size={Math.min(check.width, check.height) * 0.67} color={a.checkForeground} strokeWidth={3} /></NativeAnimated.View>
+            <View pointerEvents="none" style={{ position: 'absolute', left: check.x, top: check.y, width: check.width, height: check.height }}>
+                <MoeCompletionBurst progress={progress} motion={motion} color={a.checkColor} />
+            </View>
         </NativeAnimated.View>
         </Animated.View>
     );
 }
 
 const styles = StyleSheet.create({ host: { flex: 1 }, layer: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
-    paintGate: { position: 'absolute' }, paint: { position: 'absolute', overflow: 'hidden' } });
+    paintGate: { position: 'absolute', overflow: 'visible' }, paint: { position: 'absolute', overflow: 'visible' } });

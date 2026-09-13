@@ -9,6 +9,7 @@ import { buildStateLayer, type M3StateName } from '../constants/material3/m3-sta
 import { useTheme, type ThemeContextType } from '../contexts/theme-context';
 import { useMoePreferences } from '../moe/preferences';
 import { resolveMoeTheme } from '../moe/themes';
+import { useSystemPalette } from '../moe/system-palette';
 import { useMemo } from 'react';
 
 type ResolvableTheme = Pick<ThemeContextType, 'isDark' | 'themeStyle' | 'themePreset' | 'themeMode'>;
@@ -122,7 +123,8 @@ export function resolveThemeTokens(theme?: ResolvableTheme | null): ThemeTokens 
 export function useThemeTokens(): ThemeTokens {
   const theme = useTheme();
   const preferences = useMoePreferences();
+  const palette = useSystemPalette();
   const tokens = resolveThemeTokens({ ...theme, themeStyle: 'default', themePreset: 'default' });
-  const { colors, isDark } = resolveMoeTheme(preferences, theme.isDark);
+  const { colors, isDark } = resolveMoeTheme(preferences, theme.isDark, palette);
   return useMemo(() => ({ ...tokens, colors, isDark }), [tokens, colors, isDark]);
 }

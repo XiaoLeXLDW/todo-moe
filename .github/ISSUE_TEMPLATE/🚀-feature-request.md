@@ -1,40 +1,25 @@
 ---
-name: "\U0001F680 Feature Request"
-about: Suggest an idea for this project
-title: "[FEAT]"
-labels: enhancement,status:needs-triage
+name: '功能建议'
+about: '说明希望改善的日常使用场景'
+title: '[IDEA] '
+labels: ''
 assignees: ''
-
 ---
 
-### ✅ Before submitting
-- [ ] I searched existing issues and discussions
-- [ ] This is one request (not multiple unrelated features)
+## 环境
+- Todo Moe 版本 / versionCode：
+- 正式版或 Dev：
+- Android 版本、手机型号：
+- 内屏或外屏（如适用）：
 
-### 💻 Target Platform
-- [ ] Desktop
-- [ ] Mobile
-- [ ] Cloud / Sync / MCP
-- [ ] Cross-platform
+## 操作步骤 / 使用场景
+1.
 
-### 🧭 Area
-- [ ] Inbox / review workflow
-- [ ] Projects / areas / sections
-- [ ] Search / filter
-- [ ] Notifications / recurrence / calendar
-- [ ] Sync / attachments
-- [ ] UI / accessibility / i18n
-- [ ] Release / distribution
-- [ ] Other
+## 预期与实际结果
 
-### 🤔 Is your feature request related to a problem?
-Please describe the problem you are trying to solve. (e.g. "I'm always frustrated when...")
 
-### 💡 Proposed Solution
-Describe the solution you'd like.
+## 可选证据
+截图或精简日志；先隐藏私人任务、令牌和账号信息。不要上传完整私人备份。
 
-### 🔄 Alternatives Considered
-Describe any alternative solutions or features you've considered.
-
-### 🧩 Additional Context
-Add any other context or screenshots about the feature request here.
+## 数据与可选功能
+是否本地使用；如问题涉及同步，请写服务类型，不要写密码。不要为复现而删除原数据或清除应用。

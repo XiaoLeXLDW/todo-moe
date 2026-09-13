@@ -1,53 +1,25 @@
 ---
-name: "📱 Mobile UI Issue"
-about: Report mobile layout, interaction, keyboard, or touch-target problems
-title: "[MOBILE-UI]"
-labels: bug,platform:mobile,area:ui,status:needs-triage
+name: 'Android 界面问题'
+about: '报告布局、玻璃、键盘或动画问题'
+title: '[UI] '
+labels: ''
 assignees: ''
 ---
 
-### 📱 Platform
-- [ ] Android
-- [ ] iOS
+## 环境
+- Todo Moe 版本 / versionCode：
+- 正式版或 Dev：
+- Android 版本、手机型号：
+- 内屏或外屏（如适用）：
 
-### ℹ️ Environment
-- **App Version:** 
-- **Install Channel:** (Play Store / F-Droid / App Store / TestFlight / release APK / source-dev build)
-- **OS Version:** 
-- **Device Model:** 
+## 操作步骤 / 使用场景
+1.
 
-<details>
-<summary><strong>Install channel examples (Click to expand)</strong></summary>
+## 预期与实际结果
 
-- **Android:** Play Store, F-Droid, release file / sideloaded APK, source/dev build
-- **iOS:** App Store, TestFlight, source/dev build
 
-</details>
+## 可选证据
+截图或精简日志；先隐藏私人任务、令牌和账号信息。不要上传完整私人备份。
 
-### 📝 Description
-What UI/UX issue are you seeing?
-
-### 🧭 UI Type
-- [ ] Layout / spacing
-- [ ] Keyboard overlap / input focus
-- [ ] Tap target / gesture handling
-- [ ] Modal / sheet behavior
-- [ ] Navigation / back behavior
-- [ ] Theme / visual rendering
-
-### 🔄 Steps to Reproduce
-1. 
-2. 
-3. 
-
-### 🎯 Expected Behavior
-What did you expect instead?
-
-### 📸 Screenshots / Screen Recording
-Please attach screenshots or a short recording if possible.
-
-To record with fictional tasks instead of private content, choose **Settings → Data → Open sandbox** near Diagnostics, then confirm **Enter sandbox**. Use **Exit** in the sandbox banner to return to your personal workspace. This is optional; some issues need your own data to reproduce. See [Record with sample data](https://docs.mindwtr.app/data-sync/diagnostics-logs#record-with-sample-data).
-
-### 📎 Extra Device Info (optional but helpful)
-- Display size / font scale:
-- Orientation:
+## 数据与可选功能
+是否本地使用；如问题涉及同步，请写服务类型，不要写密码。不要为复现而删除原数据或清除应用。

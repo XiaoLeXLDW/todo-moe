@@ -12,6 +12,9 @@ import type { Language } from '@/contexts/language-context';
 
 export type SettingsScreen =
     | 'main'
+    | 'appearance'
+    | 'motion'
+    | 'tasks'
     | 'general'
     | 'notifications'
     | 'ai'
@@ -32,6 +35,9 @@ export type SettingsScreen =
 
 export const SETTINGS_SCREEN_SET: Record<SettingsScreen, true> = {
     main: true,
+    appearance: true,
+    motion: true,
+    tasks: true,
     general: true,
     notifications: true,
     ai: true,
@@ -56,6 +62,9 @@ export const SETTINGS_SCREEN_SET: Record<SettingsScreen, true> = {
 // keywords come from the *translated* setting labels and can't drift when new
 // settings are added. Keep in step with the sub-screens under components/settings.
 export type SettingsMenuRowId =
+    | 'appearance'
+    | 'motion'
+    | 'tasks'
     | 'general'
     | 'gtd'
     | 'manage'
@@ -71,7 +80,8 @@ export type SettingsMenuRowId =
 // + local calendar-file import) has no mobile row at all — mobile has neither
 // feature, and both keys are on core's SETTINGS_SEARCH_MOBILE_EXCLUSIONS list.
 const DESKTOP_PAGES_FOR_ROW: Record<SettingsMenuRowId, readonly SettingsSearchPageId[]> = {
-    general: ['main'],
+    appearance: [], motion: [], tasks: ['gtd', 'manage', 'notifications'],
+    general: ['main', 'ai', 'advanced'],
     gtd: ['gtd'],
     manage: ['manage'],
     notifications: ['notifications'],
@@ -117,6 +127,7 @@ function derivedRowKeys(row: SettingsMenuRowId): string[] {
 // combined roster resolves, so a wrong or invented key fails CI rather than
 // silently contributing nothing.
 const MOBILE_ROW_EXTRA_KEYS: Record<SettingsMenuRowId, readonly string[]> = {
+    appearance: ['settings.theme'], motion: [], tasks: [],
     general: ['settings.theme', 'settings.mobile.appLock', 'settings.privacy', 'settings.appSearchLabel'],
     gtd: ['settings.gtdMobile.pomodoroSettings', 'settings.dailyReviewConfig'],
     // manage-settings-screen renders areas/contexts/tags via non-settings keys.
@@ -148,7 +159,8 @@ const MOBILE_ROW_EXTRA_KEYS: Record<SettingsMenuRowId, readonly string[]> = {
 };
 
 export const SETTINGS_MENU_KEYWORD_KEYS: Record<SettingsMenuRowId, readonly string[]> = {
-    general: [...derivedRowKeys('general'), ...MOBILE_ROW_EXTRA_KEYS.general],
+    appearance: ['settings.theme'], motion: [], tasks: [...derivedRowKeys('tasks'), ...MOBILE_ROW_EXTRA_KEYS.gtd, ...MOBILE_ROW_EXTRA_KEYS.manage, ...MOBILE_ROW_EXTRA_KEYS.notifications],
+    general: [...derivedRowKeys('general'), ...MOBILE_ROW_EXTRA_KEYS.general, ...MOBILE_ROW_EXTRA_KEYS.advanced],
     gtd: [...derivedRowKeys('gtd'), ...MOBILE_ROW_EXTRA_KEYS.gtd],
     manage: [...derivedRowKeys('manage'), ...MOBILE_ROW_EXTRA_KEYS.manage],
     notifications: [...derivedRowKeys('notifications'), ...MOBILE_ROW_EXTRA_KEYS.notifications],
@@ -172,7 +184,10 @@ export function buildSettingsMenuSearchText(
         // `t` returns the key when a translation is missing; drop those non-labels.
         .filter(({ key, value }) => value && value !== key)
         .map(({ value }) => value);
-    return [title, description ?? '', ...keywordLabels].join(' ').toLowerCase();
+    const productKeywords = id === 'appearance' ? '玻璃 莫奈 壁纸 配色 色相 自定义 颜色 HEX glass monet wallpaper color hue accent'
+        : id === 'motion' ? '动画 触感 庆祝 预览 减少动态 效果 animation motion haptic celebration preview reduced'
+        : '';
+    return [title, description ?? '', ...keywordLabels, productKeywords].join(' ').toLowerCase();
 }
 
 // Which setting inside a menu row the query actually hit, and where it lives

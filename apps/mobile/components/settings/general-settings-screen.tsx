@@ -16,8 +16,7 @@ import {
     useTaskStore,
 } from '@mindwtr/core';
 
-import { MoeSettings } from '@/moe/MoeSettings';
-import { useMoePreferences } from '@/moe/preferences';
+import { useRouter } from 'expo-router';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { isAppSearchSupported, readAppSearchIndexingEnabled, writeAppSearchIndexingEnabled } from '@/lib/app-search-preference';
 import { enableAppSearchIndexing, wipeAppSearchIndex } from '@/lib/app-search-service';
@@ -30,7 +29,7 @@ import { SettingsTopBar } from './settings.shell';
 import { styles } from './settings.styles';
 
 export function GeneralSettingsScreen() {
-    const moePreferences = useMoePreferences();
+    const router = useRouter();
     const { language, tr, setLanguage, t } = useSettingsLocalization();
     const { settings, updateSettings } = useTaskStore((state) => ({
         settings: state.settings,
@@ -38,7 +37,6 @@ export function GeneralSettingsScreen() {
     }), shallow);
     const tc = useThemeColors();
     const scrollContentStyle = useSettingsScrollContent();
-    const [themePickerOpen, setThemePickerOpen] = useState(false);
     const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
     const [weekStartPickerOpen, setWeekStartPickerOpen] = useState(false);
     const [dateFormatPickerOpen, setDateFormatPickerOpen] = useState(false);
@@ -64,9 +62,6 @@ export function GeneralSettingsScreen() {
     const calendarSystem = resolveCalendarSystemSetting(settings.calendarSystem, { language, systemLocale });
     const showTaskAge = settings.appearance?.showTaskAge === true;
     const appLockEnabled = settings.security?.mobileAppLockEnabled === true;
-    const currentThemeLabel = language.startsWith('zh')
-        ? (moePreferences.followSystem ? '跟随系统明暗' : { soft: '柔白', ink: '墨色', family: '家族色' }[moePreferences.theme])
-        : (moePreferences.followSystem ? 'Follow system appearance' : { soft: 'Soft white', ink: 'Ink', family: 'Family' }[moePreferences.theme]);
     // Both "System default" labels show what they resolve to: the runtime locale
     // decides, which on a customized OS can differ from the OS setting (#1006).
     const systemWeekStart = normalizeWeekStartSetting('system');
@@ -162,14 +157,15 @@ export function GeneralSettingsScreen() {
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: tc.bg }]} edges={['bottom']}>
-            <SettingsTopBar title={t('settings.general')} />
+            <SettingsTopBar title={language.startsWith('zh') ? '通用与隐私' : 'General & privacy'} />
             <ScrollView style={styles.scrollView} contentContainerStyle={scrollContentStyle}>
+                <View style={[styles.settingCard, { backgroundColor: tc.cardBg }]}><SettingRow label={language.startsWith('zh') ? '工具与集成' : 'Tools & integrations'} description={language.startsWith('zh') ? '可选 AI 与日历功能' : 'Optional AI and calendar features'} onPress={() => router.push({ pathname: '/settings', params: { settingsScreen: 'advanced' } })} /></View>
                 <Text style={[styles.sectionTitle, { color: tc.secondaryText }]}>{t('settings.appearance')}</Text>
                 <View style={[styles.settingCard, { backgroundColor: tc.cardBg }]}>
                     <SettingRow
-                        onPress={() => setThemePickerOpen(true)}
+                        onPress={() => router.push({ pathname: '/settings', params: { settingsScreen: 'appearance' } })}
                         label={t('settings.theme')}
-                        description={currentThemeLabel}
+                        description={language.startsWith('zh') ? '明暗、配色与玻璃' : 'Mode, colors and glass'}
                     >
                         <Ionicons color={tc.secondaryText} name="chevron-down" size={18} />
                     </SettingRow>
@@ -224,7 +220,6 @@ export function GeneralSettingsScreen() {
                     )}
                 </View>
 
-                {themePickerOpen && <MoeSettings visible onClose={() => setThemePickerOpen(false)} />}
 
                 <Text style={[styles.sectionTitle, { color: tc.secondaryText, marginTop: 16 }]}>{t('settings.language')}</Text>
                 <Text style={[styles.description, { color: tc.secondaryText }]}>{t('settings.selectLang')}</Text>

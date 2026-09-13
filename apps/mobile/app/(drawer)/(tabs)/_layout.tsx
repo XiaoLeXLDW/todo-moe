@@ -22,7 +22,6 @@ import {
 } from '@/lib/mobile-quick-access-view';
 import { COMPACT_NAV_TEXT_MAX_SCALE } from '@/constants/text-scale';
 import { MoeTabBar } from '@/moe/MoeTabBar';
-import { MoeSettings } from '@/moe/MoeSettings';
 import { moeTabLabel } from '@/moe/navigation';
 import { MoeCelebration } from '@/moe/MoeCelebration';
 import { MOE_TAB_BOTTOM_PADDING, MoeTabInsetContext } from '@/moe/tab-insets';
@@ -389,7 +388,6 @@ export default function TabLayout() {
     initialProps: null,
     autoRecord: false,
   });
-  const [moeSettingsVisible, setMoeSettingsVisible] = useState(false);
   const [moreSheetVisible, setMoreSheetVisible] = useState(false);
   const [moreSheetCloseRequestId, setMoreSheetCloseRequestId] = useState(0);
   const withSelectedArea = useCallback((initialProps?: Partial<Task> | null): Partial<Task> | undefined => {
@@ -527,7 +525,7 @@ export default function TabLayout() {
                 <Search size={22} color={tc.text} />
               </TouchableOpacity>
             </Link>
-            <TouchableOpacity onPress={() => setMoeSettingsVisible(true)} style={styles.headerIconButton}
+            <TouchableOpacity onPress={() => router.push('/settings')} style={styles.headerIconButton}
               accessibilityLabel={t('nav.settings')} accessibilityRole="button">
               <Settings size={22} color={tc.text} />
             </TouchableOpacity>
@@ -626,7 +624,6 @@ export default function TabLayout() {
         onDidHide={() => finishQuickCaptureExit(captureState.openRequestId)}
       />}
     <MoeCelebration />
-    {moeSettingsVisible && <MoeSettings visible onClose={() => setMoeSettingsVisible(false)} />}
     <MoreNavigationSheet
       closeRequestId={moreSheetCloseRequestId}
       onClose={closeMoreSheet}

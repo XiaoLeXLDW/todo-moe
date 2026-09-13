@@ -20,6 +20,7 @@ import {
 const t = (key: string): string => getEnglishI18nValue(key) ?? key;
 
 const ROW_TITLE_KEY: Record<SettingsMenuRowId, string> = {
+    appearance: 'settings.appearance', motion: 'settings.appearance', tasks: 'settings.gtd',
     general: 'settings.general',
     gtd: 'settings.gtd',
     manage: 'settings.manage',
@@ -29,7 +30,7 @@ const ROW_TITLE_KEY: Record<SettingsMenuRowId, string> = {
     advanced: 'settings.advanced',
     about: 'settings.about',
 };
-const ROW_IDS = Object.keys(ROW_TITLE_KEY) as SettingsMenuRowId[];
+const ROW_IDS: SettingsMenuRowId[] = ['sync', 'data', 'appearance', 'motion', 'tasks', 'general', 'about'];
 
 function visibleRowIds(query: string): SettingsMenuRowId[] {
     return ROW_IDS.filter((id) =>
@@ -42,7 +43,7 @@ function visibleRowIds(query: string): SettingsMenuRowId[] {
 // verbatim (not re-derived) so the superset check below can't shrink in
 // lockstep with a bug in the new derivation — see COMMON-20260726.md's "a test
 // that iterates the new thing cannot catch the new thing shrinking".
-const PREVIOUS_SETTINGS_MENU_KEYWORD_KEYS: Record<SettingsMenuRowId, readonly string[]> = {
+const PREVIOUS_SETTINGS_MENU_KEYWORD_KEYS: Record<Exclude<SettingsMenuRowId, 'appearance' | 'motion' | 'tasks'>, readonly string[]> = {
     general: [
         'settings.appearance', 'settings.theme', 'settings.language', 'settings.weekStart',
         'settings.dateFormat', 'settings.timeFormat', 'settings.calendarSystem',
@@ -101,7 +102,7 @@ describe('settings menu search index', () => {
     // core-roster-derived list is a strict superset of it, row by row — never
     // a same-size "round trip" of the new roster against itself.
     it('the new derived roster is a superset of every previously indexed key', () => {
-        for (const row of ROW_IDS) {
+        for (const row of Object.keys(PREVIOUS_SETTINGS_MENU_KEYWORD_KEYS) as (keyof typeof PREVIOUS_SETTINGS_MENU_KEYWORD_KEYS)[]) {
             const previous = PREVIOUS_SETTINGS_MENU_KEYWORD_KEYS[row];
             const current = new Set(SETTINGS_MENU_KEYWORD_KEYS[row]);
             const dropped = previous.filter((key) => !current.has(key));
@@ -134,15 +135,15 @@ describe('settings menu search index', () => {
 
     it('surfaces the right row for real setting labels and hides unrelated rows', () => {
         // "pomodoro" is a GTD sub-screen setting, not a menu title.
-        expect(visibleRowIds('pomodoro')).toEqual(['gtd']);
+        expect(visibleRowIds('pomodoro')).toEqual(['tasks']);
         // The exact content the review flagged as missing before the fix:
         expect(visibleRowIds('todoist')).toEqual(['data']);
         expect(visibleRowIds('ticktick')).toEqual(['data']);
         expect(visibleRowIds('omnifocus')).toEqual(['data']);
         // "areas" is a Manage sub-setting (areas.manage -> "Areas").
-        expect(visibleRowIds('areas')).toEqual(['manage']);
+        expect(visibleRowIds('areas')).toEqual(['tasks']);
         // AI provider indexed on the Advanced row.
-        expect(visibleRowIds('anthropic')).toEqual(['advanced']);
+        expect(visibleRowIds('anthropic')).toEqual(['general']);
         expect(visibleRowIds('official website')).toEqual(['about']);
     });
 
@@ -151,8 +152,8 @@ describe('settings menu search index', () => {
     // gtd-settings-screen.tsx renders quickAddAutoClean/markdownEditorAssist,
     // sync-settings-sections.tsx renders backgroundSync — none were indexed.
     it('finds the settings this task discovered were missing from the mobile index', () => {
-        expect(visibleRowIds('clean up quick add')).toEqual(['gtd']);
-        expect(visibleRowIds('editor typing help')).toEqual(['gtd']);
+        expect(visibleRowIds('clean up quick add')).toEqual(['tasks']);
+        expect(visibleRowIds('editor typing help')).toEqual(['tasks']);
         expect(visibleRowIds('background sync')).toEqual(['sync']);
         // Android-only, so it is absent from desktop's roster and no derived
         // key covers it — general-settings-screen renders it behind
