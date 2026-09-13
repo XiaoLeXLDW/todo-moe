@@ -54,6 +54,7 @@ function remote(useDigest = false) {
         failReads: false,
         publishDuringFinalListing: false,
         downloads: 0,
+        hideDraftFromTagLookup: false,
     };
     const publicAsset = (asset: Asset) => ({ id: asset.id, name: asset.name, state: asset.state, size: asset.content.length,
         ...(useDigest || asset.wrongDigest ? { digest: `sha256:${asset.wrongDigest ? '0'.repeat(64) : digest(asset.content)}` } : {}) });
@@ -69,7 +70,7 @@ function remote(useDigest = false) {
                 return JSON.stringify({ object: { type: 'commit', sha: state.tagSha } });
             }
             if (endpoint.startsWith('releases/tags/')) {
-                if (!state.release) throw missing();
+                if (!state.release || (state.hideDraftFromTagLookup && state.release.draft)) throw missing();
                 return JSON.stringify(state.release);
             }
             if (endpoint.startsWith('releases/assets/')) {
@@ -127,6 +128,15 @@ function remote(useDigest = false) {
     };
     return { state, dependencies: { gh, inspectSource } };
 }
+
+test('finds a draft through the release list when the tag endpoint returns 404', async () => {
+    const f = fixture(); const server = remote();
+    server.state.hideDraftFromTagLookup = true;
+    expect((await publishRelease(f.options, server.dependencies)).status).toBe('draft-ready');
+    expect((await publishRelease({ ...f.options, preview: true, publish: true }, server.dependencies)).mode).toBe('resume-draft');
+    expect((await publishRelease({ ...f.options, publish: true }, server.dependencies)).status).toBe('published');
+    expect(server.state.assets).toHaveLength(4);
+});
 
 test('uploads four verified assets as draft and publishes only after the final remote gate', async () => {
     const f = fixture(); const server = remote();
