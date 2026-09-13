@@ -104,6 +104,12 @@ export function createCompletionFeedbackStore() {
             if (removeUndo) { undoing.delete(taskId); finishLayoutHandoff(); }
             entries = next; notify(); schedule();
         },
+        dismissVisuals() {
+            if (!entries.length) return;
+            cancelPaint(entries.map((entry) => entry.operationId));
+            entries = [];
+            notify(); schedule();
+        },
         clear() {
             if (timer !== undefined) clearTimeout(timer);
             timer = undefined;

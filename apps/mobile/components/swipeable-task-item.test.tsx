@@ -6,8 +6,14 @@ import { Alert } from 'react-native';
 import { SwipeableTaskItem, readTaskRowRenderCount, type TaskRowActions } from './swipeable-task-item';
 import { MoeCheckButton } from '../moe/MoeCheckButton';
 import { subscribeListCompleted } from '../moe/completion';
+import { ToastProvider } from '../contexts/toast-context';
 
 const promptPreference = vi.hoisted(() => ({ enabled: false }));
+const toastMode = vi.hoisted(() => ({ realProvider: false }));
+vi.mock('react-native', async (importOriginal) => {
+  const actual = await importOriginal() as any;
+  return { ...actual, Easing: { ...actual.Easing, out: (value: unknown) => value, quad: 'quad', cubic: 'cubic' } };
+});
 vi.mock('../moe/preferences', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../moe/preferences')>();
   return { ...actual, getMoePreferences: () => ({ ...actual.getMoePreferences(), nextActionPrompt: promptPreference.enabled }) };
@@ -168,6 +174,24 @@ vi.mock('expo-haptics', () => ({
   notificationAsync: hapticsMocks.notificationAsync,
 }));
 
+vi.mock('@react-navigation/native', async () => {
+  const ReactModule = await import('react');
+  return { NavigationContext: ReactModule.createContext(undefined) };
+});
+
+vi.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+}));
+
+vi.mock('../hooks/use-theme-colors', () => ({
+  useThemeColors: () => ({
+    success: '#16a34a', warning: '#d97706', danger: '#dc2626', tint: '#2563eb',
+    cardBg: '#ffffff', border: '#d1d5db', text: '#111827', secondaryText: '#6b7280', bg: '#f9fafb',
+  }),
+}));
+
+vi.mock('@/lib/app-log', () => ({ logError: vi.fn() }));
+
 vi.mock('./completed-at-picker', () => ({
   CompletedAtPicker: (props: any) => React.createElement('CompletedAtPicker', props),
 }));
@@ -190,13 +214,15 @@ vi.mock('@/lib/task-meta-navigation', () => ({
   openTaskScreen: vi.fn(),
 }));
 
-vi.mock('../contexts/toast-context', () => ({
-  ToastViewport: () => null,
-  useToast: () => ({
-    showToast,
-    dismissToast: vi.fn(),
-  }),
-}));
+vi.mock('../contexts/toast-context', async (importOriginal) => {
+  const actual = await importOriginal() as any;
+  return {
+    ...actual,
+    useToast: () => toastMode.realProvider
+      ? actual.useToast()
+      : { showToast, dismissToast: vi.fn() },
+  };
+});
 
 vi.mock('../hooks/use-theme-tokens', () => ({
   useThemeTokens: () => ({
@@ -248,6 +274,7 @@ describe('SwipeableTaskItem', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    toastMode.realProvider = false;
     promptPreference.enabled = false;
     translate.overrides = {};
     storeState.projects = [];
@@ -1866,7 +1893,8 @@ it('can keep the focus star without adding a redundant focus outline', () => {
   });
 
   it('reports a failed completion undo', async () => {
-    undoTaskCompletion.mockRejectedValueOnce(new Error('Could not restore status'));
+    let rejectUndo!: (error: Error) => void;
+    undoTaskCompletion.mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { rejectUndo = reject; }));
     const task = {
       id: 'task-undo',
       title: 'Finish current step',
@@ -1909,16 +1937,60 @@ it('can keep the focus star without adding a redundant focus outline', () => {
       .find((options) => options?.actionLabel === 'Undo');
     expect(undoToast).toBeDefined();
 
-    await renderer.act(async () => {
-      undoToast.onAction();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
+    let pendingUndo!: Promise<void>;
+    renderer.act(() => { pendingUndo = undoToast.onAction(); });
+    expect(pendingUndo).toBeInstanceOf(Promise);
+    expect(showToast).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'Could not restore status' }));
+    await renderer.act(async () => { rejectUndo(new Error('Could not restore status')); await pendingUndo; });
 
     expect(showToast).toHaveBeenCalledWith(expect.objectContaining({
       message: 'Could not restore status',
       tone: 'error',
     }));
+  });
+
+  it('keeps the real completion toast claimed until the real row Undo promise settles', async () => {
+    vi.useFakeTimers();
+    toastMode.realProvider = true;
+    let rejectUndo!: (error: Error) => void;
+    undoTaskCompletion.mockImplementationOnce((taskId: string) => {
+      expect(taskId).toBe('task-provider-undo');
+      return new Promise<void>((_resolve, reject) => { rejectUndo = reject; });
+    });
+    const task = {
+      id: 'task-provider-undo', title: 'Provider integration', status: 'next', isFocusedToday: true,
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    } as any;
+    let tree!: renderer.ReactTestRenderer;
+    renderer.act(() => {
+      tree = renderer.create(<ToastProvider><SwipeableTaskItem
+        task={task} isDark={false} tc={{
+          taskItemBg: '#111111', cardBg: '#111111', bg: '#000000', border: '#222222', text: '#ffffff',
+          secondaryText: '#999999', tint: '#3b82f6', onTint: '#ffffff', success: '#16a34a',
+          warning: '#f59e0b', danger: '#dc2626', inputBg: '#222222', filterBg: '#333333',
+        } as any}
+        onPress={vi.fn()} onStatusChange={vi.fn().mockResolvedValue({ success: true })} onDelete={vi.fn()}
+      /></ToastProvider>);
+    });
+    const doneAction = tree.root.find(
+      (node) => node.props.accessibilityLabel === 'Done action' && typeof node.props.onPress === 'function'
+    );
+    await renderer.act(async () => { doneAction.props.onPress(); await Promise.resolve(); });
+    const undoButton = tree.root.find(
+      (node) => node.props.accessibilityRole === 'button' && flattenText(node.props.children) === 'Undo'
+    );
+    let pending!: Promise<void>;
+    renderer.act(() => { pending = undoButton.props.onPress(); });
+    expect(pending).toBeInstanceOf(Promise);
+    expect(undoButton.props.disabled).toBe(true);
+    await renderer.act(async () => { rejectUndo(new Error('Could not restore status')); await pending; });
+    renderer.act(() => { vi.advanceTimersByTime(120); });
+    expect(tree.root.findAllByType('Text' as any)
+      .filter((node) => node.props.children === 'Could not restore status')).toHaveLength(1);
+    expect(tree.root.findByType(MoeCheckButton).props.disabled).toBe(false);
+    renderer.act(() => tree.unmount());
+    toastMode.realProvider = false;
+    vi.useRealTimers();
   });
 
   it('keeps the next-action prompt open when promoting a candidate fails', async () => {

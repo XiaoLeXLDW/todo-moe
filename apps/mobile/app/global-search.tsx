@@ -49,7 +49,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { TaskEditModal } from '@/components/task-edit-modal';
 import { ThemedAlertHost } from '@/components/themed-alert';
 import { settleStoreAction } from '@/components/store-action-result';
-import { useToast, ToastViewport } from '../contexts/toast-context';
+import { TASK_COMPLETION_TOAST_KEY, useToast, ToastViewport } from '../contexts/toast-context';
 import { openContextsScreen, openProjectScreen } from '@/lib/task-meta-navigation';
 import { useFutureStartRevealTick, useLocalDayKey } from '@/hooks/use-local-day-key';
 
@@ -350,13 +350,13 @@ export default function SearchScreen() {
                     message: formatTaskMarkedDoneMessage(t, task.title),
                     tone: 'info',
                     actionLabel: tFallback(t, 'common.undo', 'Undo'),
-                    onAction: () => {
-                        void settleStoreAction(() => (
+                    onAction: async () => {
+                        const undoOutcome = await settleStoreAction(() => (
                             undoTaskCompletion(task.id, previousStatus, wasFocusedToday)
-                        )).then((undoOutcome) => {
-                            if (!undoOutcome.ok) showTaskActionFailure(undoOutcome.message);
-                        });
+                        ));
+                        if (!undoOutcome.ok) showTaskActionFailure(undoOutcome.message);
                     },
+                    replaceKey: TASK_COMPLETION_TOAST_KEY,
                     durationMs: 5200,
                 });
             });
