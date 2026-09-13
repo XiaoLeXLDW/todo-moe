@@ -113,6 +113,7 @@ vi.mock('@/lib/task-meta-navigation', () => ({
 
 const showToastMock = vi.hoisted(() => vi.fn());
 vi.mock('../contexts/toast-context', () => ({
+    TASK_COMPLETION_TOAST_KEY: 'task-completion',
     useToast: () => ({ showToast: showToastMock }),
     ToastViewport: () => null,
 }));

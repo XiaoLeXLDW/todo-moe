@@ -223,7 +223,7 @@ function PersonalSettingsPage() {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: tc.bg }]} edges={['bottom']}>
             <SettingsTopBar />
-            <ScrollView style={styles.scrollView} contentContainerStyle={scrollContentStyle}>
+            <ScrollView style={styles.scrollView} contentContainerStyle={scrollContentStyle} keyboardShouldPersistTaps="handled">
                 <View style={[searchStyles.searchBar, { backgroundColor: tc.cardBg, borderColor: tc.border }]}>
                     <Search color={tc.secondaryText} size={18} strokeWidth={2} />
                     <TextInput

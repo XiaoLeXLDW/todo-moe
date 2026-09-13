@@ -271,6 +271,7 @@ vi.mock('expo-router', () => ({
 }));
 
 vi.mock('../contexts/toast-context', () => ({
+  TASK_COMPLETION_TOAST_KEY: 'task-completion',
   useToast: () => ({
     showToast,
     dismissToast,

@@ -118,6 +118,25 @@ it('page change, modal deactivation and background dispose paint and pending cle
     expect(paints()).toHaveLength(0); expect(vi.getTimerCount()).toBe(0);
 });
 
+it('dismisses fixed-position paint on finger movement without discarding pending Undo identity', () => {
+    mount(); geometry();
+    act(() => { transition.arm(70, details); transition.beginUndo(70); });
+    expect(paints()).toHaveLength(1); expect(feedbackActive).toBe(true);
+    act(() => tree!.root.findByProps({ testID: 'moe-feedback-touch-host' }).props.onTouchMove());
+    expect(paints()).toHaveLength(0); expect(feedbackActive).toBe(true); expect(vi.getTimerCount()).toBe(0);
+    act(() => transition.finishUndo(70));
+    expect(feedbackActive).toBe(false);
+});
+
+it('invalidates stale geometry before another tap and when the host window relayouts', () => {
+    mount(); geometry(); act(() => transition.arm(71, details));
+    act(() => tree!.root.findByProps({ testID: 'moe-feedback-touch-host' }).props.onTouchStart());
+    expect(paints()).toHaveLength(0);
+    geometry(); act(() => transition.arm(72, details));
+    act(() => tree!.root.findByProps({ testID: 'moe-completion-feedback-host' }).props.onLayout());
+    expect(paints()).toHaveLength(0); expect(feedbackActive).toBe(false);
+});
+
 it('null measurement immediately falls back without retries or delaying the store', () => {
     mount(); vi.mocked(measure).mockReturnValue(null); const write = vi.fn();
     act(() => { transition.arm(9, details); write(); });

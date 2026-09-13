@@ -70,9 +70,13 @@ export function MoeCompletionFeedbackHost({ children, active = true, scopeKey = 
     const host = useMemo(() => ({ store, hostRef, layoutGate, available: () => enabled.current && ready.current }), [hostRef, layoutGate, store]);
     return (
         <Context.Provider value={host}>
-            <View style={styles.host}>
+            <View style={styles.host} testID="moe-feedback-touch-host"
+                onTouchStart={store.dismissVisuals} onTouchMove={store.dismissVisuals}>
                 {children}
-                <Animated.View ref={hostRef} collapsable={false} onLayout={() => { ready.current = true; }}
+                <Animated.View ref={hostRef} collapsable={false} onLayout={() => {
+                    if (ready.current) store.dismissVisuals();
+                    ready.current = true;
+                }}
                     testID="moe-completion-feedback-host"
                     pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants"
                     accessibilityElementsHidden style={styles.layer}>

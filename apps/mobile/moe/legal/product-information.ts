@@ -51,3 +51,60 @@ export const productPrivacy = `Todo Moe 隐私说明
 适用范围
 
 这份说明描述 Todo Moe 自有 Android 构建，不替代 GitHub、同步或 AI 服务的隐私政策。源代码可供核查，第三方修改版的行为可能不同。`;
+
+const productHelpEn = `Quick start
+
+Tap “+” in the bottom bar to capture something. A title is enough; add a date, list, or more fields when needed. Process unorganized tasks from Inbox.
+
+Today and lists
+
+Today brings together tasks that need attention. Lists organize work, folders contain lists, and groups divide a list into stages.
+
+Complete and undo
+
+Tap the circle beside a task to complete it, then use the Undo message to restore it. Completion is saved immediately and does not wait for the animation. Check Trash before clearing app data to solve a display problem.
+
+Appearance and glass
+
+Choose brightness, colors, and glass under Settings → Appearance. Adjust intensity and preview completion feedback under Motion & haptics. Liquid glass requires supported Android graphics; Soft or Off reduces the effect. Reduced motion is available for motion sensitivity.
+
+Backup and moving devices
+
+Use Settings → Backup & restore → Backup → Export backup, and choose a folder you can find again. A backup can contain tasks, notes, and settings. Export current data before restoring. Dev and Stable are separate apps and do not move data automatically.
+
+Updates
+
+Install the Stable APK from this project's GitHub Releases over the existing app so the signing identity and data are retained. Do not uninstall to update. A Dev package does not update Stable.
+
+Feedback
+
+Include the app version, phone model, steps, expected result, and actual result. Screenshots, backups, and logs may contain personal information; inspect them before sharing.`;
+
+const productPrivacyEn = `Todo Moe privacy information
+
+Local use
+
+You can record tasks without an account. Tasks and app settings are stored on the device. Stable and Dev use separate app identities and do not import data from one another automatically.
+
+Optional network features
+
+When you configure WebDAV, file sync, or another available sync service, relevant data is sent to the location you choose. AI, voice, remote attachments, external calendars, and similar optional features may send relevant content to the configured service. Review that service's address, permissions, and privacy policy first.
+
+Updates and external links
+
+Download, update, source, and feedback links open GitHub, which handles requests under its own policies. Other screens may also access the network for remote attachments or optional services, so the app does not claim to be permanently offline.
+
+Diagnostics and feedback
+
+This Android build disables upstream usage analytics, remote feedback services, and background code updates. Diagnostic logs may remain on the device. Inspect exports before sharing and never publish tokens, account addresses, or private tasks.
+
+Permissions and backups
+
+Notifications, files, calendars, and microphone permissions support their corresponding features and are optional until needed. Exported backups may contain task content and settings. Uninstalling or clearing app data can remove local records; external backups are not deleted automatically.
+
+Scope
+
+This information describes Todo Moe's own Android builds. It does not replace the policies of GitHub, sync providers, or AI services, and third-party builds may behave differently.`;
+
+export const getProductHelp = (language: string) => language.startsWith('zh') ? productHelp : productHelpEn;
+export const getProductPrivacy = (language: string) => language.startsWith('zh') ? productPrivacy : productPrivacyEn;

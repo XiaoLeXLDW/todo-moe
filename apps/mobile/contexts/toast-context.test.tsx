@@ -163,6 +163,71 @@ describe('ToastProvider', () => {
         act(() => { tree.unmount(); });
     });
 
+    it('keeps only the newest replaceable task completion and runs that task action', async () => {
+        let controls!: ToastControls;
+        let tree!: ReactTestRenderer;
+        const actions = Array.from({ length: 5 }, () => vi.fn());
+        act(() => { tree = create(<ToastProvider><ToastHarness onReady={value => { controls = value; }} /></ToastProvider>); });
+        act(() => {
+            actions.forEach((onAction, index) => controls.showToast({
+                message: `Completed task-${index + 1}`,
+                actionLabel: 'Undo',
+                onAction,
+                replaceKey: 'task-completion',
+                durationMs: 10_000,
+            }));
+        });
+        expect(getRenderedText(tree)).toContain('Completed task-5');
+        expect(getRenderedText(tree)).not.toContain('Completed task-1');
+        await act(async () => { await tree.root.findByType('Pressable' as any).props.onPress(); });
+        expect(actions.slice(0, 4).every(action => action.mock.calls.length === 0)).toBe(true);
+        expect(actions[4]).toHaveBeenCalledOnce();
+        act(() => { tree.unmount(); });
+    });
+
+    it('presents an error immediately instead of leaving it behind completion toasts', () => {
+        let controls!: ToastControls;
+        let tree!: ReactTestRenderer;
+        act(() => { tree = create(<ToastProvider><ToastHarness onReady={value => { controls = value; }} /></ToastProvider>); });
+        act(() => {
+            controls.showToast({ message: 'Completed task-1', actionLabel: 'Undo', replaceKey: 'task-completion', durationMs: 10_000 });
+            controls.showToast({ message: 'Completed task-2', actionLabel: 'Undo', replaceKey: 'task-completion', durationMs: 10_000 });
+            controls.showToast({ message: 'Persistence failed', tone: 'error', durationMs: 10_000 });
+        });
+        expect(getRenderedText(tree)).toContain('Persistence failed');
+        expect(getRenderedText(tree)).not.toContain('Completed task-1');
+        act(() => { tree.unmount(); });
+    });
+
+    it('keeps a visible error ahead of a newer replaceable completion', () => {
+        let controls!: ToastControls;
+        let tree!: ReactTestRenderer;
+        act(() => { tree = create(<ToastProvider><ToastHarness onReady={value => { controls = value; }} /></ToastProvider>); });
+        act(() => {
+            controls.showToast({ message: 'Persistence failed', tone: 'error', durationMs: 10_000 });
+            controls.showToast({ message: 'Later completion', actionLabel: 'Undo', replaceKey: 'task-completion', durationMs: 10_000 });
+        });
+        expect(getRenderedText(tree)).toContain('Persistence failed');
+        expect(getRenderedText(tree)).not.toContain('Later completion');
+        act(() => { tree.unmount(); });
+    });
+
+    it('rejects a superseded completion handler before React commits its replacement', () => {
+        let controls!: ToastControls;
+        let tree!: ReactTestRenderer;
+        const oldUndo = vi.fn();
+        act(() => { tree = create(<ToastProvider><ToastHarness onReady={value => { controls = value; }} /></ToastProvider>); });
+        act(() => { controls.showToast({ message: 'Old task', actionLabel: 'Undo', onAction: oldUndo, replaceKey: 'task-completion' }); });
+        const stalePress = tree.root.findByType('Pressable' as any).props.onPress;
+        act(() => {
+            controls.showToast({ message: 'New task', actionLabel: 'Undo', replaceKey: 'task-completion' });
+            void stalePress();
+        });
+        expect(oldUndo).not.toHaveBeenCalled();
+        expect(getRenderedText(tree)).toContain('New task');
+        act(() => { tree.unmount(); });
+    });
+
     it('does not let an expired asynchronous undo dismiss the newer visible toast', async () => {
         let controls!: ToastControls;
         let tree!: ReactTestRenderer;

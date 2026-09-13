@@ -25,7 +25,11 @@ export type ToastOptions = {
     durationMs?: number;
     actionLabel?: string;
     onAction?: () => void | Promise<void>;
+    /** Keep only the newest pending action in one semantic family. */
+    replaceKey?: string;
 };
+
+export const TASK_COMPLETION_TOAST_KEY = 'task-completion';
 
 type ToastState = ToastOptions & {
     id: number;
@@ -104,6 +108,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const queueRef = useRef<ToastState[]>([]);
     const activeToastRef = useRef<ToastState | null>(null);
     const claimedActionIdRef = useRef<number | null>(null);
+    const latestReplaceIdRef = useRef(new Map<string, number>());
     const toast = queue[0] ?? null;
 
     useEffect(() => {
@@ -201,21 +206,42 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }), [dismissToast, resetToastSwipeOffset, translateX]);
 
     const showToast = useCallback((options: ToastOptions) => {
-        setQueue((current) => [
-            ...current,
-            {
-                id: nextToastId.current++,
-                tone: options.tone ?? 'info',
-                durationMs: options.durationMs ?? (options.actionLabel ? TOAST_ACTION_DURATION_MS : TOAST_DEFAULT_DURATION_MS),
-                ...options,
-            },
-        ]);
+        const next: ToastState = {
+            id: nextToastId.current++,
+            tone: options.tone ?? 'info',
+            durationMs: options.durationMs ?? (options.actionLabel ? TOAST_ACTION_DURATION_MS : TOAST_DEFAULT_DURATION_MS),
+            ...options,
+        };
+        if (next.replaceKey) latestReplaceIdRef.current.set(next.replaceKey, next.id);
+        setQueue((current) => {
+            const claimedId = claimedActionIdRef.current;
+            const claimed = current[0]?.id === claimedId ? current[0] : null;
+            const remaining = options.replaceKey
+                ? current.filter((item) => item.replaceKey !== options.replaceKey)
+                : current;
+            // A claimed action owns the visible slot until its Promise settles.
+            // Otherwise failures and a newer replaceable action become visible
+            // immediately instead of waiting behind stale completion messages.
+            if (claimed) {
+                const tail = remaining.filter((item) => item.id !== claimed.id);
+                return [claimed, next, ...tail];
+            }
+            if (next.tone === 'error') return [next, ...remaining];
+            if (options.replaceKey) {
+                const visibleError = remaining[0]?.tone === 'error' ? remaining[0] : null;
+                return visibleError
+                    ? [visibleError, next, ...remaining.slice(1)]
+                    : [next, ...remaining];
+            }
+            return [...remaining, next];
+        });
     }, []);
 
     const runToastAction = useCallback(async (toastId: number) => {
         const current = activeToastRef.current;
         if (!current || current.id !== toastId || isDismissingRef.current
             || claimedActionIdRef.current === toastId) return;
+        if (current.replaceKey && latestReplaceIdRef.current.get(current.replaceKey) !== toastId) return;
         // Claim synchronously: a second tap can arrive before React commits
         // disabled/pointerEvents, or through the previous viewport's handler.
         claimedActionIdRef.current = toastId;

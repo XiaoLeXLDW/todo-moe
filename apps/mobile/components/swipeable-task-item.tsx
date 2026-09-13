@@ -28,7 +28,7 @@ import { MoeCompletionRow, useMoeCompletionRow } from '../moe/MoeCompletionRow';
 import type { FeedbackAppearance } from '../moe/MoeCompletionFeedbackState';
 import { ThemeColors } from '../hooks/use-theme-colors';
 import { useStatusColors } from '../hooks/use-status-colors';
-import { useToast } from '../contexts/toast-context';
+import { TASK_COMPLETION_TOAST_KEY, useToast } from '../contexts/toast-context';
 import { AppPressable } from './app-pressable';
 import { presentProjectNextActionPrompt } from './project-next-action-prompt';
 import { SwipeableTaskItemContent } from './swipeable-task-item/SwipeableTaskItemContent';
@@ -386,20 +386,23 @@ function SwipeableTaskItemInner({
                         message: formatTaskMarkedDoneMessage(t, task.title),
                         tone: 'info',
                         actionLabel: tFallback(t, 'common.undo', 'Undo'),
-                        onAction: () => {
+                        onAction: async () => {
                             cancelMoeCompletion(task.id);
                             cancelRowExit(operation.id, true);
                             if (wasFocusedToday) beginRowUndo(operation.id);
-                            void settleStoreAction(() => (
-                                undoTaskCompletion(task.id, previousStatus, wasFocusedToday)
-                            )).then((outcome) => {
-                                finishRowUndo(operation.id);
+                            try {
+                                const outcome = await settleStoreAction(() => (
+                                    undoTaskCompletion(task.id, previousStatus, wasFocusedToday)
+                                ));
                                 if (!outcome.ok) {
                                     cancelRowExit(operation.id);
                                     showActionFailure(outcome.message);
                                 }
-                            });
+                            } finally {
+                                finishRowUndo(operation.id);
+                            }
                         },
+                        replaceKey: TASK_COMPLETION_TOAST_KEY,
                         durationMs: 5200,
                     });
                     openProjectNextActionPromptIfNeeded(task.id);

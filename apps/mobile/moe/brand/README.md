@@ -11,9 +11,11 @@
 
 - `family-mascot-v1-source.png`：历史原始家族素材，保留追溯；不再用于当前图标打包。
 - `family-mascot-v2-transparent.png`：1254px 真 Alpha 主体源，移除底板、边框与外部棋盘背景，保留猫咪、铃铛、清单及贴纸轮廓。
+- `family-mascot-v3-skin.png`：当前打包源，在v2基础上按Lan Moe统一脸部肤色和腮红；保留原Alpha与非脸部像素。
+- `family-mascot-v4-light.png`：最新打包源。用户指出v3偏黑后，提亮肤色，保留轻暖底色和淡腮红；取代v3。
 - `icon.png`：1024px 全幅深色标准图标，用于应用与启动画面，无内嵌圆角框。
-- `background.png`：1024px 全幅 `#0D141B` 独立不透明背景；Expo 现有 adaptive backgroundColor 使用同色。
-- `foreground.png`：1024px 真透明自适应前景。按实际主体轮廓单次缩放到 66dp 安全圆内（108dp 图层）；不再对已经含边距的整张图做二次缩小。
+- `background.png`：1024px 独立不透明渐变背景；Expo adaptive backgroundImage 实际使用此资源，可见区域从 RGB(44,54,63) 渐变至 RGB(9,14,18)。
+- `foreground.png`：1024px 真透明自适应前景。按 Lan Moe 人物占比封装到108dp图层中的72dp可见区域；具体版位见下方最新记录。
 - `monochrome.png` / `monochrome.svg`：简化清单勾选符号，用于系统单色图标；完整角色插画没有伪造的SVG版本。
 - `asset-manifest.json`：文件尺寸和SHA-256。离线重建：`node scripts/moe/brand-assets.mjs`，使用项目锁定的Expo/Jimp工具，不新增全局图像依赖。
 
@@ -34,3 +36,43 @@ vc34/vc35 当时的前景透明/半透明/不透明像素为 888212 / 2579 / 157
 ## vc37 进一步放大
 
 按用户再次反馈，在vc36基础上再放大约8.6%，光学中心同步保持。当前前景参数为380 / +26 / -4；本机圆角方形遮罩预览无裁切。此前vc36圆形遮罩的零裁切记录仅适用于当时尺寸。
+
+## 2026-09-14 与 Lan Moe 统一（取代 vc37 版位）
+
+实际读取相邻 `local-lan-device-peeker` 项目的 `scripts/build-icons.ps1`、`assets/branding/README.md` 和 Android `drawable-nodpi/lan_moe.png`。Lan 的 Android Manifest 直接使用带9%透明外边距的传统PNG；Todo继续使用独立自适应图层，不将这个桌面外边距再次套入108dp前景。
+
+按可见底板统一人物比例：完整透明主体高度80%、左边距13%、上边距12%，猫耳顶部和铃铛周边留白接近 Lan。沿用该家族顶部 RGB(44,54,63)、底部 RGB(9,14,18) 的渐变色，标准图和自适应图在72dp中心视口对应相同版位与颜色。源角色像素文件不变；不复制 Lan 的路由器，也不依赖相邻项目进行构建。
+
+1024px前景实际Alpha边界为(259,253)–(816,798)，圆角比例23%的静态方形遮罩裁切像素为0。并排大图和64px预览位于 `evidence/development/icon-lan-family/comparison.png`。此项为资源预览，不等同新APK的Launcher真机验收；已发布vc37资产不覆盖。
+
+## 2026-09-14 肤色统一
+
+用户确认将偏亮粉的皮肤调成Lan Moe的暖米色、弱化腮红。使用内置imagegen，输入为v2透明源（编辑对象）和Lan Moe原插画（仅肤色参考）。生成结果附带棋盘背景，未直接打包；只从脸部肤色区域提取编辑结果，原Alpha逐像素保留，脸部区域外RGB逐像素不变。实际改变86,694个像素；Alpha变化0，脸部区域外变化0。版位和渐变背景代码不变。
+
+提示词：[skin-edit-prompt.md](skin-edit-prompt.md)。编辑输出、提取记录和对比在 `evidence/development/icon-skin/`；当前源文件为 `family-mascot-v3-skin.png`，已经重建标准图与自适应前景。此肤色更新尚未打入新APK，vc38仍是此前肤色版本。
+
+## 2026-09-14 提亮修正（最新）
+
+用户指出v3偏黑，批准只提亮。内置imagegen基于原v2编辑，保留轻暖肤色和淡腮红。为避免v3局部提取边界在大图中显现，改为从脸颊肤色连通区提取并柔化边缘；保留原Alpha和连通区外RGB。变化89,020像素；Alpha变化0、区域外变化0。放大查看面部过渡和并排图已完成。大小、位置和渐变背景保持不变。源码打包已切到v4，未重新构建APK。
+
+预览与验证：`evidence/development/icon-skin-light/`；提示词见同目录品牌文档 `skin-edit-prompt.md` 的提亮节。
+
+## 2026-09-14 中间亮度（当前打包源v5）
+
+用户反馈v4太白，确认在v3偏暗版和v4提亮版之间回调一半。此次不重新生成插画，使用 `scripts/moe/brand-skin-midpoint.mjs` 只调整脸部连通区的CIELAB L亮度，保留v4的a/b色度（8位量化前），边缘柔化。平均L：v3为88.572、v4为93.322，目标90.947，实际90.953。Alpha变化0、脸部区外RGB变化0。
+
+当前源为 `family-mascot-v5-mid.png`；标准图与自适应前景已重建。布局、背景、眼睛和配件未更改，尚未打入新APK。并排预览与核验保存在 `evidence/development/icon-skin-mid/`。
+
+## 2026-09-14 按 Lan Moe 像素校色（当前v6）
+
+用户否决亮度取中值，要求直接对比参考像素。实际读取Lan原始PNG（SHA-256 `25ba35ef363169daa6cb501dd6e89fba36aea5545fd12b1888fcced3db3b2f92`），选取无轮廓/眼睛干扰的17×17同类皮肤区域，逐通道取中位数。最初额头候选采到发丝，查看标记图后弃用，重新定位皮肤区域。
+
+| 区域 | Lan参考RGB | Todo v5 RGB | 校色后v6 RGB |
+|---|---|---|---|
+| 基础肤色 | 253,229,214 | 247,235,220 | 253,229,214 |
+| 额头 | 253,228,213 | 247,234,219 | 253,228,213 |
+| 腮红 | 252,205,190 | 247,212,198 | 252,205,190 |
+
+差距主要为红通道不足、绿蓝偏高，不能只增减亮度解决。`scripts/moe/brand-skin-reference.mjs` 根据实测基础肤色和腮红偏差平滑插值，并在肤色连通区边缘柔化；不重新生成或替换人物。原Alpha、脸部连通区外RGB变化均为0。对齐的是这些采样区的中位数，不宣称不同脸型的全部像素完全一致。
+
+当前源为 `family-mascot-v6-reference.png`，标准图/前景已更新。参考坐标、原始采样标记图、校色后复测与预览保存于 `evidence/development/icon-skin-pixels/`。布局和背景保持不变，本次未构建或发布新APK。
