@@ -11,6 +11,7 @@
 
 - `family-mascot-v1-source.png`：历史原始家族素材，保留追溯；不再用于当前图标打包。
 - `family-mascot-v2-transparent.png`：1254px 真 Alpha 主体源，移除底板、边框与外部棋盘背景，保留猫咪、铃铛、清单及贴纸轮廓。
+- `family-mascot-v3-skin.png`：当前打包源，在v2基础上按Lan Moe统一脸部肤色和腮红；保留原Alpha与非脸部像素。
 - `icon.png`：1024px 全幅深色标准图标，用于应用与启动画面，无内嵌圆角框。
 - `background.png`：1024px 独立不透明渐变背景；Expo adaptive backgroundImage 实际使用此资源，可见区域从 RGB(44,54,63) 渐变至 RGB(9,14,18)。
 - `foreground.png`：1024px 真透明自适应前景。按 Lan Moe 人物占比封装到108dp图层中的72dp可见区域；具体版位见下方最新记录。
@@ -42,3 +43,9 @@ vc34/vc35 当时的前景透明/半透明/不透明像素为 888212 / 2579 / 157
 按可见底板统一人物比例：完整透明主体高度80%、左边距13%、上边距12%，猫耳顶部和铃铛周边留白接近 Lan。沿用该家族顶部 RGB(44,54,63)、底部 RGB(9,14,18) 的渐变色，标准图和自适应图在72dp中心视口对应相同版位与颜色。源角色像素文件不变；不复制 Lan 的路由器，也不依赖相邻项目进行构建。
 
 1024px前景实际Alpha边界为(259,253)–(816,798)，圆角比例23%的静态方形遮罩裁切像素为0。并排大图和64px预览位于 `evidence/development/icon-lan-family/comparison.png`。此项为资源预览，不等同新APK的Launcher真机验收；已发布vc37资产不覆盖。
+
+## 2026-09-14 肤色统一
+
+用户确认将偏亮粉的皮肤调成Lan Moe的暖米色、弱化腮红。使用内置imagegen，输入为v2透明源（编辑对象）和Lan Moe原插画（仅肤色参考）。生成结果附带棋盘背景，未直接打包；只从脸部肤色区域提取编辑结果，原Alpha逐像素保留，脸部区域外RGB逐像素不变。实际改变86,694个像素；Alpha变化0，脸部区域外变化0。版位和渐变背景代码不变。
+
+提示词：[skin-edit-prompt.md](skin-edit-prompt.md)。编辑输出、提取记录和对比在 `evidence/development/icon-skin/`；当前源文件为 `family-mascot-v3-skin.png`，已经重建标准图与自适应前景。此肤色更新尚未打入新APK，vc38仍是此前肤色版本。
