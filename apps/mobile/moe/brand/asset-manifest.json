@@ -1,5 +1,5 @@
 {
-  "artwork": "family-mascot-checklist-v4-light",
+  "artwork": "family-mascot-checklist-v5-mid",
   "generator": "built-in image_gen skin edit + face-only extraction preserving original alpha",
   "packaging": "Node 22 / pinned Expo image-utils Jimp backend",
   "files": [
@@ -24,14 +24,19 @@
       "sha256": "138224eecb9aa48088d08bfb843e7fc22d38f69cd2529bf3d664abd3712a88ae"
     },
     {
+      "file": "family-mascot-v5-mid.png",
+      "bytes": 1214732,
+      "sha256": "14ae0c57800a8e5c6d2a8edad801cbe55acb7ce74377b641de4e78ab4be405b8"
+    },
+    {
       "file": "icon.png",
-      "bytes": 741171,
-      "sha256": "11a7c033e2f421e88ed4b074c5c40f61f748f336a3599eb17e9c2dc19d6349d5"
+      "bytes": 741380,
+      "sha256": "cff7ac1e23223bb3b6330a9144fc6522d48642bb7fcf2d23f9eab973415341c2"
     },
     {
       "file": "foreground.png",
-      "bytes": 383558,
-      "sha256": "e9b5d25cb6139860eaf984546f3e10dd345a1d419cd42f0f7f27c25ee180c10e"
+      "bytes": 383575,
+      "sha256": "482ec3bdbbf6961212a5c5a08b8fd8d1ac06aeec70af5266663b0a343da0cbde"
     },
     {
       "file": "background.png",
