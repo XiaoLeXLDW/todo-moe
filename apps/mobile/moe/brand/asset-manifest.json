@@ -15,18 +15,18 @@
     },
     {
       "file": "icon.png",
-      "bytes": 788926,
-      "sha256": "6376a1fc6b8d917b3fa939e02ddb708b0f12d141bdbfae44f91715549a0f348a"
+      "bytes": 742517,
+      "sha256": "636d7a2b41fe671d2c239769b8cabf1fa58fed5c1548cbe0a8cdf18fac3455dc"
     },
     {
       "file": "foreground.png",
-      "bytes": 412088,
-      "sha256": "c267ade7d91c989d059aaf6340bdd79b9bc7f7df2b368512bb746ca6c17d09dd"
+      "bytes": 383933,
+      "sha256": "3795a762df0a8ff1cefd391fc31b71ff5a965ed032abab804b851cf85b8e1a05"
     },
     {
       "file": "background.png",
-      "bytes": 5861,
-      "sha256": "a1b7a00e1943daf0f29091cf37501a7ba6ff5475d53a2b7a6666ea441ea62f51"
+      "bytes": 6000,
+      "sha256": "5da5b63d93536bc268ac3847bd3874f4fc58aacbdc38b6084eae8e819b28b0f6"
     },
     {
       "file": "monochrome.png",

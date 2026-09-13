@@ -12,8 +12,8 @@
 - `family-mascot-v1-source.png`：历史原始家族素材，保留追溯；不再用于当前图标打包。
 - `family-mascot-v2-transparent.png`：1254px 真 Alpha 主体源，移除底板、边框与外部棋盘背景，保留猫咪、铃铛、清单及贴纸轮廓。
 - `icon.png`：1024px 全幅深色标准图标，用于应用与启动画面，无内嵌圆角框。
-- `background.png`：1024px 全幅 `#0D141B` 独立不透明背景；Expo 现有 adaptive backgroundColor 使用同色。
-- `foreground.png`：1024px 真透明自适应前景。按实际主体轮廓单次缩放到 66dp 安全圆内（108dp 图层）；不再对已经含边距的整张图做二次缩小。
+- `background.png`：1024px 独立不透明渐变背景；Expo adaptive backgroundImage 实际使用此资源，可见区域从 RGB(44,54,63) 渐变至 RGB(9,14,18)。
+- `foreground.png`：1024px 真透明自适应前景。按 Lan Moe 人物占比封装到108dp图层中的72dp可见区域；具体版位见下方最新记录。
 - `monochrome.png` / `monochrome.svg`：简化清单勾选符号，用于系统单色图标；完整角色插画没有伪造的SVG版本。
 - `asset-manifest.json`：文件尺寸和SHA-256。离线重建：`node scripts/moe/brand-assets.mjs`，使用项目锁定的Expo/Jimp工具，不新增全局图像依赖。
 
@@ -34,3 +34,11 @@ vc34/vc35 当时的前景透明/半透明/不透明像素为 888212 / 2579 / 157
 ## vc37 进一步放大
 
 按用户再次反馈，在vc36基础上再放大约8.6%，光学中心同步保持。当前前景参数为380 / +26 / -4；本机圆角方形遮罩预览无裁切。此前vc36圆形遮罩的零裁切记录仅适用于当时尺寸。
+
+## 2026-09-14 与 Lan Moe 统一（取代 vc37 版位）
+
+实际读取相邻 `local-lan-device-peeker` 项目的 `scripts/build-icons.ps1`、`assets/branding/README.md` 和 Android `drawable-nodpi/lan_moe.png`。Lan 的 Android Manifest 直接使用带9%透明外边距的传统PNG；Todo继续使用独立自适应图层，不将这个桌面外边距再次套入108dp前景。
+
+按可见底板统一人物比例：完整透明主体高度80%、左边距13%、上边距12%，猫耳顶部和铃铛周边留白接近 Lan。沿用该家族顶部 RGB(44,54,63)、底部 RGB(9,14,18) 的渐变色，标准图和自适应图在72dp中心视口对应相同版位与颜色。源角色像素文件不变；不复制 Lan 的路由器，也不依赖相邻项目进行构建。
+
+1024px前景实际Alpha边界为(259,253)–(816,798)，圆角比例23%的静态方形遮罩裁切像素为0。并排大图和64px预览位于 `evidence/development/icon-lan-family/comparison.png`。此项为资源预览，不等同新APK的Launcher真机验收；已发布vc37资产不覆盖。

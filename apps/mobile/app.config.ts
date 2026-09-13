@@ -59,6 +59,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             versionCode,
             adaptiveIcon: {
                 foregroundImage: './moe/brand/foreground.png',
+                backgroundImage: './moe/brand/background.png',
                 monochromeImage: './moe/brand/monochrome.png',
                 backgroundColor: '#0D141B',
             },
