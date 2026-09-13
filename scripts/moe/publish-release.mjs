@@ -125,7 +125,15 @@ export async function publishRelease(options, dependencies = {}) {
         if (object?.type !== 'commit' || !/^[a-f0-9]{40}$/.test(object.sha)) throw new Error('Invalid or excessive annotated tag chain.');
         return object.sha;
     }
-    async function getRelease() { return optional(`releases/tags/${encodeURIComponent(local.tag)}`); }
+    async function getRelease() {
+        const tagged = await optional(`releases/tags/${encodeURIComponent(local.tag)}`);
+        if (tagged) return tagged;
+        // GitHub's tag endpoint can omit drafts; the authenticated release list
+        // includes them. Keep the exact-tag and immutable-content checks below.
+        const drafts = (await all('releases')).filter((item) => item.tag_name === local.tag && item.draft === true);
+        if (drafts.length > 1) throw new Error('Multiple drafts use the requested release tag.');
+        return drafts[0] ?? null;
+    }
     function assertRelease(release) {
         if (!release || !Number.isSafeInteger(release.id) || release.id <= 0 || release.tag_name !== local.tag || release.prerelease !== false || typeof release.draft !== 'boolean' || release.name !== local.title || normalizeBody(release.body) !== normalizeBody(local.body)) throw new Error('Release draft/content belongs to a different immutable artifact set.');
     }
