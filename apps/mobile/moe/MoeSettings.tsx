@@ -29,7 +29,7 @@ function Choices({ title, selected, choices, onSelect }: { title: string; select
 }
 function Toggle({ title, value, onChange }: { title: string; value: boolean; onChange: (value: boolean) => void }) {
   const tc = useThemeColors();
-  return <View style={styles.toggle}><Text style={[styles.toggleText, { color: tc.text }]}>{title}</Text><Switch accessibilityLabel={title} value={value} onValueChange={onChange} trackColor={{ true: tc.tint }} /></View>;
+  return <View style={styles.toggle}><Text style={[styles.toggleText, { color: tc.text }]}>{title}</Text><Switch accessibilityLabel={title} value={value} onValueChange={onChange} trackColor={{ true: tc.tint, false: tc.border }} thumbColor={value ? tc.onTint : tc.secondaryText} /></View>;
 }
 function Page({ title, children, error }: { title: string; children: React.ReactNode; error: string }) {
   const tc = useThemeColors();
@@ -66,16 +66,16 @@ export function MoeAppearanceSettings() {
     <Choices title={label('配色来源', 'Color source')} selected={preferences.colorSource ?? 'dynamic'} choices={[
       ['dynamic', label('系统动态色', 'System colors')], ['custom', label('自定义颜色', 'Custom color')],
     ]} onSelect={(value) => save({ colorSource: value as MoePreferences['colorSource'] })} />
-    <Text style={[styles.note, { color: tc.secondaryText }]}>{system.supported ? label('使用 Android 系统调色板，无需读取壁纸。页面和玻璃底栏使用同一配色。', 'Uses the Android palette without reading your wallpaper. Pages and the glass bar share these colors.') : label('此设备或运行环境未提供系统动态色，当前使用默认配色；也可自选颜色。', 'System colors are unavailable in this environment. A default palette is used, or choose a custom color.')}</Text>
+    <Text style={[styles.note, { color: tc.secondaryText }]}>{preferences.colorSource === 'custom' ? label('点选色相或输入 HEX，预览后应用。', 'Choose a hue or enter HEX, then preview and apply.') : system.supported ? label('使用 Android 系统调色板，无需读取壁纸。页面和玻璃底栏使用同一配色。', 'Uses the Android palette without reading your wallpaper. Pages and the glass bar share these colors.') : label('此设备或运行环境未提供系统动态色，当前使用默认配色；也可自选颜色。', 'System colors are unavailable in this environment. A default palette is used, or choose a custom color.')}</Text>
     {preferences.colorSource === 'custom' ? <View style={[styles.custom, { backgroundColor: tc.cardBg, borderColor: tc.border }]}>
       <Text style={[styles.title, { color: tc.text }]}>{label('选择主色', 'Choose an accent')}</Text>
-      <View style={styles.choices}>{PRESETS.map((color) => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`${label('主色', 'Accent')} ${color}`} onPress={() => commit(color)} style={[styles.swatch, { backgroundColor: color, borderColor: input === color ? tc.text : 'transparent' }]} />)}</View>
+      <View style={styles.choices}>{PRESETS.map((color) => <Pressable key={color} hitSlop={2} accessibilityRole="button" accessibilityLabel={`${label('主色', 'Accent')} ${color}`} onPress={() => commit(color)} style={[styles.swatch, { backgroundColor: color, borderColor: input === color ? tc.text : 'transparent' }]} />)}</View>
       <Pressable accessibilityRole="adjustable" accessibilityLabel={label('色相', 'Hue')} accessibilityValue={{ min: 0, max: 359, now: hue }} accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
         onAccessibilityAction={(event) => chooseHue((hue + (event.nativeEvent.actionName === 'increment' ? 15 : 345)) % 360)}
         onLayout={(event) => setWidth(event.nativeEvent.layout.width)} onPress={(event) => chooseHue(Math.min(359, Math.max(0, Math.round(event.nativeEvent.locationX / width * 359))))} style={styles.hue}>
         <View pointerEvents="none" style={styles.hueStrip}>{Array.from({ length: 24 }, (_, i) => <View key={i} style={{ flex: 1, backgroundColor: hueColor(i * 15) }} />)}</View>
       </Pressable>
-      <View style={styles.choices}>{[-.35, -.15, 0, .25, .5].map((amount) => { const color = mixColor(hueColor(hue), amount < 0 ? '#000000' : '#FFFFFF', Math.abs(amount)); return <Pressable key={amount} accessibilityRole="button" accessibilityLabel={`${label('色阶', 'Tone')} ${color}`} onPress={() => setInput(color)} style={[styles.swatch, { backgroundColor: color }]} />; })}</View>
+      <View style={styles.choices}>{[-.35, -.15, 0, .25, .5].map((amount) => { const color = mixColor(hueColor(hue), amount < 0 ? '#000000' : '#FFFFFF', Math.abs(amount)); return <Pressable key={amount} hitSlop={2} accessibilityRole="button" accessibilityLabel={`${label('色阶', 'Tone')} ${color}`} onPress={() => setInput(color)} style={[styles.swatch, { backgroundColor: color, borderColor: 'transparent' }]} />; })}</View>
       <TextInput accessibilityLabel={label('主色 HEX', 'Accent HEX')} value={input} onChangeText={setInput} autoCapitalize="characters" autoCorrect={false} maxLength={7} placeholder="#6750A4" placeholderTextColor={tc.secondaryText} style={[styles.hexInput, { backgroundColor: tc.inputBg, color: tc.text, borderColor: valid ? tc.border : tc.danger }]} onSubmitEditing={() => { if (valid) commit(input.toUpperCase()); }} />
       {!valid ? <Text style={{ color: tc.danger }}>{label('请输入 #RRGGBB 格式的颜色。', 'Enter a color in #RRGGBB format.')}</Text> : null}
       <View pointerEvents="none" style={[styles.preview, { backgroundColor: preview.bg }]}><Text style={{ color: preview.text, fontWeight: '700' }}>{label('配色预览', 'Color preview')}</Text><Text style={{ color: preview.secondaryText }}>{label('清晰的内容，轻盈的色彩。', 'Clear content, a touch of color.')}</Text><View style={[styles.previewButton, { backgroundColor: preview.tint }]}><Text style={{ color: preview.onTint }}>{label('完成', 'Done')}</Text></View></View>
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   section: { gap: 12, paddingVertical: 8 }, title: { fontSize: 17, fontWeight: '600' }, choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   choice: { minHeight: 48, minWidth: 80, borderRadius: 16, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
   toggle: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12 }, toggleText: { flex: 1, fontSize: 16 }, note: { fontSize: 13, lineHeight: 21 },
-  custom: { padding: 16, borderRadius: 24, borderWidth: 1, gap: 16 }, swatch: { width: 48, height: 48, borderRadius: 24, borderWidth: 3 },
+  custom: { padding: 16, borderRadius: 24, borderWidth: 1, gap: 16 }, swatch: { width: 44, height: 44, borderRadius: 22, borderWidth: 3 },
   hue: { height: 48, borderRadius: 16, overflow: 'hidden' }, hueStrip: { flex: 1, flexDirection: 'row' }, hexInput: { minHeight: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, fontSize: 17 },
   preview: { padding: 20, borderRadius: 20, gap: 14 }, previewButton: { minHeight: 44, paddingHorizontal: 20, borderRadius: 14, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-start' },
 });

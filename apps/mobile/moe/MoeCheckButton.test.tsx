@@ -21,6 +21,18 @@ afterEach(() => { if (tree) act(() => tree.unmount()); vi.restoreAllMocks(); exp
 const button = () => tree.root.findByType('Pressable' as any);
 
 describe('completion checkbox interaction', () => {
+  it('does not let a delayed press-out interrupt completion or undo feedback', () => {
+    const stop = vi.spyOn(Animated.Value.prototype, 'stopAnimation');
+    const props = { disabled: false, label: 'Complete', onPress: vi.fn(), tc };
+    act(() => { tree = create(<MoeCheckButton {...props} checked={false} />); });
+    for (const checked of [true, false]) {
+      act(() => { button().props.onPressIn(); });
+      act(() => { tree.update(<MoeCheckButton {...props} checked={checked} />); });
+      stop.mockClear();
+      act(() => { button().props.onPressOut(); });
+      expect(stop).not.toHaveBeenCalled();
+    }
+  });
   it('dispatches once immediately without waiting for either press or mark animation', () => {
     vi.spyOn(Animated, 'timing').mockReturnValue({ start: vi.fn(), stop: vi.fn() } as any);
     vi.spyOn(Animated, 'spring').mockReturnValue({ start: vi.fn(), stop: vi.fn() } as any);

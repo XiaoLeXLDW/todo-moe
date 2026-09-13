@@ -42,6 +42,7 @@ export function MoeCheckButton({ checked, disabled, label, onPress, tc, measurem
   const mark = useRef(new Animated.Value(checked ? 1 : 0)).current;
   const burst = useRef(new Animated.Value(1)).current;
   const previous = useRef(checked);
+  const pressedValue = useRef<boolean | null>(null);
   const preferences = useMoePreferences();
   const reduced = useReducedMotion();
   useEffect(() => {
@@ -81,6 +82,11 @@ export function MoeCheckButton({ checked, disabled, label, onPress, tc, measurem
   }, [scale, mark, burst]);
   const motion = resolveMoeCompletionMotion(preferences.motion, reduced);
   const release = () => {
+    const completedDuringPress = pressedValue.current !== null && pressedValue.current !== previous.current;
+    pressedValue.current = null;
+    // Pressability may deliver onPressOut after React has started the completion
+    // group. Stopping scale there also cancels mark/burst via Animated.parallel.
+    if (completedDuringPress) return;
     scale.stopAnimation();
     if (motion.reduced) scale.setValue(1);
     else Animated.spring(scale, { toValue: 1, ...motion.spring, useNativeDriver: true }).start();
@@ -88,6 +94,7 @@ export function MoeCheckButton({ checked, disabled, label, onPress, tc, measurem
   return (
     <Pressable accessibilityRole="checkbox" accessibilityState={{ checked, disabled }} accessibilityLabel={label} disabled={disabled}
       onPressIn={() => {
+        pressedValue.current = checked;
         if (disabled || motion.reduced) return;
         scale.stopAnimation();
         Animated.timing(scale, { toValue: motion.pressedScale, duration: motion.pressMs, useNativeDriver: true }).start();
