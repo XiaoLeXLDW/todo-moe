@@ -22,15 +22,16 @@ let radius=0;
 cropped.scan(0,0,cropped.bitmap.width,cropped.bitmap.height,(x,y,i)=>{
   if(cropped.bitmap.data[i+3]>0)radius=Math.max(radius,Math.hypot(x-(cropped.bitmap.width-1)/2,y-(cropped.bitmap.height-1)/2));
 });
-// Fit the actual silhouette once into the 66dp safe circle on a 108dp layer.
-// No baked plate and no second inset of an already padded full icon.
-async function fit(radiusTarget, background, name){
+// Optical centering: the clipboard extends the alpha bounds to the right, so
+// bounding-box centering makes the dominant cat face look left-heavy. Enlarge
+// and offset within the tested 72dp circular/squircle viewport (108dp layer).
+async function fit(radiusTarget, background, name, offsetX=0, offsetY=0){
   const fg=cropped.clone().resize(Math.round(cropped.bitmap.width*radiusTarget/radius),Math.round(cropped.bitmap.height*radiusTarget/radius));
-  const canvas=new Jimp(1024,1024,background).composite(fg,Math.round((1024-fg.bitmap.width)/2),Math.round((1024-fg.bitmap.height)/2));
+  const canvas=new Jimp(1024,1024,background).composite(fg,Math.round((1024-fg.bitmap.width)/2+offsetX),Math.round((1024-fg.bitmap.height)/2+offsetY));
   await canvas.writeAsync(fileURLToPath(new URL(name,target)));
 }
-await fit(310,0x00000000,'foreground.png');
-await fit(465,backgroundColor,'icon.png');
+await fit(350,0x00000000,'foreground.png',24,-4);
+await fit(525,backgroundColor,'icon.png',36,-6);
 await new Jimp(1024,1024,backgroundColor).writeAsync(fileURLToPath(new URL('background.png',target)));
 function crc32(data) { let crc = 0xffffffff; for (const byte of data) { crc ^= byte; for (let i = 0; i < 8; i++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0); } return (crc ^ 0xffffffff) >>> 0; }
 function chunk(type, data) { const name = Buffer.from(type); const n = Buffer.alloc(4); n.writeUInt32BE(data.length); const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(Buffer.concat([name, data]))); return Buffer.concat([n, name, data, crc]); }
