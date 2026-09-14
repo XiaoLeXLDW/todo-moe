@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { Animated, ScrollView } from 'react-native';
 import { MoeMotionPreview } from './MoeMotionPreview';
 import { MoeCheckButton } from './MoeCheckButton';
+import { MoeCompletionCheck } from './MoeCompletionCheck';
 import { MoeCelebrationVisual } from './MoeCelebrationVisual';
 import { MoeCelebrationLayerHost } from './MoeCelebrationLayer';
 
@@ -11,6 +12,7 @@ const state = vi.hoisted(() => ({ motion: 'lively', reduced: false, listeners: n
 vi.mock('./preferences', () => ({ useMoePreferences: () => ({ motion: state.motion, celebration: true }) }));
 vi.mock('../hooks/use-reduced-motion', () => ({ useReducedMotion: () => state.reduced }));
 vi.mock('../hooks/use-theme-colors', () => ({ useThemeColors: () => ({ text: '#111', secondaryText: '#555', success: '#187', tint: '#178', cardBg: '#fff', border: '#ccc' }) }));
+vi.mock('../hooks/use-theme-tokens', () => ({ useThemeTokens: () => ({ isMaterial: false, isDark: false, state: {} }) }));
 vi.mock('../contexts/language-context', () => ({ useLanguage: () => ({ language: 'zh' }) }));
 vi.mock('react-native', async original => ({ ...await original() as object, AppState: {
   currentState: 'active', addEventListener: (_: string, listener: (state: string) => void) => {
@@ -36,6 +38,20 @@ it('supports immediate completion and Undo without waiting for native animation 
   expect(tree.root.findByType(MoeCheckButton).props.checked).toBe(true);
   act(() => buttons()[1].props.onPress());
   expect(tree.root.findByType(MoeCheckButton).props.checked).toBe(false);
+  expect(tree.root.findAllByType(MoeCompletionCheck)).toHaveLength(0);
+});
+it.each(['standard', 'lively', 'maximal', 'simple'])('clears the actual glyph after repeated toggles and reset in %s mode', motion => {
+  state.motion = motion;
+  act(() => tree.update(<MoeMotionPreview />));
+  for (let index = 0; index < 5; index++) {
+    act(() => tree.root.findByType(MoeCheckButton).props.onPress());
+    expect(tree.root.findAllByType(MoeCompletionCheck)).toHaveLength(1);
+    if (index % 2) act(() => tree.root.findByType(MoeCheckButton).props.onPress());
+    else act(() => buttons()[1].props.onPress());
+    expect(tree.root.findAllByType(MoeCompletionCheck)).toHaveLength(0);
+    act(() => buttons()[1].props.onPress());
+    expect(tree.root.findAllByType(MoeCompletionCheck)).toHaveLength(0);
+  }
 });
 it('repeated list completion then Undo removes the decoration and pending expiry', () => {
   for (let n = 0; n < 8; n++) act(() => buttons()[0].props.onPress());

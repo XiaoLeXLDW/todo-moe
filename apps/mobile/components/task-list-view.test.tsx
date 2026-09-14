@@ -8,6 +8,9 @@ import { TaskListView, type TaskListViewProps } from './task-list-view';
 vi.mock('../hooks/use-reduced-motion', () => ({ useReducedMotion: () => false }));
 
 vi.mock('react-native', () => ({
+  Animated: {
+    createAnimatedComponent: (component: unknown) => component,
+  },
   FlatList: ({ data, ListEmptyComponent, ListHeaderComponent, ListFooterComponent, renderItem, ...props }: any) => React.createElement(
     'FlatList',
     props,

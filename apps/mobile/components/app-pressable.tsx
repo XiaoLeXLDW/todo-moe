@@ -39,10 +39,14 @@ export function AppPressable({ style, children, pressedColor, onPressIn, onPress
         ?? (isMaterial
             ? state.stateLayerColor('pressed')
             : isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(0, 0, 0, 0.08)');
-    const resolvedOverlayStyle = typeof style === 'function'
+    // Animated's native prop reduction flattens style objects, not Pressable
+    // callbacks. Resolve the callback here so layout and paint survive it.
+    const resolvedStyle = typeof style === 'function'
         ? style({ pressed } as PressableStateCallbackType)
         : style;
-    const overlayRadius = (StyleSheet.flatten(resolvedOverlayStyle as StyleProp<ViewStyle>) as ViewStyle | undefined)?.borderRadius;
+    const flattenedStyle = StyleSheet.flatten(resolvedStyle as StyleProp<ViewStyle>) as ViewStyle | undefined;
+    const overlayRadius = flattenedStyle?.borderRadius;
+    const transforms = Array.isArray(flattenedStyle?.transform) ? flattenedStyle.transform : [];
 
     const handlePressIn = useCallback((event: GestureResponderEvent) => {
         setPressed(true);
@@ -68,12 +72,7 @@ export function AppPressable({ style, children, pressedColor, onPressIn, onPress
     return (
         <AnimatedPressable
             android_ripple={hasRipple ? { color: state.rippleColor } : undefined}
-            style={(pressState) => {
-                const base = typeof style === 'function' ? style(pressState) : style;
-                const flattened = StyleSheet.flatten(base) as ViewStyle | undefined;
-                const transforms = Array.isArray(flattened?.transform) ? flattened.transform : [];
-                return [base, { transform: [...transforms, { scale: pressScale }] }];
-            }}
+            style={[resolvedStyle, { transform: [...transforms, { scale: pressScale }] }]}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
             {...rest}

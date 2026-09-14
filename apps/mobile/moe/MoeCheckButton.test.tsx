@@ -3,6 +3,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Animated } from 'react-native';
 import { MoeCheckButton } from './MoeCheckButton';
+import { MoeCompletionCheck } from './MoeCompletionCheck';
 import type { ThemeColors } from '../hooks/use-theme-colors';
 
 const controls = vi.hoisted(() => ({ reduced: false, motion: 'standard', listeners: new Set<(state: string) => void>() }));
@@ -21,6 +22,15 @@ afterEach(() => { if (tree) act(() => tree.unmount()); vi.restoreAllMocks(); exp
 const button = () => tree.root.findByType('Pressable' as any);
 
 describe('completion checkbox interaction', () => {
+  it('removes the visible check immediately on reset even if animation callbacks never finish', () => {
+    vi.spyOn(Animated, 'timing').mockReturnValue({ start: vi.fn(), stop: vi.fn() } as any);
+    const props = { disabled: false, label: 'Demo', onPress: vi.fn(), tc };
+    act(() => { tree = create(<MoeCheckButton {...props} checked />); });
+    expect(tree.root.findAllByType(MoeCompletionCheck)).toHaveLength(1);
+    act(() => { tree.update(<MoeCheckButton {...props} checked={false} />); });
+    expect(button().props.accessibilityState.checked).toBe(false);
+    expect(tree.root.findAllByType(MoeCompletionCheck)).toHaveLength(0);
+  });
   it('does not let a delayed press-out interrupt completion or undo feedback', () => {
     const stop = vi.spyOn(Animated.Value.prototype, 'stopAnimation');
     const props = { disabled: false, label: 'Complete', onPress: vi.fn(), tc };

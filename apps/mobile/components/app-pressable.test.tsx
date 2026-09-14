@@ -54,6 +54,18 @@ const flatStyle = (view: { props: Record<string, unknown> }) => {
 };
 
 describe('AppPressable', () => {
+  it('passes a resolved style to the animated wrapper so native flattening preserves the button box', () => {
+    let tree!: renderer.ReactTestRenderer;
+    renderer.act(() => {
+      tree = renderer.create(<AppPressable style={({ pressed }) => ({ minHeight: 48, paddingHorizontal: 16,
+        backgroundColor: pressed ? '#123456' : '#abcdef' })}><Text>Choice</Text></AppPressable>);
+    });
+    expect(typeof pressable(tree).props.style).not.toBe('function');
+    expect(StyleSheet.flatten(pressable(tree).props.style)).toMatchObject({ minHeight: 48, paddingHorizontal: 16, backgroundColor: '#abcdef' });
+    pressIn(tree);
+    expect(StyleSheet.flatten(pressable(tree).props.style).backgroundColor).toBe('#123456');
+    renderer.act(() => tree.unmount());
+  });
   it('adds no android_ripple under non-Material themes', () => {
     tokenState.isMaterial = false;
     tokenState.rippleColor = undefined;
@@ -132,7 +144,7 @@ describe('AppPressable', () => {
     renderer.act(() => {
       tree = renderer.create(<AppPressable style={registered.control}><Text>x</Text></AppPressable>);
     });
-    const resolved = pressable(tree).props.style({ pressed: false });
+    const resolved = pressable(tree).props.style;
     const flat = StyleSheet.flatten(resolved);
     expect(flat.transform[0]).toEqual({ translateX: 12 });
     expect(flat.transform[1]).toEqual({ rotate: '3deg' });

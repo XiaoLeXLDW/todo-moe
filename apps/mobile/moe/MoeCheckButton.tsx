@@ -31,7 +31,7 @@ export function MoeCheckButton({ checked, disabled, label, onPress, tc, measurem
     fragments.stopAnimation(); fragments.setValue(1); setBursting(false);
     const changed = previous.current !== checked;
     previous.current = checked;
-    if (!changed || motion.reduced || AppState.currentState !== 'active') {
+    if (!checked || !changed || motion.reduced || AppState.currentState !== 'active') {
       scale.setValue(1);
       mark.setValue(checked ? 1 : 0);
       return;
@@ -85,7 +85,9 @@ export function MoeCheckButton({ checked, disabled, label, onPress, tc, measurem
       <Animated.View style={{ transform: [{ scale }] }}>
         <Reanimated.View ref={measurementRef} collapsable={false} style={styles.checkFrame}>
           <View pointerEvents="none" style={[styles.outline, { borderColor: checked ? tc.success : tc.secondaryText }]} />
-          <MoeCompletionCheck reveal={mark} emphasis={emphasis} motion={motion} color={tc.success} foreground={tc.onTint} />
+          {/* Checked state owns visibility. An interrupted SVG/opacity animation
+              must never leave the old glyph visible after Undo or reset. */}
+          {checked ? <MoeCompletionCheck reveal={mark} emphasis={emphasis} motion={motion} color={tc.success} foreground={tc.onTint} /> : null}
         </Reanimated.View>
       </Animated.View>
     </Pressable>
