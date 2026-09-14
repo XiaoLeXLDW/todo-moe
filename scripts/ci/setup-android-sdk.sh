@@ -8,7 +8,10 @@ set -euo pipefail
 
 cmdline_tools_version="${ANDROID_CMDLINE_TOOLS_VERSION:-12266719}"
 cmdline_tools_short_version="${ANDROID_CMDLINE_TOOLS_SHORT_VERSION:-16.0}"
-sdk_packages="${ANDROID_SDK_PACKAGES:-tools platform-tools}"
+# The legacy `tools` package was removed from Google's repository. The script
+# installs cmdline-tools itself above, so the only safe default package needed
+# by workflows that do not provide an explicit list is platform-tools.
+sdk_packages="${ANDROID_SDK_PACKAGES:-platform-tools}"
 android_sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
 
 cmdline_tools_dir="${android_sdk_root}/cmdline-tools/${cmdline_tools_short_version}"
