@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import renderer from 'react-test-renderer';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppPressable } from './app-pressable';
 
 const tokenState = vi.hoisted(() => ({
@@ -19,6 +19,10 @@ vi.mock('../hooks/use-theme-tokens', () => ({
       stateLayerColor: () => (tokenState.isMaterial ? 'rgba(0, 0, 0, 0.1)' : 'transparent'),
     },
   }),
+}));
+
+vi.mock('../moe/preferences', () => ({
+  useMoePreferences: () => ({ motion: 'maximal' }),
 }));
 
 const pressable = (tree: renderer.ReactTestRenderer) => tree.root.findByType(Pressable);
@@ -120,5 +124,43 @@ describe('AppPressable', () => {
     expect(overlays.length).toBe(1);
     expect(flatStyle(overlays[0]).backgroundColor).toBe('rgba(0, 0, 0, 0.18)');
     expect(onPressIn).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves registered transforms before adding the animated press scale', () => {
+    const registered = StyleSheet.create({ control: { transform: [{ translateX: 12 }, { rotate: '3deg' }] } });
+    let tree!: renderer.ReactTestRenderer;
+    renderer.act(() => {
+      tree = renderer.create(<AppPressable style={registered.control}><Text>x</Text></AppPressable>);
+    });
+    const resolved = pressable(tree).props.style({ pressed: false });
+    const flat = StyleSheet.flatten(resolved);
+    expect(flat.transform[0]).toEqual({ translateX: 12 });
+    expect(flat.transform[1]).toEqual({ rotate: '3deg' });
+    expect(flat.transform[2]).toHaveProperty('scale');
+  });
+
+  it('keeps the pressed overlay inside a registered rounded style', () => {
+    const registered = StyleSheet.create({ control: { borderRadius: 18 } });
+    let tree!: renderer.ReactTestRenderer;
+    renderer.act(() => {
+      tree = renderer.create(<AppPressable style={registered.control}><Text>x</Text></AppPressable>);
+    });
+
+    pressIn(tree);
+    expect(flatStyle(findOverlays(tree)[0]).borderRadius).toBe(18);
+  });
+
+  it('resolves the pressed-state radius from a style callback', () => {
+    let tree!: renderer.ReactTestRenderer;
+    renderer.act(() => {
+      tree = renderer.create(
+        <AppPressable style={({ pressed }) => ({ borderRadius: pressed ? 22 : 8 })}>
+          <Text>x</Text>
+        </AppPressable>,
+      );
+    });
+
+    pressIn(tree);
+    expect(flatStyle(findOverlays(tree)[0]).borderRadius).toBe(22);
   });
 });

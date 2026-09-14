@@ -2,7 +2,6 @@ import React from 'react';
 import {
     Switch,
     Text,
-    TouchableOpacity,
     View,
     type GestureResponderEvent,
     type StyleProp,
@@ -11,6 +10,7 @@ import {
 } from 'react-native';
 
 import { useThemeColors } from '@/hooks/use-theme-colors';
+import { AppPressable } from '@/components/app-pressable';
 
 import { styles } from './settings.styles';
 
@@ -86,7 +86,7 @@ export function SettingRow({
 
     if (onPress) {
         return (
-            <TouchableOpacity
+            <AppPressable
                 style={rowStyle}
                 onPress={onPress}
                 disabled={disabled}
@@ -94,7 +94,7 @@ export function SettingRow({
                 testID={testID}
             >
                 {content}
-            </TouchableOpacity>
+            </AppPressable>
         );
     }
 

@@ -23,6 +23,13 @@ vi.mock('lucide-react-native', () => ({
   X: () => React.createElement('span', { 'data-icon': 'x' }),
 }));
 
+vi.mock('../app-pressable', () => ({
+  AppPressable: ({ accessibilityLabel, accessibilityRole, onPress, ...props }: any) =>
+    React.createElement('button', { ...props, 'aria-label': accessibilityLabel, role: accessibilityRole, onClick: onPress }, props.children),
+}));
+
+vi.mock('../../moe/haptics', () => ({ moeHaptic: vi.fn() }));
+
 const themeColors = {
   border: '#d1d5db',
   cardBg: '#ffffff',

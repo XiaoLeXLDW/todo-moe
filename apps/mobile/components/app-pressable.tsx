@@ -1,8 +1,9 @@
-import React, { useCallback, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View, type GestureResponderEvent, type PressableProps, type PressableStateCallbackType, type StyleProp, type ViewStyle } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Platform, Pressable, StyleSheet, View, type GestureResponderEvent, type PressableProps, type PressableStateCallbackType, type StyleProp, type ViewStyle } from 'react-native';
 import { useThemeTokens } from '../hooks/use-theme-tokens';
 import { useReducedMotion } from '../hooks/use-reduced-motion';
-import { MOE_MOTION } from '../moe/preference-model';
+import { resolveMoeMotion } from '../moe/preference-model';
+import { useMoePreferences } from '../moe/preferences';
 
 type AppPressableProps = PressableProps & {
     /** Overlay color while pressed; defaults to a theme-aware dim layer. Useful
@@ -11,19 +12,11 @@ type AppPressableProps = PressableProps & {
     pressedColor?: string;
 };
 
-// Last-wins borderRadius lookup so the pressed overlay hugs rounded corners.
-const findBorderRadius = (style: StyleProp<ViewStyle>): number | undefined => {
-    if (!style || typeof style !== 'object') return undefined;
-    if (Array.isArray(style)) {
-        for (let index = style.length - 1; index >= 0; index -= 1) {
-            const radius = findBorderRadius(style[index] as StyleProp<ViewStyle>);
-            if (radius !== undefined) return radius;
-        }
-        return undefined;
-    }
-    const radius = (style as ViewStyle).borderRadius;
-    return typeof radius === 'number' ? radius : undefined;
-};
+// React Native always provides createAnimatedComponent at runtime. The fallback
+// keeps lightweight renderer/test hosts usable without weakening the app path.
+const AnimatedPressable = typeof Animated.createAnimatedComponent === 'function'
+    ? Animated.createAnimatedComponent(Pressable)
+    : Pressable;
 
 /**
  * The app's standard `Pressable`: every theme gets visible press feedback
@@ -35,7 +28,10 @@ const findBorderRadius = (style: StyleProp<ViewStyle>): number | undefined => {
 export function AppPressable({ style, children, pressedColor, onPressIn, onPressOut, ...rest }: AppPressableProps) {
     const { isMaterial, state, isDark } = useThemeTokens();
     const reducedMotion = useReducedMotion();
+    const preferences = useMoePreferences();
+    const motion = resolveMoeMotion(preferences.motion, reducedMotion);
     const [pressed, setPressed] = useState(false);
+    const pressScale = useRef(new Animated.Value(1)).current;
     const hasRipple = isMaterial && Boolean(state.rippleColor);
     // android_ripple is inert off Android, so the overlay covers those cases.
     const rippleHandlesFeedback = hasRipple && Platform.OS === 'android';
@@ -43,25 +39,40 @@ export function AppPressable({ style, children, pressedColor, onPressIn, onPress
         ?? (isMaterial
             ? state.stateLayerColor('pressed')
             : isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(0, 0, 0, 0.08)');
-    const overlayRadius = typeof style === 'function' ? undefined : findBorderRadius(style as StyleProp<ViewStyle>);
+    const resolvedOverlayStyle = typeof style === 'function'
+        ? style({ pressed } as PressableStateCallbackType)
+        : style;
+    const overlayRadius = (StyleSheet.flatten(resolvedOverlayStyle as StyleProp<ViewStyle>) as ViewStyle | undefined)?.borderRadius;
 
     const handlePressIn = useCallback((event: GestureResponderEvent) => {
         setPressed(true);
+        pressScale.stopAnimation();
+        if (motion.reduced) pressScale.setValue(1);
+        else Animated.timing(pressScale, { toValue: motion.pressScale, duration: 90, useNativeDriver: true }).start();
         onPressIn?.(event);
-    }, [onPressIn]);
+    }, [motion.pressScale, motion.reduced, onPressIn, pressScale]);
     const handlePressOut = useCallback((event: GestureResponderEvent) => {
         setPressed(false);
+        pressScale.stopAnimation();
+        if (motion.reduced) pressScale.setValue(1);
+        else Animated.spring(pressScale, { toValue: 1, damping: 14, stiffness: 280, mass: 0.7, useNativeDriver: true }).start();
         onPressOut?.(event);
-    }, [onPressOut]);
+    }, [motion.reduced, onPressOut, pressScale]);
+
+    useEffect(() => {
+        if (!motion.reduced) return;
+        pressScale.stopAnimation();
+        pressScale.setValue(1);
+    }, [motion.reduced, pressScale]);
 
     return (
-        <Pressable
+        <AnimatedPressable
             android_ripple={hasRipple ? { color: state.rippleColor } : undefined}
             style={(pressState) => {
                 const base = typeof style === 'function' ? style(pressState) : style;
-                const flattened = (Array.isArray(base) ? Object.assign({}, ...(base as unknown[]).flat(Infinity).filter(Boolean)) : base) as ViewStyle | undefined;
+                const flattened = StyleSheet.flatten(base) as ViewStyle | undefined;
                 const transforms = Array.isArray(flattened?.transform) ? flattened.transform : [];
-                return [base, pressed && !reducedMotion ? { transform: [...transforms, { scale: MOE_MOTION.pressScale }] } : undefined];
+                return [base, { transform: [...transforms, { scale: pressScale }] }];
             }}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
@@ -79,6 +90,6 @@ export function AppPressable({ style, children, pressedColor, onPressIn, onPress
                     ]}
                 />
             ) : null}
-        </Pressable>
+        </AnimatedPressable>
     );
 }

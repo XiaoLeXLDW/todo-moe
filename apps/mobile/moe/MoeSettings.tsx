@@ -11,6 +11,8 @@ import { MOE_VISUAL } from './visual-system';
 import { SettingsTopBar } from '../components/settings/settings.shell';
 import { MoeMotionPreview } from './MoeMotionPreview';
 import { customTheme, mixColor } from './themes';
+import { moeHaptic, type MoeHapticEvent } from './haptics';
+import { AppPressable } from '../components/app-pressable';
 
 function usePresentationEditor() {
   const preferences = useMoePreferences(); const tc = useThemeColors();
@@ -23,8 +25,8 @@ function usePresentationEditor() {
 function Choices({ title, selected, choices, onSelect }: { title: string; selected: string; choices: [string, string][]; onSelect: (value: string) => void }) {
   const tc = useThemeColors();
   return <View style={styles.section}><Text accessibilityRole="header" style={[styles.title, { color: tc.text }]}>{title}</Text><View style={styles.choices}>
-    {choices.map(([value, name]) => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ checked: value === selected }} onPress={() => onSelect(value)}
-      style={[styles.choice, { backgroundColor: selected === value ? tc.tint : tc.inputBg }]}><Text style={{ color: selected === value ? tc.onTint : tc.text }}>{name}</Text></Pressable>)}
+    {choices.map(([value, name]) => <AppPressable key={value} accessibilityRole="radio" accessibilityState={{ checked: value === selected }} onPress={() => { moeHaptic('selectionTick'); onSelect(value); }}
+      style={[styles.choice, { backgroundColor: selected === value ? tc.tint : tc.inputBg }]}><Text style={{ color: selected === value ? tc.onTint : tc.text }}>{name}</Text></AppPressable>)}
   </View></View>;
 }
 function Toggle({ title, value, onChange }: { title: string; value: boolean; onChange: (value: boolean) => void }) {
@@ -82,7 +84,7 @@ export function MoeAppearanceSettings() {
       <Pressable accessibilityRole="button" accessibilityState={{ disabled: !valid }} disabled={!valid} onPress={() => commit(input.toUpperCase())} style={[styles.choice, { backgroundColor: tc.tint, opacity: valid ? 1 : .4 }]}><Text style={{ color: tc.onTint }}>{label('应用颜色', 'Apply color')}</Text></Pressable>
     </View> : null}
     <Choices title={label('玻璃效果', 'Glass')} selected={preferences.glass} choices={[
-      ['off', label('关闭', 'Off')], ['soft', label('柔和', 'Soft')], ['liquid', label('液态', 'Liquid')],
+      ['off', label('关闭', 'Off')], ['soft', label('柔和', 'Soft')], ['liquid', label('晶体', 'Crystal')],
     ]} onSelect={(value) => save({ glass: value as MoePreferences['glass'] })} />
     <Text style={[styles.note, { color: tc.secondaryText }]}>{label('不支持液态效果的设备自动使用兼容材质。', 'Devices without liquid effects use a compatible surface.')}{!glassCapabilities().liquid ? ` ${label('当前使用兼容效果。', 'Compatibility mode is active.')}` : ''}</Text>
   </Page>;
@@ -91,13 +93,22 @@ export function MoeMotionSettings() {
   const { preferences, tc, label, save, error } = usePresentationEditor();
   return <Page title={label('动画与触感', 'Motion & haptics')} error={error}>
     <Choices title={label('动画强度', 'Motion')} selected={preferences.motion} choices={[
-      ['simple', label('简洁', 'Reduced')], ['standard', label('标准', 'Standard')], ['lively', label('增强', 'Enhanced')],
+      ['simple', label('简洁', 'Reduced')], ['standard', label('标准', 'Standard')], ['lively', label('增强', 'Enhanced')], ['maximal', label('夸张', 'Maximal')],
     ]} onSelect={(value) => save({ motion: value as MoePreferences['motion'] })} />
     <Text style={[styles.note, { color: tc.secondaryText }]}>{label('系统减少动画始终优先；任务保存和撤销立即执行。下方预览不会创建真实任务。', 'System Reduce Motion is always respected. Saving and Undo are immediate. This preview does not create real tasks.')}</Text>
     <MoeMotionPreview />
     <Choices title={label('触感反馈', 'Haptics')} selected={preferences.haptics} choices={[
-      ['off', label('关闭', 'Off')], ['light', label('轻', 'Light')],
+      ['off', label('关闭', 'Off')], ['system', label('跟随系统', 'System')], ['crisp', label('清脆', 'Crisp')], ['strong', label('清脆·强', 'Crisp strong')],
     ]} onSelect={(value) => save({ haptics: value as MoePreferences['haptics'] })} />
+    <View style={styles.section}>
+      <Text accessibilityRole="header" style={[styles.title, { color: tc.text }]}>{label('触感试听', 'Haptic audition')}</Text>
+      <View style={styles.choices}>{([
+        ['auditionSingle', label('A · 单击', 'A · Single')],
+        ['auditionDouble', label('B · 紧双击', 'B · Tight double')],
+        ['auditionTriple', label('C · 清单三连', 'C · List triple')],
+      ] as [MoeHapticEvent, string][]).map(([event, name]) => <Pressable key={event} accessibilityRole="button" onPress={() => moeHaptic(event)}
+        style={[styles.choice, { backgroundColor: tc.inputBg }]}><Text style={{ color: tc.text }}>{name}</Text></Pressable>)}</View>
+    </View>
     <Toggle title={label('清单完成庆祝', 'Celebrate completed lists')} value={preferences.celebration} onChange={(celebration) => save({ celebration })} />
     <Toggle title={label('清单下一步提示', 'Suggest the next action')} value={preferences.nextActionPrompt} onChange={(nextActionPrompt) => save({ nextActionPrompt })} />
   </Page>;

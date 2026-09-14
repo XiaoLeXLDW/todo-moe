@@ -71,7 +71,7 @@ export function useMoeCompletionRow(taskId: string, completed: boolean) {
         undoneOperation.current = null;
         cancelFeedback(taskId);
         const allowed = !motion.reduced && AppState.currentState === 'active' && navigation?.isFocused() !== false;
-        const painted = Boolean(allowed && details && presentFeedback(taskId, operationId, details, motion.exitMs));
+        const painted = Boolean(allowed && details && presentFeedback(taskId, operationId, details, motion.tailMs));
         feedbackOperation.current = painted ? operationId : null;
         // Snapshot paint belongs to the stable host. Suppress this native old
         // row immediately on removal, rather than keeping two visual copies.
@@ -80,7 +80,7 @@ export function useMoeCompletionRow(taskId: string, completed: boolean) {
             feedbackOperation.current = null;
             setVisual(operationId, allowed);
         }
-    }, [cancelFeedback, motion.exitMs, motion.reduced, navigation, presentFeedback, setVisual, taskId]);
+    }, [cancelFeedback, motion.reduced, motion.tailMs, navigation, presentFeedback, setVisual, taskId]);
     const settle = useCallback((operationId: number, succeeded: boolean) => {
         if (operation.current !== operationId || undoneOperation.current === operationId) return false;
         // A successful promise can settle before React commits the filter's
@@ -124,13 +124,13 @@ export function useMoeCompletionRow(taskId: string, completed: boolean) {
         return {
             initialValues: { opacity: 1, transform: [{ translateX: 0 }] },
             animations: {
-                opacity: withTiming(0, { duration: motion.exitMs }),
-                transform: [{ translateX: withTiming(motion.travel, { duration: motion.exitMs }) }],
+                opacity: withTiming(0, { duration: motion.rowExitMs }),
+                transform: [{ translateX: withTiming(motion.travel, { duration: motion.rowExitMs }) }],
             },
             // No business or JS callbacks. A remounted row owns a different
             // SharedValue, so finishing this old node cannot affect the new row.
         };
-    }, [motion.exitMs, motion.reduced, motion.travel, visual]);
+    }, [motion.reduced, motion.rowExitMs, motion.travel, visual]);
     const entering = useMemo(() => {
         if (!restored.current || motion.reduced) return undefined;
         return () => {
@@ -153,7 +153,7 @@ export function MoeCompletionRow({ transition, children }: {
 
 export function useMoeCompletionListLayout() {
     const motion = useCompletionMotion();
-    return useMemo(() => motion.reduced ? undefined : LinearTransition.duration(motion.exitMs), [motion.exitMs, motion.reduced]);
+    return useMemo(() => motion.reduced ? undefined : LinearTransition.duration(motion.rowExitMs), [motion.reduced, motion.rowExitMs]);
 }
 
 /** Only this task row's title fades; its text and business status stay original. */

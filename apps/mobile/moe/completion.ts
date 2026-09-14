@@ -1,7 +1,7 @@
 import type { Project, Task } from '@mindwtr/core';
 
 export type CompletionSnapshot = { tasks: readonly Task[]; projects: readonly Project[] };
-export type CompletionOperation = { id: number; taskId: string; projectId?: string; eligible: boolean; batchId?: number };
+export type CompletionOperation = { id: number; taskId: string; projectId?: string; eligible: boolean; batchId?: number; occurredAt: number };
 export type ListCompletedEvent = { operationId: number; projectId: string; title: string };
 const pending = new Map<string, CompletionOperation>();
 type CompletionBatch = { id: number; pending: Set<number>; before: Set<string>; successful: Set<string>; cancelled: boolean };
@@ -19,7 +19,7 @@ export function beginMoeCompletion(taskId: string, snapshot: CompletionSnapshot,
   const project = snapshot.projects.find((item) => item.id === task?.projectId);
   const outstanding = snapshot.tasks.filter((item) => item.projectId === project?.id && isMoePendingTask(item));
   const operation: CompletionOperation = {
-    id: ++sequence, taskId, projectId: project?.id,
+    id: ++sequence, taskId, projectId: project?.id, occurredAt: Date.now(),
     eligible: Boolean(completing && task && project && !project.deletedAt && project.status === 'active'
       && isMoePendingTask(task)),
   };

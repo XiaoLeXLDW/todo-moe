@@ -6,6 +6,7 @@ import type { ThemeColors } from '../hooks/use-theme-colors';
 import { useMoePreferences } from './preferences';
 import { resolveMoeCompletionMotion } from './completion-motion';
 import Reanimated, { type AnimatedRef } from 'react-native-reanimated';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 const CHECK_SIZE = 16;
 
@@ -15,22 +16,26 @@ export function MoeCompletionBurst({ progress, motion, color }: {
 }) {
   if (motion.reduced) return null;
   const size = motion.burstSize;
+  const center = size / 2;
+  const inner = size * 0.18;
+  const outer = size * 0.46;
+  const rays = Array.from({ length: motion.burstParticles }, (_, index) => {
+    const angle = index * Math.PI * 2 / motion.burstParticles;
+    return `M ${center + Math.cos(angle) * inner} ${center + Math.sin(angle) * inner} L ${center + Math.cos(angle) * outer} ${center + Math.sin(angle) * outer}`;
+  }).join(' ');
   return <View pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
     style={{ position: 'absolute', width: size, height: size, left: '50%', top: '50%', marginLeft: -size / 2, marginTop: -size / 2 }}>
-    <Animated.View style={{ ...StyleSheet.absoluteFillObject, borderRadius: size / 2, borderWidth: 1.5, borderColor: color,
+    <Animated.View style={{ ...StyleSheet.absoluteFillObject,
       opacity: progress.interpolate({ inputRange: [0, 0.1, 0.75, 1], outputRange: [0, 0.65, 0.3, 0] }),
-      transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.22, 1] }) }] }} />
-    {Array.from({ length: motion.burstParticles }, (_, index) => {
-      const angle = index * Math.PI * 2 / motion.burstParticles;
-      return <Animated.View key={index} style={{ position: 'absolute', left: size / 2 - 2, top: size / 2 - 2,
-        width: 4, height: index % 2 ? 7 : 4, borderRadius: 2, backgroundColor: color,
-        opacity: progress.interpolate({ inputRange: [0, 0.1, 0.6, 1], outputRange: [0, 1, 1, 0] }),
-        transform: [
-          { translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(angle) * size / 2] }) },
-          { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(angle) * size / 2] }) },
-          { rotate: `${index * 36}deg` },
-        ] }} />;
-    })}
+      transform: [
+        { scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.22, 1] }) },
+        { rotate: progress.interpolate({ inputRange: [0, 1], outputRange: ['-8deg', '5deg'] }) },
+      ] }}>
+      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <Circle cx={center} cy={center} r={size * 0.36} fill="none" stroke={color} strokeWidth={1.5} />
+        <Path d={rays} fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" />
+      </Svg>
+    </Animated.View>
   </View>;
 }
 

@@ -10,6 +10,7 @@ afterEach(() => ['a', 'b'].forEach(cancelMoeCompletion));
 describe('local list completion boundary', () => {
   it('celebrates exactly once after a successful local last task', () => {
     const op = beginMoeCompletion('a', snapshot([task('a')]))!;
+    expect(op.occurredAt).toEqual(expect.any(Number));
     expect(finishMoeCompletion(op, true, snapshot([task('a', { status: 'done' })])))
       .toEqual({ operationId: op.id, projectId: 'p', title: '我的清单' });
     expect(finishMoeCompletion(op, true, snapshot([task('a', { status: 'done' })]))).toBeNull();

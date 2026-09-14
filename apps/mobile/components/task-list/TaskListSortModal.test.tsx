@@ -25,6 +25,12 @@ vi.mock('react-native', () => ({
   Text: ({ style, ...props }: any) => React.createElement('span', props, props.children),
   View: ({ style, ...props }: any) => React.createElement('div', props, props.children),
 }));
+vi.mock('../../moe/glass/GlassSurface', () => ({
+  GlassSurface: ({ children }: any) => React.createElement('div', null, children),
+}));
+vi.mock('../../moe/preferences', () => ({ useMoePreferences: () => ({ glass: 'liquid' }) }));
+vi.mock('../../hooks/use-reduced-motion', () => ({ useReducedMotion: () => false }));
+vi.mock('../../hooks/use-theme-tokens', () => ({ useThemeTokens: () => ({ isDark: false }) }));
 
 const themeColors = { border: '#d1d5db', cardBg: '#ffffff', filterBg: '#f3f4f6', text: '#111827' };
 

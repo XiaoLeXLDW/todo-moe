@@ -25,6 +25,7 @@ describe('device presentation contract', () => {
     }
     expect(resolveMoeMotion('simple', false).duration).toBe(0);
     expect(resolveMoeMotion('lively', false).duration).toBeGreaterThan(resolveMoeMotion('standard', false).duration);
+    expect(resolveMoeMotion('maximal', false)).toMatchObject({ pressScale: 0.8, travel: 24 });
   });
   it('provides legible fixed text and selected controls for all three themes, day and night', () => {
     for (const theme of ['soft', 'ink', 'family'] as const) {

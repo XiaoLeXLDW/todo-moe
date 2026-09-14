@@ -1,6 +1,10 @@
 import { Modal, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { styles } from './task-list.styles';
+import { GlassSurface } from '../../moe/glass/GlassSurface';
+import { useMoePreferences } from '../../moe/preferences';
+import { useReducedMotion } from '../../hooks/use-reduced-motion';
+import { useThemeTokens } from '../../hooks/use-theme-tokens';
 
 type ThemeColors = {
   border: string;
@@ -30,6 +34,9 @@ export function TaskListTagModal({
   themeColors,
   visible,
 }: TaskListTagModalProps) {
+  const preferences = useMoePreferences();
+  const reduced = useReducedMotion();
+  const { isDark } = useThemeTokens();
   return (
     <Modal
       visible={visible}
@@ -38,10 +45,8 @@ export function TaskListTagModal({
       onRequestClose={onClose}
     >
       <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <Pressable
-          style={[styles.modalCard, { backgroundColor: themeColors.cardBg }]}
-          onPress={(event) => event.stopPropagation()}
-        >
+        <Pressable style={styles.modalCardOuter} onPress={(event) => event.stopPropagation()}>
+        <GlassSurface mode={preferences.glass} dark={isDark} reducedMotion={reduced} samplingEnabled={visible} style={styles.modalCard}>
           <Text style={[styles.modalTitle, { color: themeColors.text }]}>{t('bulk.addTag')}</Text>
           <TextInput
             value={tagInput}
@@ -65,6 +70,7 @@ export function TaskListTagModal({
               <Text style={[styles.modalButtonText, { color: themeColors.tint }]}>{t('common.save')}</Text>
             </TouchableOpacity>
           </View>
+        </GlassSurface>
         </Pressable>
       </Pressable>
     </Modal>

@@ -122,15 +122,29 @@ it('dismisses fixed-position paint on finger movement without discarding pending
     mount(); geometry();
     act(() => { transition.arm(70, details); transition.beginUndo(70); });
     expect(paints()).toHaveLength(1); expect(feedbackActive).toBe(true);
-    act(() => tree!.root.findByProps({ testID: 'moe-feedback-touch-host' }).props.onTouchMove());
+    const host = tree!.root.findByProps({ testID: 'moe-feedback-touch-host' });
+    act(() => {
+      host.props.onTouchStart({ nativeEvent: { pageX: 10, pageY: 10 } });
+      host.props.onTouchMove({ nativeEvent: { pageX: 10, pageY: 24 } });
+    });
     expect(paints()).toHaveLength(0); expect(feedbackActive).toBe(true); expect(vi.getTimerCount()).toBe(0);
     act(() => transition.finishUndo(70));
     expect(feedbackActive).toBe(false);
 });
 
-it('invalidates stale geometry before another tap and when the host window relayouts', () => {
+it('keeps feedback through a tap but invalidates stale geometry on movement or host relayout', () => {
     mount(); geometry(); act(() => transition.arm(71, details));
-    act(() => tree!.root.findByProps({ testID: 'moe-feedback-touch-host' }).props.onTouchStart());
+    const host = tree!.root.findByProps({ testID: 'moe-feedback-touch-host' });
+    act(() => {
+      host.props.onTouchStart({ nativeEvent: { pageX: 20, pageY: 20 } });
+      host.props.onTouchMove({ nativeEvent: { pageX: 23, pageY: 23 } });
+      host.props.onTouchEnd();
+    });
+    expect(paints()).toHaveLength(1);
+    act(() => {
+      host.props.onTouchStart({ nativeEvent: { pageX: 20, pageY: 20 } });
+      host.props.onTouchMove({ nativeEvent: { pageX: 31, pageY: 20 } });
+    });
     expect(paints()).toHaveLength(0);
     geometry(); act(() => transition.arm(72, details));
     act(() => tree!.root.findByProps({ testID: 'moe-completion-feedback-host' }).props.onLayout());

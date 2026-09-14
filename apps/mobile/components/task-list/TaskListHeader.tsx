@@ -1,7 +1,9 @@
 import React from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { ArrowUpDown, Folder, SlidersHorizontal, X } from 'lucide-react-native';
 
+import { AppPressable } from '../app-pressable';
+import { moeHaptic } from '../../moe/haptics';
 import { styles } from './task-list.styles';
 
 type ThemeColors = {
@@ -68,8 +70,8 @@ export function TaskListHeader({
   const removeFilterLabel = t('filters.remove') === 'filters.remove' ? 'Remove filter' : t('filters.remove');
   const excludedStateLabel = t('filters.excluded') === 'filters.excluded' ? 'Excluded' : t('filters.excluded');
   const sortControl = showSort ? (
-    <TouchableOpacity
-      onPress={onOpenSort}
+    <AppPressable
+      onPress={() => { moeHaptic('selectionTick'); onOpenSort(); }}
       style={[
         styles.sortButton,
         { borderColor: themeColors.border, backgroundColor: themeColors.filterBg },
@@ -79,11 +81,11 @@ export function TaskListHeader({
       hitSlop={8}
     >
       <ArrowUpDown size={16} color={themeColors.secondaryText} strokeWidth={2} />
-    </TouchableOpacity>
+    </AppPressable>
   ) : null;
   const filterControl = showFilterButton ? (
-    <TouchableOpacity
-      onPress={onOpenFilters}
+    <AppPressable
+      onPress={() => { moeHaptic('selectionTick'); onOpenFilters(); }}
       style={[
         styles.sortButton,
         {
@@ -103,11 +105,11 @@ export function TaskListHeader({
           </Text>
         </View>
       ) : null}
-    </TouchableOpacity>
+    </AppPressable>
   ) : null;
   const groupControl = onOpenGroup ? (
-    <TouchableOpacity
-      onPress={onOpenGroup}
+    <AppPressable
+      onPress={() => { moeHaptic('selectionTick'); onOpenGroup(); }}
       style={[
         styles.sortButton,
         { borderColor: themeColors.border, backgroundColor: themeColors.filterBg },
@@ -117,7 +119,7 @@ export function TaskListHeader({
       hitSlop={8}
     >
       <Folder size={16} color={themeColors.secondaryText} strokeWidth={2} />
-    </TouchableOpacity>
+    </AppPressable>
   ) : null;
   return (
     <>
@@ -159,13 +161,13 @@ export function TaskListHeader({
             {activeFilterChips.map((chip) => {
               const accent = chip.excluded ? themeColors.danger : themeColors.tint;
               return (
-                <TouchableOpacity
+                <AppPressable
                   key={chip.id}
                   accessibilityRole="button"
                   accessibilityLabel={chip.excluded
                     ? `${removeFilterLabel}: ${chip.label} (${excludedStateLabel})`
                     : `${removeFilterLabel}: ${chip.label}`}
-                  onPress={chip.onPress}
+                  onPress={() => { moeHaptic('selectionTick'); chip.onPress(); }}
                   style={[
                     styles.filterChip,
                     {
@@ -184,19 +186,19 @@ export function TaskListHeader({
                     {chip.label}
                   </Text>
                   <X size={14} color={accent} />
-                </TouchableOpacity>
+                </AppPressable>
               );
             })}
-            <TouchableOpacity
+            <AppPressable
               accessibilityRole="button"
               accessibilityLabel={clearLabel}
-              onPress={onClearFilters}
+              onPress={() => { moeHaptic('selectionTick'); onClearFilters(); }}
               style={[styles.filterChip, { borderColor: themeColors.border, backgroundColor: themeColors.filterBg }]}
             >
               <Text style={[styles.filterChipText, { color: themeColors.secondaryText }]}>
                 {clearLabel}
               </Text>
-            </TouchableOpacity>
+            </AppPressable>
           </ScrollView>
         </View>
       ) : null}

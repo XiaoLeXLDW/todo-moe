@@ -31,10 +31,10 @@ export function MoeMotionPreview() {
     progress.stopAnimation();
     if (motion.reduced) { progress.setValue(done ? 1 : 0); return; }
     const animation = Animated.timing(progress, { toValue: done ? 1 : 0,
-      duration: done ? motion.exitMs : motion.enterMs, useNativeDriver: true });
+      duration: done ? motion.rowExitMs : motion.enterMs, useNativeDriver: true });
     animation.start();
     return () => animation.stop();
-  }, [done, motion.reduced, motion.exitMs, motion.enterMs, progress]);
+  }, [done, motion.reduced, motion.rowExitMs, motion.enterMs, progress]);
   useEffect(() => {
     // Changing modes starts a fresh demonstration, never replays old particles.
     setDone(false);

@@ -9,6 +9,11 @@ vi.mock('lucide-react-native', () => ({
   Flag: (props: Record<string, unknown>) => React.createElement('Flag', props),
 }));
 
+vi.mock('@/components/app-pressable', () => ({
+  AppPressable: ({ children, ...props }: any) => React.createElement('Pressable', props, children),
+}));
+vi.mock('@/moe/haptics', () => ({ moeHaptic: vi.fn() }));
+
 import { TaskFilterSheet, type TaskFilterSheetOptions } from './task-filter-sheet';
 import {
   useTaskFilterSelections,

@@ -20,12 +20,13 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
   default: asyncStorageMock,
 }));
 
-const hapticsMock = vi.hoisted(() => ({ impactAsync: vi.fn().mockResolvedValue(undefined) }));
+const hapticsMock = vi.hoisted(() => ({ impactAsync: vi.fn().mockResolvedValue(undefined), notificationAsync: vi.fn().mockResolvedValue(undefined) }));
 
 vi.mock('expo-haptics', () => ({
   __esModule: true,
   NotificationFeedbackType: { Success: 'success', Warning: 'warning' },
   impactAsync: hapticsMock.impactAsync,
+  notificationAsync: hapticsMock.notificationAsync,
 }));
 
 const reducedMotionMock = vi.hoisted(() => ({ value: false }));
@@ -342,6 +343,7 @@ describe('InboxProcessingModal', () => {
     undoTaskCompletion.mockReset();
     undoTaskCompletion.mockResolvedValue(undefined);
     hapticsMock.impactAsync.mockClear();
+    hapticsMock.notificationAsync.mockClear();
     asyncStorageMock.getItem.mockReset();
     asyncStorageMock.getItem.mockResolvedValue(null);
     asyncStorageMock.setItem.mockReset();
@@ -2452,16 +2454,17 @@ describe('InboxProcessingModal', () => {
       );
     });
 
-    it('marks completing an item with the app\'s light completion haptic', async () => {
+    it('marks completing an item with semantic success feedback', async () => {
       const root = await openFlow();
 
       expect(hapticsMock.impactAsync).not.toHaveBeenCalled();
+      expect(hapticsMock.notificationAsync).not.toHaveBeenCalled();
 
       pressStep(root, 'inbox.someday');
       await pressAsync(root, 'File it');
 
-      expect(hapticsMock.impactAsync).toHaveBeenCalledTimes(1);
-      expect(hapticsMock.impactAsync).toHaveBeenCalledWith('light');
+      expect(hapticsMock.notificationAsync).toHaveBeenCalledTimes(1);
+      expect(hapticsMock.notificationAsync).toHaveBeenCalledWith('success');
     });
 
     it('does not buzz or offer Undo when the write fails', async () => {
@@ -2472,6 +2475,7 @@ describe('InboxProcessingModal', () => {
       await pressAsync(root, 'File it');
 
       expect(hapticsMock.impactAsync).not.toHaveBeenCalled();
+      expect(hapticsMock.notificationAsync).not.toHaveBeenCalled();
       expect(undoToast()).toBeUndefined();
       expect(showToast.mock.calls.some(([options]) => options?.tone === 'error')).toBe(true);
     });

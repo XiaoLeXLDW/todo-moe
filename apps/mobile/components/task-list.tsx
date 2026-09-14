@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
-import { View, FlatList, Text, RefreshControl, Modal, Pressable, TouchableOpacity, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { Animated as NativeAnimated, View, FlatList, Text, RefreshControl, Modal, Pressable, TouchableOpacity, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { router } from 'expo-router';
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, GripVertical } from 'lucide-react-native';
+import { ArrowDown, ArrowUp, ChevronDown, GripVertical } from 'lucide-react-native';
 import DraggableFlatList, { type DragEndParams, type RenderItemParams } from 'react-native-draggable-flatlist';
 import {
   useTaskStore,
@@ -96,6 +96,7 @@ import { resolveTaskListSortBy } from '@/lib/task-list-sort';
 import { DONE_LIST_GROUP_OPTIONS } from '@/lib/view-state/done-list-view-state';
 import { useCollapsedTaskGroups } from '@/lib/view-state/task-group-collapse-state';
 import { useMoeTabInset } from '@/moe/tab-insets';
+import { moeHaptic } from '@/moe/haptics';
 
 const PROJECT_REORDER_ITEM_HEIGHT = 80;
 const PROJECT_REORDER_ANIMATION_CONFIG = {
@@ -108,6 +109,34 @@ const PROJECT_REORDER_ANIMATION_CONFIG = {
 } as const;
 const SLOW_TASK_LIST_DERIVE_MS = 250;
 const SLOW_TASK_LIST_COMMIT_MS = 500;
+
+function MoeSectionChevron({ collapsed, color, reduced }: { collapsed: boolean; color: string; reduced: boolean }) {
+  const open = useRef(new NativeAnimated.Value(collapsed ? 0 : 1)).current;
+  useEffect(() => {
+    open.stopAnimation();
+    if (reduced) open.setValue(collapsed ? 0 : 1);
+    else NativeAnimated.spring(open, { toValue: collapsed ? 0 : 1, damping: 15, stiffness: 260, mass: 0.55, useNativeDriver: true }).start();
+    return () => open.stopAnimation();
+  }, [collapsed, open, reduced]);
+  return <NativeAnimated.View style={{ transform: [
+    { rotate: open.interpolate({ inputRange: [0, 1], outputRange: ['-90deg', '0deg'] }) },
+    { scale: open.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] }) },
+  ] }}><ChevronDown size={15} color={color} /></NativeAnimated.View>;
+}
+
+function MoeDragLift({ active, reduced, children }: { active: boolean; reduced: boolean; children: React.ReactNode }) {
+  const lift = useRef(new NativeAnimated.Value(active ? 1 : 0)).current;
+  useEffect(() => {
+    lift.stopAnimation();
+    if (reduced) lift.setValue(active ? 1 : 0);
+    else NativeAnimated.spring(lift, { toValue: active ? 1 : 0, damping: 17, stiffness: 280, mass: 0.6, useNativeDriver: true }).start();
+    return () => lift.stopAnimation();
+  }, [active, lift, reduced]);
+  return <NativeAnimated.View style={{ zIndex: active ? 4 : 0, opacity: lift.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] }), transform: [
+    { scale: lift.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) },
+    { translateY: lift.interpolate({ inputRange: [0, 1], outputRange: [0, -3] }) },
+  ] }}>{children}</NativeAnimated.View>;
+}
 
 export type TaskListGroupBy = TaskGroupBy;
 
@@ -308,6 +337,7 @@ function TaskListComponent({
   const [internalProjectReorderMode, setInternalProjectReorderMode] = useState(false);
   const [completedTasksCollapsed, setCompletedTasksCollapsed] = useState(true);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reorderPlaceholderIndexRef = useRef<number | null>(null);
   const reduceMotion = useReducedMotion();
   const completionListLayout = useMoeCompletionListLayout();
   const completionFeedbackActive = useMoeCompletionFeedbackActive();
@@ -1271,6 +1301,7 @@ function TaskListComponent({
     const statusLabel = t(`status.${task.status}`);
 
     return (
+      <MoeDragLift active={isActive} reduced={reduceMotion}>
       <View
         style={[
           styles.projectDragTaskRow,
@@ -1313,6 +1344,7 @@ function TaskListComponent({
           <GripVertical size={20} color={themeColors.secondaryText} />
         </TouchableOpacity>
       </View>
+      </MoeDragLift>
     );
   }, [
     t,
@@ -1321,6 +1353,7 @@ function TaskListComponent({
     themeColors.secondaryText,
     themeColors.taskItemBg,
     themeColors.text,
+    reduceMotion,
   ]);
 
   const toggleSection = useCallback((sectionId: string) => {
@@ -1344,11 +1377,7 @@ function TaskListComponent({
             style={styles.sectionHeader}
           >
             <View style={styles.sectionHeaderTitleBlock}>
-              {item.collapsed ? (
-                <ChevronRight size={15} color={themeColors.secondaryText} />
-              ) : (
-                <ChevronDown size={15} color={themeColors.secondaryText} />
-              )}
+              <MoeSectionChevron collapsed={item.collapsed === true} color={themeColors.secondaryText} reduced={reduceMotion} />
               <Text style={[styles.sectionTitle, { color: item.muted ? themeColors.secondaryText : themeColors.text }]}>
                 {item.title}
               </Text>
@@ -1372,7 +1401,7 @@ function TaskListComponent({
       );
     }
     return renderTask({ item: item.task });
-  }, [renderTask, themeColors.secondaryText, themeColors.text, toggleSection]);
+  }, [reduceMotion, renderTask, themeColors.secondaryText, themeColors.text, toggleSection]);
 
   const renderProjectReorderHeader = useCallback((group: ProjectTaskReorderGroup<Task>) => {
     const sectionIndex = typeof group.sectionId === 'string' ? projectSectionIds.indexOf(group.sectionId) : -1;
@@ -1530,6 +1559,19 @@ function TaskListComponent({
           keyExtractor={(item) => item.key}
           getItemLayout={projectReorderHasHeaders ? undefined : getProjectReorderItemLayout}
           renderItem={renderProjectReorderItem}
+          onDragBegin={(index) => {
+            reorderPlaceholderIndexRef.current = index;
+            moeHaptic('dragStarted');
+          }}
+          onPlaceholderIndexChange={(index) => {
+            if (reorderPlaceholderIndexRef.current === index) return;
+            reorderPlaceholderIndexRef.current = index;
+            moeHaptic('selectionTick');
+          }}
+          onRelease={() => {
+            reorderPlaceholderIndexRef.current = null;
+            moeHaptic('selectionTick');
+          }}
           onDragEnd={handleProjectTaskDragEnd}
           onScrollOffsetChange={handleProjectReorderScrollOffsetChange}
           onScrollToIndexFailed={handleReorderScrollToIndexFailed}

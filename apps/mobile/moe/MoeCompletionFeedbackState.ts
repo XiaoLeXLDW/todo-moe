@@ -80,7 +80,7 @@ export function createCompletionFeedbackStore() {
             undoing.delete(taskId); finishLayoutHandoff(); notify();
         },
         present(entry: CompletionFeedback) {
-            if (!Number.isSafeInteger(entry.operationId) || entry.operationId < 1 || !Number.isFinite(entry.expiresAt) || entry.expiresAt <= Date.now() || entry.expiresAt > Date.now() + 500) return false;
+            if (!Number.isSafeInteger(entry.operationId) || entry.operationId < 1 || !Number.isFinite(entry.expiresAt) || entry.expiresAt <= Date.now() || entry.expiresAt > Date.now() + 1400) return false;
             // Pick fields explicitly: even a structurally wider caller object
             // cannot smuggle Task data or callbacks into the retained payload.
             const { operationId, taskId, title, appearance, row, titleRect, check, expiresAt } = entry;

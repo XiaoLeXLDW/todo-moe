@@ -12,6 +12,9 @@ vi.mock('expo-modules-core', () => ({
     requireOptionalNativeModule: () => ({}),
     requireNativeViewManager: () => 'MoeGlassNative',
 }));
+vi.mock('../../hooks/use-theme-colors', () => ({
+    useThemeColors: () => ({ cardBg: '#FFFFFF', tint: '#6750A4', border: '#D0C8DC' }),
+}));
 
 describe('native glass foreground ownership', () => {
     it('keeps navigation children inside the excluded native group and mounted when turning glass off', async () => {
@@ -25,6 +28,8 @@ describe('native glass foreground ownership', () => {
         await act(async () => { renderer = create(<GlassSurface mode="liquid"><Navigation /></GlassSurface>); });
         const native = renderer!.root.findByType('MoeGlassNative' as any);
         expect(native.props.mode).toBe('liquid');
+        expect(native.props.refractionDp).toBe(30);
+        expect(native.props.chromaticEdge).toBeGreaterThan(0);
         expect(native.findByType(Navigation)).toBeDefined();
         await act(async () => { renderer!.update(<GlassSurface mode="off" dark><Navigation /></GlassSurface>); });
         expect(renderer!.root.findByType('MoeGlassNative' as any).props.mode).toBe('off');

@@ -204,7 +204,7 @@ describe('ProjectRow', () => {
       deleteAction?.onPress?.();
     });
 
-    expect(hapticsMocks.impactAsync).toHaveBeenCalledWith('light');
+    expect(hapticsMocks.notificationAsync).toHaveBeenCalledWith('warning');
     expect(onDeleteProject).toHaveBeenCalledWith('project-1');
   });
 
