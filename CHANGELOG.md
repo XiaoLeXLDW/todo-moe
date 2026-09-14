@@ -2,7 +2,7 @@
 
 ## Todo Moe development
 
-- Unreleased Dev fix: completion preview now removes the checked glyph immediately on Undo/reset even when a native animation is interrupted; shared animated pressables preserve their full layout and pressed styles; Appearance and Motion & haptics again use the original settings page cards, rows, spacing, and one consistent bordered choice control.
+- [0.3.0 Dev vc44](docs/todo-moe/docs/versions/0.3.0-dev-vc44-2026-09-14.md): completion preview removes the checked glyph immediately on Undo/reset even when a native animation is interrupted; shared animated pressables preserve their full layout and pressed styles; Appearance and Motion & haptics again use the original settings page cards, rows, spacing, and one consistent bordered choice control.
 - [0.1.0-dev candidate record](docs/todo-moe/docs/versions/0.1.0-dev-2026-09-11.md): independent Android identity, everyday navigation and lists, motion/themes, experimental native glass, and controlled build/update workflows. Development candidate; device and stable-release acceptance are recorded separately.
 - [Current implementation and verification](docs/todo-moe/IMPLEMENTATION.md).
 
