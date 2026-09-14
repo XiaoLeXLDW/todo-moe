@@ -156,13 +156,13 @@ describe('completion-only native row configuration (not a Fabric animation simul
         act(() => tree.unmount());
         expect(callbacks.size).toBe(0); expect(mocks.appListeners.size).toBe(0); expect(vi.getTimerCount()).toBe(0);
     });
-    it('honors Simple/system reduction and releases the row before the lively tail ends', () => {
+    it('honors Simple/system reduction and keeps the lively row and feedback lifetime aligned', () => {
         mocks.preference = 'simple'; const simple = mount('simple'); act(() => simple.handle.current.arm(12));
         expect(simple.handle.current.exiting().animations).toEqual({ opacity: 0 });
         mocks.preference = 'standard'; mocks.reduced = true; const reduced = mount('system'); act(() => reduced.handle.current.arm(13));
         expect(reduced.handle.current.exiting().animations).toEqual({ opacity: 0 });
         mocks.reduced = false; mocks.preference = 'lively'; const lively = mount('lively'); act(() => lively.handle.current.arm(14));
-        expect(lively.handle.current.exiting().animations.opacity).toEqual({ target: 0, duration: 300 });
+        expect(lively.handle.current.exiting().animations.opacity).toEqual({ target: 0, duration: 460 });
     });
     it('keeps list layout duration on the shared completion parameters', () => {
         let result: any;

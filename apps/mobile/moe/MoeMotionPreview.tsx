@@ -36,7 +36,7 @@ export function MoeMotionPreview() {
     return () => animation.stop();
   }, [done, motion.reduced, motion.rowExitMs, motion.enterMs, progress]);
   useEffect(() => {
-    // Changing modes starts a fresh demonstration, never replays old particles.
+    // Changing modes starts a fresh demonstration.
     setDone(false);
     stopCelebration();
     const subscription = AppState.addEventListener('change', state => {
@@ -58,8 +58,8 @@ export function MoeMotionPreview() {
   return <View style={[styles.card, { borderColor: tc.border, backgroundColor: tc.cardBg }]}>
     <Text style={{ color: tc.text, fontWeight: '700' }}>{zh ? '立即试试' : 'Try the motion'}</Text>
     <Text style={{ color: tc.secondaryText, marginTop: 4 }}>{zh ? '仅为演示，不会创建真实任务' : 'Preview only — no real tasks are created'}</Text>
-    <Animated.View style={[styles.row, { opacity: progress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.5] }),
-      transform: [{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [0, motion.travel] }) }] }]}>
+    <Animated.View style={[styles.row, { opacity: progress.interpolate({ inputRange: [0, motion.confirmationHold, 1], outputRange: [1, 1, 0.5] }),
+      transform: [{ translateX: progress.interpolate({ inputRange: [0, motion.confirmationHold, 1], outputRange: [0, 0, motion.travel] }) }] }]}>
       <MoeCheckButton checked={done} disabled={false} tc={tc} label={zh ? '演示任务完成' : 'Complete demo task'} onPress={() => { stopCelebration(); setDone(value => !value); }} />
       <Text style={{ color: tc.text, textDecorationLine: done ? 'line-through' : 'none' }}>{zh ? '给今天一个小小的完成' : 'A little win for today'}</Text>
     </Animated.View>

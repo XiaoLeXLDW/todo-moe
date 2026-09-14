@@ -10,8 +10,8 @@ import { settleStoreAction } from '../components/store-action-result';
 import { MoeCompletionCell } from './MoeCompletionCell';
 import type { FeedbackAppearance } from './MoeCompletionFeedbackState';
 
-const state = vi.hoisted(() => ({ reduced: false, listeners: new Set<(value: string) => void>() }));
-vi.mock('./preferences', () => ({ useMoePreferences: () => ({ motion: 'lively' }) }));
+const state = vi.hoisted(() => ({ reduced: false, motion: 'lively', listeners: new Set<(value: string) => void>() }));
+vi.mock('./preferences', () => ({ useMoePreferences: () => ({ motion: state.motion }) }));
 vi.mock('../hooks/use-reduced-motion', () => ({ useReducedMotion: () => state.reduced }));
 vi.mock('@react-navigation/core', () => ({ NavigationContext: React.createContext(undefined) }));
 vi.mock('lucide-react-native', () => ({ Check: (props: object) => React.createElement('Check', props) }));
@@ -49,7 +49,7 @@ function geometry() {
         .mockReturnValueOnce({ ...base, pageX: 48, pageY: 290, width: 24, height: 24 });
 }
 const paints = () => tree!.root.findAll((node) => typeof node.type === 'string' && node.props.testID?.startsWith('moe-completion-feedback-') && node.props.testID !== 'moe-completion-feedback-host');
-beforeEach(() => { state.reduced = false; AppState.currentState = 'active'; feedbackActive = false; vi.useFakeTimers(); vi.mocked(measure).mockReset(); });
+beforeEach(() => { state.reduced = false; state.motion = 'lively'; AppState.currentState = 'active'; feedbackActive = false; vi.useFakeTimers(); vi.mocked(measure).mockReset(); });
 afterEach(() => { if (tree) act(() => tree!.unmount()); tree = undefined; state.listeners.clear(); vi.clearAllTimers(); vi.useRealTimers(); });
 
 it('measures synchronously before business dispatch and survives the original row being filtered out', () => {
@@ -116,6 +116,18 @@ it('page change, modal deactivation and background dispose paint and pending cle
     act(() => tree!.update(layout({ scope: '/lists', active: true }))); geometry(); act(() => transition.arm(8, details));
     act(() => state.listeners.forEach((listener) => listener('background')));
     expect(paints()).toHaveLength(0); expect(vi.getTimerCount()).toBe(0);
+});
+
+it('releases maximal feedback with the departing row instead of leaving a floating tail', () => {
+    state.motion = 'maximal';
+    mount(); geometry();
+    act(() => { transition.arm(80, details); tree!.update(layout({ row: false })); });
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(paints()).toHaveLength(1);
+    act(() => { vi.advanceTimersByTime(120); });
+    expect(paints()).toHaveLength(0);
+    expect(feedbackActive).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
 });
 
 it('dismisses fixed-position paint on finger movement without discarding pending Undo identity', () => {

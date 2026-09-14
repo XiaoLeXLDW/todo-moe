@@ -39,11 +39,11 @@ it('supports immediate completion and Undo without waiting for native animation 
 it('repeated list completion then Undo removes the decoration and pending expiry', () => {
   for (let n = 0; n < 8; n++) act(() => buttons()[0].props.onPress());
   expect(vi.getTimerCount()).toBe(1);
-  expect(JSON.stringify(tree.toJSON())).toContain('✓ 演示清单已完成');
-  expect(tree.root.findByType(MoeCelebrationVisual).props.motion).toMatchObject({ celebrationSize: 180, celebrationParticles: 14, celebrationMs: 1000 });
+  expect(JSON.stringify(tree.toJSON())).toContain('演示清单已完成');
+  expect(tree.root.findByType(MoeCelebrationVisual).props.motion).toMatchObject({ celebrationMs: 1000 });
   act(() => buttons()[1].props.onPress());
   expect(vi.getTimerCount()).toBe(0);
-  expect(JSON.stringify(tree.toJSON())).not.toContain('✓ 演示清单已完成');
+  expect(JSON.stringify(tree.toJSON())).not.toContain('演示清单已完成');
   expect(tree.root.findByType(MoeCheckButton).props.checked).toBe(false);
 });
 it('background and changing motion cancel the current preview', () => {

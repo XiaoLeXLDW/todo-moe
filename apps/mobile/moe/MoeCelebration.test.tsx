@@ -3,7 +3,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { Animated, AppState } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MoeCelebration } from './MoeCelebration';
-import { MoeCompletionBurst } from './MoeCheckButton';
+import { MoeCelebrationVisual } from './MoeCelebrationVisual';
 import { cancelMoeCompletion, publishListCompleted } from './completion';
 import { setMoePreferences } from './preferences';
 import { DEFAULT_MOE_PREFERENCES } from './preference-model';
@@ -79,9 +79,9 @@ describe('Moe Moment completion feedback', () => {
   it('keeps amplified lively feedback for one second and cancels it immediately on Undo', async () => {
     await setMoePreferences({ motion: 'lively' });
     await mount(); complete(77);
-    expect(tree!.root.findByType(MoeCompletionBurst).props.motion).toMatchObject({ burstSize: 180, burstParticles: 14 });
+    expect(tree!.root.findByType(MoeCelebrationVisual).props.motion.celebrationMs).toBe(1000);
     act(() => { vi.advanceTimersByTime(650); });
-    expect(visibleText()).toContain('✓ 清单已完成');
+    expect(visibleText()).toContain('清单已完成');
     act(() => cancelMoeCompletion('completed-task'));
     expect(tree?.toJSON()).toBeNull();
     act(() => { vi.advanceTimersByTime(500); });
@@ -184,21 +184,22 @@ describe('Moe Moment completion feedback', () => {
     expect(visibleText()).toContain('恢复前台后的新清单');
   });
 
-  it('fades its shared emblem with a ring and outward decorative particles', async () => {
+  it('fades a compact confirmation card with one non-interactive check', async () => {
     await mount();
     complete(1);
     const cards = tree!.root.findAll(node => String(node.type) === 'Animated.View' && node.props.accessibilityLiveRegion === 'polite');
     expect(renderedStyle(cards[0].props.style).opacity.outputRange).toEqual([0, 1, 1, 0]);
-    const burst = tree!.root.findByType(MoeCompletionBurst);
-    expect(burst.props.motion).toMatchObject({ burstSize: 160, burstParticles: 8 });
-    expect(burst.findAll(node => String(node.type) === 'View' && node.props.pointerEvents === 'none' && node.props.accessibilityElementsHidden)).toHaveLength(1);
+    const emblem = tree!.root.findByProps({ testID: 'moe-celebration-emblem' });
+    expect(renderedStyle(emblem.props.style)).toMatchObject({ width: 44, height: 44 });
+    expect(emblem.props.pointerEvents).toBe('none');
+    expect(emblem.props.accessibilityElementsHidden).toBe(true);
     expect(Animated.timing).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ duration: 600, useNativeDriver: true }));
   });
 
   it('shows non-blocking feedback briefly and clears it after 600 ms', async () => {
     await mount();
     complete(1);
-    expect(visibleText()).toContain('✓ 清单已完成');
+    expect(visibleText()).toContain('清单已完成');
     expect(tree?.toJSON()).toMatchObject({ props: { pointerEvents: 'none' } });
     act(() => { vi.advanceTimersByTime(599); });
     expect(visibleText()).toContain('旅行准备');

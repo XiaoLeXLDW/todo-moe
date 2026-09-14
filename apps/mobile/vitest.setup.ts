@@ -184,7 +184,7 @@ vi.mock('lucide-react-native', () => {
 });
 
 // Metro transforms the native SVG package in-app; node tests only need an
-// inspectable single-surface host for completion-burst render assertions.
+// inspectable SVG host for completion-check render assertions.
 vi.mock('react-native-svg', () => {
   const host = (name: string) => (props: any) => React.createElement(name, props, props.children);
   const Svg = host('Svg');

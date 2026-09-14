@@ -86,7 +86,4 @@ export function MoeCelebration({ active, projectId }: { active?: boolean; projec
 }
 const styles = StyleSheet.create({
   host: { position: 'absolute', top: 96, left: 24, right: 24, alignItems: 'center' },
-  card: { borderRadius: 20, borderWidth: 1, padding: 18, maxWidth: 340 },
-  particleOrigin: { position: 'absolute', left: 0, right: 0, top: '50%', overflow: 'visible' },
-  particle: { position: 'absolute', left: '50%' },
 });

@@ -2,12 +2,11 @@ import React, { createContext, useCallback, useContext, useEffect, useLayoutEffe
 import { Animated as NativeAnimated, AppState, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
 import Animated, { measure, useAnimatedRef, useAnimatedStyle, useSharedValue, type AnimatedRef, type SharedValue } from 'react-native-reanimated';
 import { runOnUISync } from 'react-native-worklets';
-import { Check } from 'lucide-react-native';
 import { NavigationContext } from '@react-navigation/core';
 import { useMoePreferences } from './preferences';
 import { useReducedMotion } from '../hooks/use-reduced-motion';
 import { resolveMoeCompletionMotion } from './completion-motion';
-import { MoeCompletionBurst } from './MoeCheckButton';
+import { MoeCompletionCheck } from './MoeCompletionCheck';
 import { createCompletionFeedbackStore, feedbackGeometry, type CompletionFeedback, type FeedbackAppearance, type FeedbackLayoutGate } from './MoeCompletionFeedbackState';
 
 export type CompletionMeasureRefs = { row: AnimatedRef<View>; title: AnimatedRef<Text>; check: AnimatedRef<View> };
@@ -140,20 +139,20 @@ function FeedbackPaint({ entry }: { entry: CompletionFeedback }) {
     // The same UI gate that snaps neighboring cells hides this old paint before
     // React commits its removal. Other task feedback remains visible.
     const visibility = useAnimatedStyle(() => ({ opacity: gate?.value.canceledOperationIds.includes(operationId) ? 0 : 1 }), [gate, operationId]);
-    const progress = useRef(new NativeAnimated.Value(0)).current;
+    const emphasis = useRef(new NativeAnimated.Value(0)).current;
     const rowProgress = useRef(new NativeAnimated.Value(0)).current;
     const mark = useRef(new NativeAnimated.Value(0)).current;
     useEffect(() => {
-        if (motion.reduced) { progress.setValue(1); rowProgress.setValue(1); mark.setValue(1); return; }
+        if (motion.reduced) { emphasis.setValue(1); rowProgress.setValue(1); mark.setValue(1); return; }
         const duration = Math.max(1, entry.expiresAt - Date.now());
         const animation = NativeAnimated.parallel([
-            NativeAnimated.timing(progress, { toValue: 1, duration, easing: (value) => value, useNativeDriver: true }),
+            NativeAnimated.timing(emphasis, { toValue: 1, duration: Math.min(motion.checkMs, duration), easing: (value) => value, useNativeDriver: true }),
             NativeAnimated.timing(rowProgress, { toValue: 1, duration: Math.min(motion.rowExitMs, duration), easing: (value) => value, useNativeDriver: true }),
-            NativeAnimated.timing(mark, { toValue: 1, duration: Math.min(motion.checkMs, duration), useNativeDriver: true }),
+            NativeAnimated.timing(mark, { toValue: 1, duration: Math.min(motion.checkMs, duration), easing: (value) => value, useNativeDriver: false }),
         ]);
         animation.start();
-        return () => { animation.stop(); progress.stopAnimation(); rowProgress.stopAnimation(); mark.stopAnimation(); };
-    }, [entry.expiresAt, mark, progress, rowProgress, motion.reduced, motion.checkMs, motion.rowExitMs]);
+        return () => { animation.stop(); emphasis.stopAnimation(); rowProgress.stopAnimation(); mark.stopAnimation(); };
+    }, [entry.expiresAt, mark, emphasis, rowProgress, motion.reduced, motion.checkMs, motion.rowExitMs]);
     const { appearance: a, row, titleRect, check } = entry;
     return (
         <Animated.View collapsable={false} pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants"
@@ -162,23 +161,19 @@ function FeedbackPaint({ entry }: { entry: CompletionFeedback }) {
             }, visibility]}>
         <NativeAnimated.View style={[styles.paint, { left: 0, top: 0, width: row.width, height: row.height,
                 backgroundColor: a.backgroundColor, borderColor: a.borderColor, borderWidth: a.borderWidth, borderRadius: a.borderRadius,
-                opacity: rowProgress.interpolate({ inputRange: [0, 0.35, 1], outputRange: [1, 1, 0] }),
-                transform: [{ translateX: rowProgress.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 0, motion.travel] }) }],
+                opacity: rowProgress.interpolate({ inputRange: [0, motion.confirmationHold, 1], outputRange: [1, 1, 0] }),
+                transform: [{ translateX: rowProgress.interpolate({ inputRange: [0, motion.confirmationHold, 1], outputRange: [0, 0, motion.travel] }) }],
             }]}>
             <NativeAnimated.Text numberOfLines={2} style={{ position: 'absolute', left: titleRect.x, top: titleRect.y,
                 width: titleRect.width, height: titleRect.height, color: a.textColor, fontSize: a.fontSize,
                 lineHeight: a.lineHeight, fontWeight: a.fontWeight, textAlign: a.textAlign, writingDirection: a.writingDirection,
                 textDecorationLine: 'line-through', opacity: mark.interpolate({ inputRange: [0, 1], outputRange: [1, 0.5] }),
             }}>{entry.title}</NativeAnimated.Text>
-            <NativeAnimated.View style={{ position: 'absolute', left: check.x, top: check.y, width: check.width, height: check.height,
-                borderRadius: Math.min(9, check.height / 2), backgroundColor: a.checkColor,
-                alignItems: 'center', justifyContent: 'center', opacity: mark,
-                transform: [{ scale: mark.interpolate({ inputRange: [0, 0.65, 1], outputRange: [motion.pressedScale, motion.completedScale, 1] }) }],
-            }}><Check size={Math.min(check.width, check.height) * 0.67} color={a.checkForeground} strokeWidth={3} /></NativeAnimated.View>
+            <View pointerEvents="none" style={{ position: 'absolute', left: check.x, top: check.y, width: check.width, height: check.height }}>
+                <MoeCompletionCheck reveal={mark} emphasis={emphasis} motion={motion} color={a.checkColor}
+                    foreground={a.checkForeground} size={Math.min(check.width, check.height)} />
+            </View>
         </NativeAnimated.View>
-        <View pointerEvents="none" style={{ position: 'absolute', left: check.x, top: check.y, width: check.width, height: check.height }}>
-            <MoeCompletionBurst progress={progress} motion={motion} color={a.checkColor} />
-        </View>
         </Animated.View>
     );
 }
