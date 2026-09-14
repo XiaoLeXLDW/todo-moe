@@ -40,6 +40,7 @@ export function useMoeCompletionRow(taskId: string, completed: boolean) {
     const undoneOperation = useRef<number | null>(null);
     const feedbackOperation = useRef<number | null>(null);
     const { refs: measurementRefs, present: presentFeedback, cancel: cancelFeedback,
+        retainParticles,
         beginUndo: beginHostUndo, finishUndo: finishHostUndo, undoPending } = useMoeCompletionFeedback(taskId);
     const restored = useRef<boolean | undefined>(undefined);
     if (restored.current === undefined) restored.current = takeRestore(taskId);
@@ -99,8 +100,13 @@ export function useMoeCompletionRow(taskId: string, completed: boolean) {
     useLayoutEffect(() => {
         // A Done row still present (All/expanded Completed) must not animate a
         // later ordinary filter, deletion, navigation or virtualization removal.
-        if (completed) cancel();
-    }, [cancel, completed]);
+        if (!completed) return;
+        // The real retained row owns its check/text; its fragments still need
+        // the external host because Swipeable clips its own row contents.
+        if (motion.particles && feedbackOperation.current === operation.current && retainParticles(taskId, operation.current)) {
+            setVisual(operation.current, false);
+        } else cancel();
+    }, [cancel, completed, motion.particles, retainParticles, setVisual, taskId]);
     useEffect(() => {
         mounted.current = true;
         const inactive = () => { cancel(); restores.delete(taskId); };

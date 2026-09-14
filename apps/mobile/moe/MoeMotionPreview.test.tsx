@@ -1,10 +1,11 @@
 import React from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { Animated } from 'react-native';
+import { Animated, ScrollView } from 'react-native';
 import { MoeMotionPreview } from './MoeMotionPreview';
 import { MoeCheckButton } from './MoeCheckButton';
 import { MoeCelebrationVisual } from './MoeCelebrationVisual';
+import { MoeCelebrationLayerHost } from './MoeCelebrationLayer';
 
 const state = vi.hoisted(() => ({ motion: 'lively', reduced: false, listeners: new Set<(state: string) => void>() }));
 vi.mock('./preferences', () => ({ useMoePreferences: () => ({ motion: state.motion, celebration: true }) }));
@@ -56,4 +57,18 @@ it('background and changing motion cancel the current preview', () => {
   act(() => tree.update(<MoeMotionPreview />));
   expect(vi.getTimerCount()).toBe(0);
   expect(tree.root.findByType(MoeCheckButton).props.checked).toBe(false);
+});
+
+it('renders list celebration outside the clipping settings scroll viewport', () => {
+  act(() => tree.update(<MoeCelebrationLayerHost><ScrollView testID="settings-scroll-clip" style={{ height: 240, overflow: 'hidden' }}>
+    <MoeMotionPreview />
+  </ScrollView></MoeCelebrationLayerHost>));
+  act(() => buttons()[0].props.onPress());
+  let ancestor = tree.root.findByType(MoeCelebrationVisual).parent;
+  let insideScroll = false;
+  while (ancestor) {
+    if (ancestor.props.testID === 'settings-scroll-clip') insideScroll = true;
+    ancestor = ancestor.parent;
+  }
+  expect(insideScroll).toBe(false);
 });

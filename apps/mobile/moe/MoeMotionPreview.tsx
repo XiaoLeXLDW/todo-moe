@@ -7,6 +7,7 @@ import { useMoePreferences } from './preferences';
 import { resolveMoeCompletionMotion } from './completion-motion';
 import { MoeCheckButton } from './MoeCheckButton';
 import { MoeCelebrationVisual } from './MoeCelebrationVisual';
+import { MoeCelebrationLayer, MoeCelebrationStage } from './MoeCelebrationLayer';
 
 /** Settings-only fake content. No completion events, store or persisted task IDs. */
 export function MoeMotionPreview() {
@@ -52,7 +53,7 @@ export function MoeMotionPreview() {
     if (!preferences.celebration) return;
     setCelebrating(true);
     celebration.setValue(motion.reduced ? 1 : 0);
-    if (!motion.reduced) Animated.timing(celebration, { toValue: 1, duration: motion.celebrationMs, useNativeDriver: true }).start();
+    if (!motion.reduced) Animated.timing(celebration, { toValue: 1, duration: motion.celebrationMs, easing: value => value, useNativeDriver: true }).start();
     timer.current = setTimeout(() => setCelebrating(false), motion.celebrationMs);
   };
   return <View style={[styles.card, { borderColor: tc.border, backgroundColor: tc.cardBg }]}>
@@ -67,9 +68,9 @@ export function MoeMotionPreview() {
       <Pressable accessibilityRole="button" onPress={completeList} style={styles.button}><Text style={{ color: tc.tint }}>{zh ? '演示清单完成' : 'Complete demo list'}</Text></Pressable>
       <Pressable accessibilityRole="button" onPress={undo} style={styles.button}><Text style={{ color: tc.tint }}>{zh ? '撤销 / 重试' : 'Undo / retry'}</Text></Pressable>
     </View>
-    {celebrating ? <View pointerEvents="none" style={styles.moment}>
+    {celebrating ? <MoeCelebrationLayer><MoeCelebrationStage>
       <MoeCelebrationVisual progress={celebration} motion={motion} tc={tc} label={zh ? '✓ 演示清单已完成' : '✓ Demo list completed'} title={zh ? '我的演示清单' : 'My demo list'} />
-    </View> : null}
+    </MoeCelebrationStage></MoeCelebrationLayer> : null}
   </View>;
 }
 const styles = StyleSheet.create({
@@ -77,5 +78,4 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 20, overflow: 'visible' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   button: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 8 },
-  moment: { position: 'absolute', alignSelf: 'center', top: 68, alignItems: 'center', justifyContent: 'center' },
 });

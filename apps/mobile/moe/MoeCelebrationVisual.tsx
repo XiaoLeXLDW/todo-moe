@@ -4,6 +4,7 @@ import { Check } from 'lucide-react-native';
 import type { ThemeColors } from '../hooks/use-theme-colors';
 import { MOE_COMPLETION_MOTION, resolveMoeCompletionMotion } from './completion-motion';
 import { colorContrast } from './themes';
+import { MoeCompletionParticles } from './MoeCompletionParticles';
 
 /** The real event and settings demo render precisely the same visual. No timers or events. */
 export function MoeCelebrationVisual({ progress, motion, tc, label, title }: {
@@ -16,25 +17,38 @@ export function MoeCelebrationVisual({ progress, motion, tc, label, title }: {
     outputRange: [0, 1, 1, 0],
   });
   return <View pointerEvents="none" style={styles.host}>
+    {!motion.reduced ? <View style={styles.blast} pointerEvents="none">
+      {motion.particles ? <View style={styles.origin} pointerEvents="none">
+        <MoeCompletionParticles progress={progress} color={tc.success} secondaryColor={tc.tint} variant="list" />
+      </View> : null}
+      <Animated.View testID="moe-celebration-emblem" pointerEvents="none" accessible={false}
+        accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+        style={[styles.emblem, { backgroundColor: tc.success,
+          opacity: progress.interpolate({ inputRange: [0, .06, .78, 1], outputRange: [0, 1, 1, 0] }),
+          transform: [
+            { scale: progress.interpolate({ inputRange: [0, .09, .19, .3, 1], outputRange: [.45, 1.3, .94, 1, 1] }) },
+            { rotate: progress.interpolate({ inputRange: [0, .12, .3, 1], outputRange: ['-12deg', '5deg', '0deg', '0deg'] }) },
+          ],
+        }]}>
+        <Check size={48} strokeWidth={2.8} color={checkColor} />
+      </Animated.View>
+    </View> : null}
     <Animated.View accessibilityLiveRegion="polite" style={[styles.card, { backgroundColor: tc.cardBg, borderColor: tc.border, opacity },
       !motion.reduced && { transform: [
         { translateY: progress.interpolate({ inputRange: [0, .2, .72, 1], outputRange: [12, 0, 0, -6] }) },
         { scale: progress.interpolate({ inputRange: [0, .2, .34, 1], outputRange: [.94, 1.02, 1, 1] }) },
       ] }]}>
-      {!motion.reduced ? <View pointerEvents="none" testID="moe-celebration-emblem" accessible={false}
-        accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
-        style={[styles.emblem, { backgroundColor: tc.success }]}>
-        <Check size={25} strokeWidth={2.7} color={checkColor} />
-      </View> : null}
       <View style={styles.copy}>
-        <Text style={{ color: tc.text, fontSize: 16, fontWeight: '700' }}>{motion.reduced ? label : label.replace(/^✓\s*/, '')}</Text>
-        <Text style={{ color: tc.secondaryText, marginTop: 3 }} numberOfLines={2}>{title}</Text>
+        <Text style={{ color: tc.text, fontSize: 19, fontWeight: '800', textAlign: 'center' }}>{motion.reduced ? label : label.replace(/^✓\s*/, '')}</Text>
+        <Text style={{ color: tc.secondaryText, marginTop: 5, textAlign: 'center' }} numberOfLines={2}>{title}</Text>
       </View>
     </Animated.View>
   </View>;
 }
-const styles = StyleSheet.create({ host: { alignItems: 'center' }, card: {
+const styles = StyleSheet.create({ host: { alignItems: 'center', maxWidth: 340, width: '100%', overflow: 'visible' }, card: {
   borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 18, paddingVertical: 16,
-  maxWidth: 340, flexDirection: 'row', alignItems: 'center', gap: 12,
-}, emblem: { width: 44, height: 44, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  maxWidth: 340, alignItems: 'center',
+}, blast: { width: '100%', height: 150, alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
+origin: { position: 'absolute', left: '50%', top: '50%', overflow: 'visible' },
+emblem: { width: 80, height: 80, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
 copy: { flexShrink: 1 } });

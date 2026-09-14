@@ -184,13 +184,13 @@ describe('Moe Moment completion feedback', () => {
     expect(visibleText()).toContain('恢复前台后的新清单');
   });
 
-  it('fades a compact confirmation card with one non-interactive check', async () => {
+  it('fades its confirmation with one non-interactive central check', async () => {
     await mount();
     complete(1);
     const cards = tree!.root.findAll(node => String(node.type) === 'Animated.View' && node.props.accessibilityLiveRegion === 'polite');
     expect(renderedStyle(cards[0].props.style).opacity.outputRange).toEqual([0, 1, 1, 0]);
     const emblem = tree!.root.findByProps({ testID: 'moe-celebration-emblem' });
-    expect(renderedStyle(emblem.props.style)).toMatchObject({ width: 44, height: 44 });
+    expect(renderedStyle(emblem.props.style)).toMatchObject({ width: 80, height: 80 });
     expect(emblem.props.pointerEvents).toBe('none');
     expect(emblem.props.accessibilityElementsHidden).toBe(true);
     expect(Animated.timing).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ duration: 600, useNativeDriver: true }));

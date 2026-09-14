@@ -7,6 +7,8 @@ import { useMoePreferences } from './preferences';
 import { useReducedMotion } from '../hooks/use-reduced-motion';
 import { resolveMoeCompletionMotion } from './completion-motion';
 import { MoeCompletionCheck } from './MoeCompletionCheck';
+import { MoeCelebrationLayerHost } from './MoeCelebrationLayer';
+import { MoeCompletionParticles } from './MoeCompletionParticles';
 import { createCompletionFeedbackStore, feedbackGeometry, type CompletionFeedback, type FeedbackAppearance, type FeedbackLayoutGate } from './MoeCompletionFeedbackState';
 
 export type CompletionMeasureRefs = { row: AnimatedRef<View>; title: AnimatedRef<Text>; check: AnimatedRef<View> };
@@ -83,6 +85,7 @@ export function MoeCompletionFeedbackHost({ children, active = true, scopeKey = 
     const forgetTouch = useCallback(() => { touchOrigin.current = null; }, []);
     return (
         <Context.Provider value={host}>
+          <MoeCelebrationLayerHost active={active} scopeKey={scopeKey}>
             <View style={styles.host} testID="moe-feedback-touch-host"
                 onTouchStart={rememberTouch} onTouchMove={dismissAfterRealMove}
                 onTouchEnd={forgetTouch} onTouchCancel={forgetTouch}>
@@ -97,6 +100,7 @@ export function MoeCompletionFeedbackHost({ children, active = true, scopeKey = 
                     {entries.map((entry) => <FeedbackPaint key={`${entry.taskId}:${entry.operationId}`} entry={entry} />)}
                 </Animated.View>
             </View>
+          </MoeCelebrationLayerHost>
         </Context.Provider>
     );
 }
@@ -124,10 +128,11 @@ export function useMoeCompletionFeedback(taskId: string) {
         } catch { return false; }
     }, [check, host, row, title]);
     const cancel = useCallback((taskId: string, operationId?: number) => host?.store.cancel(taskId, operationId), [host]);
+    const retainParticles = useCallback((taskId: string, operationId: number) => host?.store.retainParticles(taskId, operationId) ?? false, [host]);
     const beginUndo = useCallback((taskId: string, operationId: number) => host?.available() && AppState.currentState === 'active'
         ? host.store.beginUndo(taskId, operationId) : false, [host]);
     const finishUndo = useCallback((taskId: string, operationId: number) => host?.store.finishUndo(taskId, operationId), [host]);
-    return { refs, present, cancel, beginUndo, finishUndo, undoPending };
+    return { refs, present, cancel, retainParticles, beginUndo, finishUndo, undoPending };
 }
 
 function FeedbackPaint({ entry }: { entry: CompletionFeedback }) {
@@ -140,26 +145,28 @@ function FeedbackPaint({ entry }: { entry: CompletionFeedback }) {
     // React commits its removal. Other task feedback remains visible.
     const visibility = useAnimatedStyle(() => ({ opacity: gate?.value.canceledOperationIds.includes(operationId) ? 0 : 1 }), [gate, operationId]);
     const emphasis = useRef(new NativeAnimated.Value(0)).current;
+    const fragments = useRef(new NativeAnimated.Value(0)).current;
     const rowProgress = useRef(new NativeAnimated.Value(0)).current;
     const mark = useRef(new NativeAnimated.Value(0)).current;
     useEffect(() => {
-        if (motion.reduced) { emphasis.setValue(1); rowProgress.setValue(1); mark.setValue(1); return; }
+        if (motion.reduced) { emphasis.setValue(1); rowProgress.setValue(1); mark.setValue(1); fragments.setValue(1); return; }
         const duration = Math.max(1, entry.expiresAt - Date.now());
         const animation = NativeAnimated.parallel([
+            NativeAnimated.timing(fragments, { toValue: 1, duration: Math.min(motion.particleMs, duration), easing: (value) => value, useNativeDriver: true }),
             NativeAnimated.timing(emphasis, { toValue: 1, duration: Math.min(motion.checkMs, duration), easing: (value) => value, useNativeDriver: true }),
             NativeAnimated.timing(rowProgress, { toValue: 1, duration: Math.min(motion.rowExitMs, duration), easing: (value) => value, useNativeDriver: true }),
             NativeAnimated.timing(mark, { toValue: 1, duration: Math.min(motion.checkMs, duration), easing: (value) => value, useNativeDriver: false }),
         ]);
         animation.start();
-        return () => { animation.stop(); emphasis.stopAnimation(); rowProgress.stopAnimation(); mark.stopAnimation(); };
-    }, [entry.expiresAt, mark, emphasis, rowProgress, motion.reduced, motion.checkMs, motion.rowExitMs]);
+        return () => { animation.stop(); emphasis.stopAnimation(); rowProgress.stopAnimation(); mark.stopAnimation(); fragments.stopAnimation(); };
+    }, [entry.expiresAt, mark, emphasis, rowProgress, fragments, motion.reduced, motion.checkMs, motion.rowExitMs, motion.particleMs]);
     const { appearance: a, row, titleRect, check } = entry;
     return (
         <Animated.View collapsable={false} pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants"
             testID={`moe-completion-feedback-${entry.operationId}`} style={[styles.paintGate, {
                 left: row.x, top: row.y, width: row.width, height: row.height,
             }, visibility]}>
-        <NativeAnimated.View style={[styles.paint, { left: 0, top: 0, width: row.width, height: row.height,
+        {!entry.particlesOnly ? <NativeAnimated.View style={[styles.paint, { left: 0, top: 0, width: row.width, height: row.height,
                 backgroundColor: a.backgroundColor, borderColor: a.borderColor, borderWidth: a.borderWidth, borderRadius: a.borderRadius,
                 opacity: rowProgress.interpolate({ inputRange: [0, motion.confirmationHold, 1], outputRange: [1, 1, 0] }),
                 transform: [{ translateX: rowProgress.interpolate({ inputRange: [0, motion.confirmationHold, 1], outputRange: [0, 0, motion.travel] }) }],
@@ -173,7 +180,10 @@ function FeedbackPaint({ entry }: { entry: CompletionFeedback }) {
                 <MoeCompletionCheck reveal={mark} emphasis={emphasis} motion={motion} color={a.checkColor}
                     foreground={a.checkForeground} size={Math.min(check.width, check.height)} />
             </View>
-        </NativeAnimated.View>
+        </NativeAnimated.View> : null}
+        {motion.particles ? <View pointerEvents="none" style={{ position: 'absolute', left: check.x + check.width / 2, top: check.y + check.height / 2, overflow: 'visible' }}>
+            <MoeCompletionParticles progress={fragments} color={a.checkColor} secondaryColor={a.textColor} seed={entry.operationId} />
+        </View> : null}
         </Animated.View>
     );
 }

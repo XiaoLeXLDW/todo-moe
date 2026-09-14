@@ -554,7 +554,7 @@ export function SwipeableTaskItemContent({
                 </View>
             )}
             {!selectionMode && onComplete && task.status !== 'reference' && task.status !== 'archived' && !isTaskCancelled(task) ? (
-                <MoeCheckButton checked={task.status === 'done' || completionPending} disabled={interactionDisabled || completionPending}
+                <MoeCheckButton particleFeedback="host" checked={task.status === 'done' || completionPending} disabled={interactionDisabled || completionPending}
                     label={task.status === 'done' ? tFallback(t, 'archived.restoreToInbox', 'Restore to Inbox') : tFallback(t, 'common.done', 'Done')}
                     onPress={onComplete} tc={tc} measurementRef={completionMeasureRefs?.check} />
             ) : null}

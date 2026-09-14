@@ -1951,8 +1951,8 @@ export function ProjectDetailModal({
                         ) : null}
                     </SafeAreaView>
                 </KeyboardAccessoryHost>
-                </MoeCompletionFeedbackHost>
                 <MoeCelebration active={Boolean(celebrationActive)} projectId={selectedProject?.id} />
+                </MoeCompletionFeedbackHost>
                 <ToastViewport />
                 {/* Last child so the alert covers the header and the toasts (#940). */}
                 <ThemedAlertHost />

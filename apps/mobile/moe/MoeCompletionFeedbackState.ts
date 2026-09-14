@@ -10,6 +10,7 @@ export type FeedbackAppearance = {
 export type CompletionFeedback = {
     operationId: number; taskId: string; title: string; appearance: FeedbackAppearance;
     row: FeedbackRect; titleRect: FeedbackRect; check: FeedbackRect; expiresAt: number;
+    particlesOnly?: boolean;
 };
 export type FeedbackMeasurement = { pageX: number; pageY: number; width: number; height: number };
 export type FeedbackLayoutGate = { epoch: number; pending: boolean; until: number; canceledOperationIds: readonly number[] };
@@ -93,6 +94,16 @@ export function createCompletionFeedbackStore() {
             }, row: copyRect(row), titleRect: copyRect(titleRect), check: copyRect(check), expiresAt };
             entries = [...entries.filter((item) => item.taskId !== taskId && item.expiresAt > Date.now()), snapshot].slice(-4);
             notify(); schedule(); return true;
+        },
+        retainParticles(taskId: string, operationId: number) {
+            let retained = false;
+            entries = entries.map(entry => {
+                if (entry.taskId !== taskId || entry.operationId !== operationId) return entry;
+                retained = true;
+                return entry.particlesOnly ? entry : { ...entry, particlesOnly: true };
+            });
+            if (retained) notify();
+            return retained;
         },
         cancel(taskId: string, operationId?: number) {
             const removedIds = entries.filter((entry) => entry.taskId === taskId && (operationId === undefined || entry.operationId === operationId))

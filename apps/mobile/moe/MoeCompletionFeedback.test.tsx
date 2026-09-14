@@ -60,7 +60,7 @@ it('measures synchronously before business dispatch and survives the original ro
     expect(paints()[0].props.pointerEvents).toBe('none'); expect(paints()[0].props.importantForAccessibility).toBe('no-hide-descendants');
     expect(paints()[0].props.style[1]).toMatchObject({ left: 12, top: 170, width: 320, height: 64 });
     expect(transition.exiting().animations).toEqual({ opacity: 0 });
-    act(() => { vi.advanceTimersByTime(460); }); expect(paints()).toHaveLength(0); expect(feedbackActive).toBe(false);
+    act(() => { vi.advanceTimersByTime(680); }); expect(paints()).toHaveLength(0); expect(feedbackActive).toBe(false);
 });
 
 it('quick Undo clears host paint before the undo API and does not request old native restore entering', () => {
@@ -96,9 +96,13 @@ it('hides only the canceled operation on UI before React removes the old paint',
     expect(updaters[0]()).toEqual({ opacity: 0 });
 });
 
-it('a retained Done row uses its real checkbox and clears the feedback', () => {
+it('a retained Done row keeps only external fragments so Swipeable cannot clip them', () => {
     mount(); geometry(); act(() => { transition.arm(3, details); tree!.update(layout({ done: true })); });
-    expect(paints()).toHaveLength(0); expect(feedbackActive).toBe(false); expect(vi.getTimerCount()).toBe(0);
+    expect(paints()).toHaveLength(1); expect(feedbackActive).toBe(true);
+    expect(paints()[0].findAllByType(Text)).toHaveLength(0);
+    expect(transition.exiting().animations).toEqual({ opacity: 0 });
+    act(() => { transition.cancel(3, true); });
+    expect(paints()).toHaveLength(0); expect(vi.getTimerCount()).toBe(0);
 });
 
 it('failure and same-task replacement honor operation identity', () => {
@@ -118,13 +122,14 @@ it('page change, modal deactivation and background dispose paint and pending cle
     expect(paints()).toHaveLength(0); expect(vi.getTimerCount()).toBe(0);
 });
 
-it('releases maximal feedback with the departing row instead of leaving a floating tail', () => {
+it('keeps non-interactive maximal shards only for their bounded lifetime after the row exits', () => {
     state.motion = 'maximal';
     mount(); geometry();
     act(() => { transition.arm(80, details); tree!.update(layout({ row: false })); });
-    act(() => { vi.advanceTimersByTime(300); });
+    act(() => { vi.advanceTimersByTime(360); });
     expect(paints()).toHaveLength(1);
-    act(() => { vi.advanceTimersByTime(120); });
+    expect(paints()[0].props.pointerEvents).toBe('none');
+    act(() => { vi.advanceTimersByTime(540); });
     expect(paints()).toHaveLength(0);
     expect(feedbackActive).toBe(false);
     expect(vi.getTimerCount()).toBe(0);
