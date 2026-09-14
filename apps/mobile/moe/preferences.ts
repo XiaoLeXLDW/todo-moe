@@ -19,9 +19,26 @@ export function hydrateMoePreferences(): Promise<void> {
     const startingRevision = revision;
     hydration = AsyncStorage.getItem(KEY).then((raw) => {
       if (revision !== startingRevision || !raw) return;
-      value = parseMoePreferences(JSON.parse(raw));
+      const stored = JSON.parse(raw) as Record<string, unknown>;
+      const migrated = stored.presentationVersion === 2 ? stored : {
+        ...stored,
+        presentationVersion: 2,
+        // The previous release called its strongest choices `lively` and
+        // `light`. Upgrade those defaults once while preserving explicit
+        // reduced/standard/off choices.
+        motion: stored.motion === 'lively' || stored.motion === undefined ? 'maximal' : stored.motion,
+        haptics: stored.haptics === 'light' || stored.haptics === undefined ? 'crisp' : stored.haptics,
+      };
+      value = parseMoePreferences(migrated);
       durableValue = value;
       emit();
+      if (stored.presentationVersion !== 2) {
+        const next = value;
+        const ownRevision = ++revision;
+        const writing = writeQueue.catch(() => {}).then(() => AsyncStorage.setItem(KEY, JSON.stringify(next)));
+        writeQueue = writing;
+        void writing.then(() => { if (revision === ownRevision) durableValue = next; }).catch(() => {});
+      }
     }).catch(() => { /* A corrupt/unavailable preference never prevents opening tasks. */ });
   }
   return hydration;

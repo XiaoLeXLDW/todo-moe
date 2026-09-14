@@ -3,6 +3,8 @@ import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'reac
 import { requireNativeViewManager, requireOptionalNativeModule } from 'expo-modules-core';
 import Animated, { useAnimatedProps, type SharedValue } from 'react-native-reanimated';
 import { platformGlassCapabilities, resolveGlassMode, type GlassMode } from './capabilities';
+import { useThemeColors } from '../../hooks/use-theme-colors';
+import { resolveGlassRecipe } from './recipe';
 
 export type GlassLensMotion = {
     center: SharedValue<number>;
@@ -11,7 +13,10 @@ export type GlassLensMotion = {
     velocity: SharedValue<number>;
     height: number;
 };
-type NativeProps = { mode: GlassMode; dark: boolean; reducedMotion: boolean; samplingEnabled?: boolean; cornerRadius?: number; lensState?: number[]; style: StyleProp<ViewStyle>; children?: React.ReactNode };
+type NativeProps = { mode: GlassMode; dark: boolean; reducedMotion: boolean; samplingEnabled?: boolean; cornerRadius?: number; lensState?: number[];
+    surfaceTint?: string; fallbackSurface?: string; borderColor?: string; tintOpacity?: number; blurDp?: number; refractionDp?: number;
+    thickness?: number; highlight?: number; innerShadow?: number; chromaticEdge?: number; pressResponse?: number; velocityResponse?: number;
+    style: StyleProp<ViewStyle>; children?: React.ReactNode };
 let NativeGlass: React.ComponentType<NativeProps> | null = null;
 if (Platform.OS === 'android') {
     try {
@@ -32,7 +37,9 @@ export function GlassSurface({ mode, dark = false, reducedMotion = false, sampli
     style?: StyleProp<ViewStyle>;
     children?: React.ReactNode;
 }) {
+    const tc = useThemeColors();
     const effective = resolveGlassMode(mode, glassCapabilities(), reducedMotion);
+    const recipe = resolveGlassRecipe(effective, dark, tc);
     const animatedProps = useAnimatedProps(() => ({
         // Atomically update the optical pose, in normalized surface coordinates.
         lensState: lens ? [1, lens.center.value, 0.5, lens.width.value, lens.height,
@@ -42,12 +49,13 @@ export function GlassSurface({ mode, dark = false, reducedMotion = false, sampli
     // Toggling off keeps the same tree, preserving navigation and accessibility.
     if (AnimatedNativeGlass) {
         return <AnimatedNativeGlass animatedProps={animatedProps} mode={effective} dark={dark} reducedMotion={reducedMotion}
-            samplingEnabled={samplingEnabled} cornerRadius={cornerRadius} style={[styles.surface, { borderRadius: cornerRadius }, style]}>{children}</AnimatedNativeGlass>;
+            samplingEnabled={samplingEnabled} cornerRadius={cornerRadius} {...recipe}
+            style={[styles.surface, { borderRadius: cornerRadius }, style]}>{children}</AnimatedNativeGlass>;
     }
     return (
         <View style={[styles.surface, { borderRadius: cornerRadius }, style]}>
             <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.fallback, {
-                backgroundColor: dark ? '#1B2130' : '#F4F5FA', borderColor: dark ? '#323B50' : '#DDE2EF', borderRadius: cornerRadius,
+                backgroundColor: recipe.fallbackSurface, borderColor: recipe.borderColor, borderRadius: cornerRadius,
             }]} />
             {children}
         </View>

@@ -28,7 +28,7 @@ export function MoeCompletionCell({ children, style, onLayout, onFocusCapture }:
         const easing = (progress: number) => {
             const latest = gate?.value;
             if (latest && (latest.epoch !== epoch || latest.pending || Date.now() < latest.until)) return 1;
-            const hold = 0.35;
+            const hold = motion.confirmationHold;
             return Math.min(1, Math.max(0, (progress - hold) / (1 - hold)));
         };
         const config = { duration: motion.exitMs, easing };
@@ -38,7 +38,7 @@ export function MoeCompletionCell({ children, style, onLayout, onFocusCapture }:
             animations: { originX: withTiming(target.originX, config), originY: withTiming(target.originY, config),
                 width: withTiming(target.width, config), height: withTiming(target.height, config) },
         };
-    }, [gate, motion.reduced, motion.exitMs]);
+    }, [gate, motion.reduced, motion.exitMs, motion.confirmationHold]);
     const viewProps = { style, onLayout, onFocusCapture };
     return (
         <Animated.View {...viewProps} collapsable={false} layout={layout}>

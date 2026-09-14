@@ -103,6 +103,17 @@ const storeState = vi.hoisted(() => ({
 }));
 
 vi.mock('react-native', () => ({
+  Animated: {
+    View: ({ children, ...props }: any) => React.createElement('Animated.View', props, children),
+    Value: class {
+      value: number;
+      constructor(value: number) { this.value = value; }
+      setValue(value: number) { this.value = value; }
+      stopAnimation() {}
+      interpolate(config: unknown) { return { config }; }
+    },
+    spring: (value: any, config: any) => ({ start: () => value.setValue(config.toValue), stop: () => {} }),
+  },
   AppState: { currentState: 'active', addEventListener: () => ({ remove: () => {} }) },
   FlatList: React.forwardRef(function MockFlatList(allProps: any, ref: any) {
     const { data, ListEmptyComponent, ListHeaderComponent, renderItem } = allProps;
@@ -134,6 +145,8 @@ vi.mock('react-native', () => ({
   View: ({ children, ...props }: any) => React.createElement('View', props, children),
   useWindowDimensions: () => ({ width: 390, height: 800 }),
 }));
+
+vi.mock('@/moe/haptics', () => ({ moeHaptic: vi.fn() }));
 
 vi.mock('expo-router', () => ({
   router: { push: vi.fn() },

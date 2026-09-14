@@ -13,7 +13,9 @@ import { X } from 'lucide-react-native';
 import { CompactText } from '@/components/compact-text';
 import { PriorityFlag } from '@/components/priority-flag';
 import { ThemedAlertHost } from '@/components/themed-alert';
+import { AppPressable } from '@/components/app-pressable';
 import type { TaskFilterSelections } from '@/hooks/use-task-filter-selections';
+import { moeHaptic } from '@/moe/haptics';
 
 /**
  * The one filter sheet for Focus and the task list. Both views hold their
@@ -98,30 +100,30 @@ export function FilterChip({
     return (
       <View style={chipStyle}>
         {chipText}
-        <TouchableOpacity
+        <AppPressable
           accessibilityLabel={removeLabel}
           accessibilityRole="button"
           hitSlop={8}
-          onPress={onPress}
+          onPress={() => { moeHaptic('selectionTick'); onPress(); }}
           style={styles.filterChipAction}
         >
           <X size={16} color={textColor} />
-        </TouchableOpacity>
+        </AppPressable>
       </View>
     );
   }
 
   return (
-    <TouchableOpacity
+    <AppPressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={isExcluded && excludedLabel ? `${label} (${excludedLabel})` : undefined}
-      onPress={onPress}
+      onPress={() => { moeHaptic('selectionTick'); onPress(); }}
       style={chipStyle}
     >
       {leading}
       {chipText}
-    </TouchableOpacity>
+    </AppPressable>
   );
 }
 

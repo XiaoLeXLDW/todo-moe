@@ -31,6 +31,10 @@ vi.mock('@/lib/app-log', () => ({
     logError: vi.fn(),
 }));
 
+vi.mock('@/components/app-pressable', () => ({
+    AppPressable: ({ children, ...props }: any) => React.createElement('Pressable', props, children),
+}));
+
 vi.mock('react-native', async () => {
     const actual = await vi.importActual<typeof import('react-native')>('react-native');
     class MockAnimatedValue {

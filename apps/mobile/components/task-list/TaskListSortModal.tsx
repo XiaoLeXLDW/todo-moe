@@ -3,6 +3,10 @@ import { Modal, Pressable, Text, View } from 'react-native';
 import { resolveFeatureFlags, useTaskStore, type TaskSortBy } from '@mindwtr/core';
 
 import { styles } from './task-list.styles';
+import { GlassSurface } from '../../moe/glass/GlassSurface';
+import { useMoePreferences } from '../../moe/preferences';
+import { useReducedMotion } from '../../hooks/use-reduced-motion';
+import { useThemeTokens } from '../../hooks/use-theme-tokens';
 
 type ThemeColors = {
   border: string;
@@ -30,6 +34,9 @@ export function TaskListSortModal({
   themeColors,
   visible,
 }: TaskListSortModalProps) {
+  const preferences = useMoePreferences();
+  const reduced = useReducedMotion();
+  const { isDark } = useThemeTokens();
   // Gated here rather than at each caller (task list + project detail) so a new
   // caller cannot leak a disabled feature's sort. Callers pass the resolved sort
   // ('timeEstimate' reads as 'default' while the feature is off), so dropping the
@@ -46,7 +53,7 @@ export function TaskListSortModal({
       onRequestClose={onClose}
     >
       <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <View style={[styles.modalCard, { backgroundColor: themeColors.cardBg }]}>
+        <GlassSurface mode={preferences.glass} dark={isDark} reducedMotion={reduced} samplingEnabled={visible} style={styles.modalCard}>
           <Text style={[styles.modalTitle, { color: themeColors.text }]}>{t('sort.label')}</Text>
           <View style={styles.sortList}>
             {visibleSortOptions.map((option) => (
@@ -65,7 +72,7 @@ export function TaskListSortModal({
               </Pressable>
             ))}
           </View>
-        </View>
+        </GlassSurface>
       </Pressable>
     </Modal>
   );

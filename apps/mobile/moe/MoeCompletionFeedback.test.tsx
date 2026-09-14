@@ -10,8 +10,8 @@ import { settleStoreAction } from '../components/store-action-result';
 import { MoeCompletionCell } from './MoeCompletionCell';
 import type { FeedbackAppearance } from './MoeCompletionFeedbackState';
 
-const state = vi.hoisted(() => ({ reduced: false, listeners: new Set<(value: string) => void>() }));
-vi.mock('./preferences', () => ({ useMoePreferences: () => ({ motion: 'lively' }) }));
+const state = vi.hoisted(() => ({ reduced: false, motion: 'lively', listeners: new Set<(value: string) => void>() }));
+vi.mock('./preferences', () => ({ useMoePreferences: () => ({ motion: state.motion }) }));
 vi.mock('../hooks/use-reduced-motion', () => ({ useReducedMotion: () => state.reduced }));
 vi.mock('@react-navigation/core', () => ({ NavigationContext: React.createContext(undefined) }));
 vi.mock('lucide-react-native', () => ({ Check: (props: object) => React.createElement('Check', props) }));
@@ -49,7 +49,7 @@ function geometry() {
         .mockReturnValueOnce({ ...base, pageX: 48, pageY: 290, width: 24, height: 24 });
 }
 const paints = () => tree!.root.findAll((node) => typeof node.type === 'string' && node.props.testID?.startsWith('moe-completion-feedback-') && node.props.testID !== 'moe-completion-feedback-host');
-beforeEach(() => { state.reduced = false; AppState.currentState = 'active'; feedbackActive = false; vi.useFakeTimers(); vi.mocked(measure).mockReset(); });
+beforeEach(() => { state.reduced = false; state.motion = 'lively'; AppState.currentState = 'active'; feedbackActive = false; vi.useFakeTimers(); vi.mocked(measure).mockReset(); });
 afterEach(() => { if (tree) act(() => tree!.unmount()); tree = undefined; state.listeners.clear(); vi.clearAllTimers(); vi.useRealTimers(); });
 
 it('measures synchronously before business dispatch and survives the original row being filtered out', () => {
@@ -60,7 +60,7 @@ it('measures synchronously before business dispatch and survives the original ro
     expect(paints()[0].props.pointerEvents).toBe('none'); expect(paints()[0].props.importantForAccessibility).toBe('no-hide-descendants');
     expect(paints()[0].props.style[1]).toMatchObject({ left: 12, top: 170, width: 320, height: 64 });
     expect(transition.exiting().animations).toEqual({ opacity: 0 });
-    act(() => { vi.advanceTimersByTime(460); }); expect(paints()).toHaveLength(0); expect(feedbackActive).toBe(false);
+    act(() => { vi.advanceTimersByTime(680); }); expect(paints()).toHaveLength(0); expect(feedbackActive).toBe(false);
 });
 
 it('quick Undo clears host paint before the undo API and does not request old native restore entering', () => {
@@ -96,9 +96,13 @@ it('hides only the canceled operation on UI before React removes the old paint',
     expect(updaters[0]()).toEqual({ opacity: 0 });
 });
 
-it('a retained Done row uses its real checkbox and clears the feedback', () => {
+it('a retained Done row keeps only external fragments so Swipeable cannot clip them', () => {
     mount(); geometry(); act(() => { transition.arm(3, details); tree!.update(layout({ done: true })); });
-    expect(paints()).toHaveLength(0); expect(feedbackActive).toBe(false); expect(vi.getTimerCount()).toBe(0);
+    expect(paints()).toHaveLength(1); expect(feedbackActive).toBe(true);
+    expect(paints()[0].findAllByType(Text)).toHaveLength(0);
+    expect(transition.exiting().animations).toEqual({ opacity: 0 });
+    act(() => { transition.cancel(3, true); });
+    expect(paints()).toHaveLength(0); expect(vi.getTimerCount()).toBe(0);
 });
 
 it('failure and same-task replacement honor operation identity', () => {
@@ -118,19 +122,47 @@ it('page change, modal deactivation and background dispose paint and pending cle
     expect(paints()).toHaveLength(0); expect(vi.getTimerCount()).toBe(0);
 });
 
+it('keeps non-interactive maximal shards only for their bounded lifetime after the row exits', () => {
+    state.motion = 'maximal';
+    mount(); geometry();
+    act(() => { transition.arm(80, details); tree!.update(layout({ row: false })); });
+    act(() => { vi.advanceTimersByTime(560); });
+    expect(paints()).toHaveLength(1);
+    expect(paints()[0].props.pointerEvents).toBe('none');
+    expect(paints()[0].findAll(node => node.props.profile === 'maximal')).toHaveLength(1);
+    act(() => { vi.advanceTimersByTime(690); });
+    expect(paints()).toHaveLength(0);
+    expect(feedbackActive).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+});
+
 it('dismisses fixed-position paint on finger movement without discarding pending Undo identity', () => {
     mount(); geometry();
     act(() => { transition.arm(70, details); transition.beginUndo(70); });
     expect(paints()).toHaveLength(1); expect(feedbackActive).toBe(true);
-    act(() => tree!.root.findByProps({ testID: 'moe-feedback-touch-host' }).props.onTouchMove());
+    const host = tree!.root.findByProps({ testID: 'moe-feedback-touch-host' });
+    act(() => {
+      host.props.onTouchStart({ nativeEvent: { pageX: 10, pageY: 10 } });
+      host.props.onTouchMove({ nativeEvent: { pageX: 10, pageY: 24 } });
+    });
     expect(paints()).toHaveLength(0); expect(feedbackActive).toBe(true); expect(vi.getTimerCount()).toBe(0);
     act(() => transition.finishUndo(70));
     expect(feedbackActive).toBe(false);
 });
 
-it('invalidates stale geometry before another tap and when the host window relayouts', () => {
+it('keeps feedback through a tap but invalidates stale geometry on movement or host relayout', () => {
     mount(); geometry(); act(() => transition.arm(71, details));
-    act(() => tree!.root.findByProps({ testID: 'moe-feedback-touch-host' }).props.onTouchStart());
+    const host = tree!.root.findByProps({ testID: 'moe-feedback-touch-host' });
+    act(() => {
+      host.props.onTouchStart({ nativeEvent: { pageX: 20, pageY: 20 } });
+      host.props.onTouchMove({ nativeEvent: { pageX: 23, pageY: 23 } });
+      host.props.onTouchEnd();
+    });
+    expect(paints()).toHaveLength(1);
+    act(() => {
+      host.props.onTouchStart({ nativeEvent: { pageX: 20, pageY: 20 } });
+      host.props.onTouchMove({ nativeEvent: { pageX: 31, pageY: 20 } });
+    });
     expect(paints()).toHaveLength(0);
     geometry(); act(() => transition.arm(72, details));
     act(() => tree!.root.findByProps({ testID: 'moe-completion-feedback-host' }).props.onLayout());

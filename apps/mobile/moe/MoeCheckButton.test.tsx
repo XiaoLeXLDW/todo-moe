@@ -3,11 +3,17 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Animated } from 'react-native';
 import { MoeCheckButton } from './MoeCheckButton';
+import { MoeCompletionCheck } from './MoeCompletionCheck';
+import { MoeCompletionParticles } from './MoeCompletionParticles';
+import { resolveMoeCompletionMotion } from './completion-motion';
 import type { ThemeColors } from '../hooks/use-theme-colors';
 
 const controls = vi.hoisted(() => ({ reduced: false, motion: 'standard', listeners: new Set<(state: string) => void>() }));
 vi.mock('./preferences', () => ({ useMoePreferences: () => ({ motion: controls.motion }) }));
 vi.mock('../hooks/use-reduced-motion', () => ({ useReducedMotion: () => controls.reduced }));
+vi.mock('./MoeCompletionParticles', () => ({
+  MoeCompletionParticles: (props: any) => React.createElement('MoeCompletionParticles', props),
+}));
 vi.mock('react-native', async importOriginal => {
   const original = await importOriginal<typeof import('react-native')>();
   return { ...original, AppState: { currentState: 'active', addEventListener: (_: string, listener: (state: string) => void) => {
@@ -21,6 +27,39 @@ afterEach(() => { if (tree) act(() => tree.unmount()); vi.restoreAllMocks(); exp
 const button = () => tree.root.findByType('Pressable' as any);
 
 describe('completion checkbox interaction', () => {
+  it('finishes drawing the Maximal mark while the check is still held dramatically enlarged', () => {
+    const reveal = new Animated.Value(0);
+    const emphasis = new Animated.Value(0);
+    const revealInterpolation = vi.spyOn(reveal, 'interpolate');
+    const emphasisInterpolation = vi.spyOn(emphasis, 'interpolate');
+    const motion = resolveMoeCompletionMotion('maximal', false);
+    act(() => { tree = create(<MoeCompletionCheck reveal={reveal} emphasis={emphasis} motion={motion} color="#287" foreground="#fff" />); });
+    expect(emphasisInterpolation).toHaveBeenCalledWith({
+      inputRange: [0, 0.2, 0.36, 0.72, 0.88, 1],
+      outputRange: [0.7, 2.65, 2.3, 1.75, 1.08, 1],
+    });
+    expect(revealInterpolation).toHaveBeenCalledWith(expect.objectContaining({
+      inputRange: [0, 0.04, 0.3, 1],
+      outputRange: [17, 17, 0, 0],
+    }));
+  });
+  it.each(['lively', 'maximal'] as const)('passes the %s intensity into the real task-particle renderer', motion => {
+    controls.motion = motion;
+    vi.spyOn(Animated, 'parallel').mockReturnValue({ start: vi.fn(), stop: vi.fn() } as any);
+    const props = { disabled: false, label: 'Demo', onPress: vi.fn(), tc };
+    act(() => { tree = create(<MoeCheckButton {...props} checked={false} />); });
+    act(() => { tree.update(<MoeCheckButton {...props} checked />); });
+    expect(tree.root.findByType(MoeCompletionParticles).props.profile).toBe(motion);
+  });
+  it('removes the visible check immediately on reset even if animation callbacks never finish', () => {
+    vi.spyOn(Animated, 'timing').mockReturnValue({ start: vi.fn(), stop: vi.fn() } as any);
+    const props = { disabled: false, label: 'Demo', onPress: vi.fn(), tc };
+    act(() => { tree = create(<MoeCheckButton {...props} checked />); });
+    expect(tree.root.findAllByType(MoeCompletionCheck)).toHaveLength(1);
+    act(() => { tree.update(<MoeCheckButton {...props} checked={false} />); });
+    expect(button().props.accessibilityState.checked).toBe(false);
+    expect(tree.root.findAllByType(MoeCompletionCheck)).toHaveLength(0);
+  });
   it('does not let a delayed press-out interrupt completion or undo feedback', () => {
     const stop = vi.spyOn(Animated.Value.prototype, 'stopAnimation');
     const props = { disabled: false, label: 'Complete', onPress: vi.fn(), tc };
@@ -79,6 +118,6 @@ describe('completion checkbox interaction', () => {
     act(() => { tree = create(<MoeCheckButton checked disabled={false} label="Undo" onPress={vi.fn()} tc={tc} />); });
     stop.mockClear();
     act(() => { controls.listeners.forEach(listener => listener('background')); });
-    expect(stop).toHaveBeenCalledTimes(3);
+    expect(stop).toHaveBeenCalledTimes(4);
   });
 });

@@ -182,3 +182,11 @@ vi.mock('lucide-react-native', () => {
   exports.default = mod;
   return mod;
 });
+
+// Metro transforms the native SVG package in-app; node tests only need an
+// inspectable SVG host for completion-check render assertions.
+vi.mock('react-native-svg', () => {
+  const host = (name: string) => (props: any) => React.createElement(name, props, props.children);
+  const Svg = host('Svg');
+  return { __esModule: true, default: Svg, Svg, Circle: host('Circle'), Path: host('Path') };
+});

@@ -36,6 +36,18 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
   private var reducedMotion = false
   private var samplingEnabled = true
   private var cornerRadiusDp = 28f
+  private var surfaceTint = Color.rgb(248, 247, 253)
+  private var fallbackSurface = Color.rgb(248, 247, 253)
+  private var borderColor = Color.argb(205, 255, 255, 255)
+  private var tintOpacity = 0.3f
+  private var blurDp = 6f
+  private var refractionDp = 30f
+  private var thickness = 0.92f
+  private var highlight = 0.9f
+  private var innerShadow = 0.72f
+  private var chromaticEdge = 0.86f
+  private var pressResponse = 1f
+  private var velocityResponse = 0.9f
   private var lens = GlassLensState.Disabled
   private var failed = false
   private var liquidFailed = false
@@ -127,6 +139,21 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
     // Retain the recorded backdrop for keyboard-driven opacity/translation exit.
     invalidate()
   }
+  private fun color(value: String, fallback: Int) = try { Color.parseColor(value) } catch (_: IllegalArgumentException) { fallback }
+  private fun unit(value: Double, fallback: Float) = if (value.isFinite()) value.coerceIn(0.0, 1.0).toFloat() else fallback
+  private fun dp(value: Double, fallback: Float, max: Double) = if (value.isFinite()) value.coerceIn(0.0, max).toFloat() else fallback
+  fun setSurfaceTint(value: String) { val next = color(value, surfaceTint); if (next != surfaceTint) { surfaceTint = next; invalidate() } }
+  fun setFallbackSurface(value: String) { val next = color(value, fallbackSurface); if (next != fallbackSurface) { fallbackSurface = next; invalidate() } }
+  fun setBorderColor(value: String) { val next = color(value, borderColor); if (next != borderColor) { borderColor = next; invalidate() } }
+  fun setTintOpacity(value: Double) { val next = unit(value, tintOpacity); if (next != tintOpacity) { tintOpacity = next; invalidate() } }
+  fun setBlurDp(value: Double) { val next = dp(value, blurDp, 40.0); if (next != blurDp) { blurDp = next; effectDirty = true; invalidate() } }
+  fun setRefractionDp(value: Double) { val next = dp(value, refractionDp, 48.0); if (next != refractionDp) { refractionDp = next; effectDirty = true; releaseBuffer(); invalidate() } }
+  fun setThickness(value: Double) { val next = unit(value, thickness); if (next != thickness) { thickness = next; effectDirty = true; invalidate() } }
+  fun setHighlight(value: Double) { val next = unit(value, highlight); if (next != highlight) { highlight = next; lensRimDirty = true; effectDirty = true; invalidate() } }
+  fun setInnerShadow(value: Double) { val next = unit(value, innerShadow); if (next != innerShadow) { innerShadow = next; effectDirty = true; invalidate() } }
+  fun setChromaticEdge(value: Double) { val next = unit(value, chromaticEdge); if (next != chromaticEdge) { chromaticEdge = next; effectDirty = true; invalidate() } }
+  fun setPressResponse(value: Double) { val next = unit(value, pressResponse); if (next != pressResponse) { pressResponse = next; effectDirty = true; invalidate() } }
+  fun setVelocityResponse(value: Double) { val next = unit(value, velocityResponse); if (next != velocityResponse) { velocityResponse = next; lensRimDirty = true; effectDirty = true; invalidate() } }
   private fun active() = mode != "off" && Build.VERSION.SDK_INT >= 31 && !failed && width > 0 && height > 0
   private fun canSample() = active() && samplingEnabled && isAttachedToWindow && isShown && windowVisibility == View.VISIBLE && isHardwareAccelerated
   private fun noteFallback(reason: String) {
@@ -224,7 +251,7 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
       val density = resources.displayMetrics.density
       // Outer 24dp refraction + the moving 14dp lens need samples outside the
       // visible shape. Padding also keeps the 12dp soft blur off the clamp edge.
-      val padding = 40f * density
+      val padding = max(8f, refractionDp + blurDp + 8f).coerceAtMost(64f) * density
       val paddedWidth = width + padding * 2f
       val paddedHeight = height + padding * 2f
       val maxScale = if (mode == "liquid") 0.25f else 0.35f
@@ -268,7 +295,7 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
       node.setPosition(0, 0, bw, bh)
       val target = node.beginRecording(bw, bh)
       try {
-        target.drawColor(if (dark) Color.rgb(20, 24, 35) else Color.rgb(248, 247, 253))
+        target.drawColor(fallbackSurface)
         frames.indices.forEach { index ->
           val count = target.save()
           try {
@@ -309,18 +336,14 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
       }
     }
     paint.style = Paint.Style.FILL
-    paint.color = when {
-      !hasGlass -> if (dark) Color.rgb(27, 30, 44) else Color.rgb(248, 247, 253)
-      dark -> Color.argb(96, 22, 26, 40)
-      else -> Color.argb(88, 255, 253, 255)
-    }
+    paint.color = if (!hasGlass) fallbackSurface else Color.argb((tintOpacity * 255f).toInt(), Color.red(surfaceTint), Color.green(surfaceTint), Color.blue(surfaceTint))
     canvas.drawRect(bounds, paint)
     if (hasGlass && mode == "liquid" && !reducedMotion && !liquidFailed && Build.VERSION.SDK_INT >= 33 && lens.enabled) {
       drawLensRim(canvas)
     }
     paint.style = Paint.Style.STROKE
     paint.strokeWidth = resources.displayMetrics.density
-    paint.color = if (dark) Color.argb(76, 255, 255, 255) else Color.argb(205, 255, 255, 255)
+    paint.color = borderColor
     canvas.drawPath(clip, paint)
     paint.style = Paint.Style.FILL
     canvas.restoreToCount(count)
@@ -334,8 +357,8 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
       // Exactly GlassLensShader's max(lensRect.zw / 2, pixel), velocity stretch
       // and min(halfSize) capsule radius, converted back from sampled pixels.
       val minHalf = (density * sampleScale).coerceAtLeast(0.25f) / sampleScale
-      val halfWidth = max(lens.width * width * 0.5f, minHalf) * (1f + min(abs(lens.velocityX) * 0.025f, 0.10f))
-      val halfHeight = max(lens.height * height * 0.5f, minHalf) * (1f + min(abs(lens.velocityY) * 0.025f, 0.10f))
+      val halfWidth = max(lens.width * width * 0.5f, minHalf) * (1f + min(abs(lens.velocityX * velocityResponse) * 0.025f, 0.10f))
+      val halfHeight = max(lens.height * height * 0.5f, minHalf) * (1f + min(abs(lens.velocityY * velocityResponse) * 0.025f, 0.10f))
       val centerX = lens.centerX * width
       val centerY = lens.centerY * height
       lensRimPaint.strokeWidth = max(1f, density * 0.75f)
@@ -343,13 +366,13 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
       lensRimBounds.set(centerX - halfWidth + inset, centerY - halfHeight + inset,
         centerX + halfWidth - inset, centerY + halfHeight - inset)
       lensRimRadius = (min(halfWidth, halfHeight) - inset).coerceAtLeast(0f)
-      val lightX = -0.65f + lens.velocityX * 0.06f
-      val lightY = -0.85f + lens.velocityY * 0.06f
+      val lightX = -0.65f + lens.velocityX * velocityResponse * 0.06f
+      val lightY = -0.85f + lens.velocityY * velocityResponse * 0.06f
       val lightLength = sqrt(lightX * lightX + lightY * lightY).coerceAtLeast(0.0001f)
       val span = max(halfWidth, halfHeight)
       val dx = lightX / lightLength * span
       val dy = lightY / lightLength * span
-      val primaryAlpha = (if (dark) 102f + lens.press * 38f else 210f + lens.press * 30f).toInt()
+      val primaryAlpha = ((if (dark) 102f + lens.press * 38f else 210f + lens.press * 30f) * highlight).toInt().coerceIn(0, 255)
       val secondary = if (dark) Color.argb((54f + lens.press * 22f).toInt(), 255, 255, 255)
         else Color.argb(30, 35, 40, 52)
       lensRimPaint.shader = LinearGradient(centerX + dx, centerY + dy, centerX - dx, centerY - dy,
@@ -365,7 +388,7 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
     val node = effectNode as? RenderNode ?: return
     if (effectDirty) {
       val liquid = mode == "liquid" && !reducedMotion && !liquidFailed && Build.VERSION.SDK_INT >= 33
-      val radius = (if (liquid) 4f else 12f) * resources.displayMetrics.density * sampleScale
+      val radius = blurDp * resources.displayMetrics.density * sampleScale
       val blur = RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP)
       val effect = if (liquid && Build.VERSION.SDK_INT >= 33) {
         try {
@@ -375,7 +398,7 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
         } catch (_: RuntimeException) {
           liquidFailed = true
           noteFallback("RuntimeShader failed; using the soft blur fallback.")
-          val softRadius = 12f * resources.displayMetrics.density * sampleScale
+          val softRadius = max(12f, blurDp) * resources.displayMetrics.density * sampleScale
           RenderEffect.createBlurEffect(softRadius, softRadius, Shader.TileMode.CLAMP)
         }
       } else blur
@@ -400,14 +423,17 @@ class MoeGlassView(context: Context, appContext: AppContext) : ExpoView(context,
     shader.setFloatUniform("padding", samplePadding * sampleScale, samplePadding * sampleScale)
     shader.setFloatUniform("cornerRadius", cornerRadiusDp * unit)
     shader.setFloatUniform("pixel", unit.coerceAtLeast(0.25f))
-    shader.setFloatUniform("outerHeight", 24f * unit)
-    shader.setFloatUniform("outerAmount", 24f * unit)
+    shader.setFloatUniform("outerHeight", refractionDp * unit)
+    shader.setFloatUniform("outerAmount", refractionDp * thickness * unit)
     shader.setFloatUniform("lensRect", lens.centerX * sw, lens.centerY * sh, lens.width * sw, lens.height * sh)
     shader.setFloatUniform("lensEnabled", if (lens.enabled) 1f else 0f)
-    shader.setFloatUniform("press", lens.press)
-    shader.setFloatUniform("velocity", lens.velocityX, lens.velocityY)
-    shader.setFloatUniform("lensHeight", 10f * unit)
-    shader.setFloatUniform("lensAmount", 14f * unit)
+    shader.setFloatUniform("press", (lens.press * pressResponse).coerceIn(0f, 1f))
+    shader.setFloatUniform("velocity", lens.velocityX * velocityResponse, lens.velocityY * velocityResponse)
+    shader.setFloatUniform("lensHeight", 10f * thickness * unit)
+    shader.setFloatUniform("lensAmount", 14f * pressResponse * unit)
+    shader.setFloatUniform("highlightStrength", highlight)
+    shader.setFloatUniform("innerShadowStrength", innerShadow)
+    shader.setFloatUniform("chromaticStrength", chromaticEdge)
     // RenderEffect/Skia snapshots the builder. Recreate the effect after new
     // uniforms, while keeping the compiled RuntimeShader until size/lifecycle reset.
     return RenderEffect.createRuntimeShaderEffect(shader, "backdrop")

@@ -32,6 +32,13 @@ describe('bounded read-only completion paint state', () => {
         vi.advanceTimersByTime(340);
         expect(store.getSnapshot()).toEqual([]); expect(vi.getTimerCount()).toBe(0);
     });
+    it('accepts the maximal decorative tail without increasing the four-snapshot cap', () => {
+        const store = createCompletionFeedbackStore();
+        expect(store.present({ ...entry(1), expiresAt: Date.now() + 1300 })).toBe(true);
+        expect(store.present({ ...entry(2), expiresAt: Date.now() + 1401 })).toBe(false);
+        expect(store.getSnapshot().map((item) => item.operationId)).toEqual([1]);
+        store.clear();
+    });
     it('same-task replacement and old failure/Undo cannot remove a newer operation', () => {
         const store = createCompletionFeedbackStore();
         store.present(entry(1, 'same')); store.present(entry(2, 'same'));

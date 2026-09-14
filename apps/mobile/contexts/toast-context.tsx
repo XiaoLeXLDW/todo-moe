@@ -3,7 +3,6 @@ import {
     Animated,
     Easing,
     PanResponder,
-    Pressable,
     StyleSheet,
     Text,
     View,
@@ -15,6 +14,7 @@ import { NavigationContext } from '@react-navigation/native';
 
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { logError } from '@/lib/app-log';
+import { AppPressable } from '@/components/app-pressable';
 
 export type ToastTone = 'info' | 'success' | 'warning' | 'error';
 
@@ -407,7 +407,7 @@ function ToastOverlay({ respectBottomOffset = false }: { respectBottomOffset?: b
                         </Text>
                     </View>
                     {toast.actionLabel ? (
-                        <Pressable
+                        <AppPressable
                             accessibilityRole="button"
                             disabled={interactionBlocked}
                             accessibilityState={{ disabled: interactionBlocked }}
@@ -417,7 +417,7 @@ function ToastOverlay({ respectBottomOffset = false }: { respectBottomOffset?: b
                             <Text style={[styles.actionLabel, { color: accentColor }]}>
                                 {toast.actionLabel}
                             </Text>
-                        </Pressable>
+                        </AppPressable>
                     ) : null}
                 </Animated.View>
             </View>

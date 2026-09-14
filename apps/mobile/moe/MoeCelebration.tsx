@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, AppState, StyleSheet, View } from 'react-native';
+import { Animated, AppState } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { useLanguage } from '../contexts/language-context';
 import { useThemeColors } from '../hooks/use-theme-colors';
@@ -9,6 +9,7 @@ import { subscribeListCompleted, type ListCompletedEvent } from './completion';
 import { resolveMoeCompletionMotion } from './completion-motion';
 
 import { MoeCelebrationVisual } from './MoeCelebrationVisual';
+import { MoeCelebrationLayer, MoeCelebrationStage } from './MoeCelebrationLayer';
 
 export function MoeCelebration({ active, projectId }: { active?: boolean; projectId?: string } = {}) {
   const [event, setEvent] = useState<ListCompletedEvent | null>(null);
@@ -43,7 +44,7 @@ export function MoeCelebration({ active, projectId }: { active?: boolean; projec
     const remainingMs = Math.max(0, expiresAt.current - Date.now());
     progress.setValue(motion.reduced ? 1 : 1 - remainingMs / motion.celebrationMs);
     const animation = motion.reduced ? null : Animated.timing(progress, {
-      toValue: 1, duration: remainingMs, useNativeDriver: true,
+      toValue: 1, duration: remainingMs, easing: value => value, useNativeDriver: true,
     });
     let cancelled = false;
     const timer = setTimeout(() => {
@@ -79,14 +80,8 @@ export function MoeCelebration({ active, projectId }: { active?: boolean; projec
     return () => { change.remove(); blur.remove(); focus.remove(); };
   }, [clearCurrent]);
   if (!event || !preferences.celebration || !hostActive || (projectId !== undefined && event.projectId !== projectId)) return null;
-  return <View pointerEvents="none" style={styles.host}>
+  return <MoeCelebrationLayer><MoeCelebrationStage>
     <MoeCelebrationVisual progress={progress} motion={motion} tc={tc}
       label={language.startsWith('zh') ? '✓ 清单已完成' : '✓ List completed'} title={event.title} />
-  </View>;
+  </MoeCelebrationStage></MoeCelebrationLayer>;
 }
-const styles = StyleSheet.create({
-  host: { position: 'absolute', top: 96, left: 24, right: 24, alignItems: 'center' },
-  card: { borderRadius: 20, borderWidth: 1, padding: 18, maxWidth: 340 },
-  particleOrigin: { position: 'absolute', left: 0, right: 0, top: '50%', overflow: 'visible' },
-  particle: { position: 'absolute', left: '50%' },
-});

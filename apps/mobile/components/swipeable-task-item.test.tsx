@@ -57,6 +57,7 @@ const { addTask, updateTask, restoreTask, undoTaskCompletion, showToast, getChec
 const hapticsMocks = vi.hoisted(() => ({
   impactAsync: vi.fn().mockResolvedValue(undefined),
   notificationAsync: vi.fn().mockResolvedValue(undefined),
+  selectionAsync: vi.fn().mockResolvedValue(undefined),
 }));
 const translate = vi.hoisted(() => {
   const labels: Record<string, string> = {
@@ -151,20 +152,24 @@ vi.mock('@/contexts/language-context', () => ({
 }));
 
 vi.mock('react-native-gesture-handler', () => ({
-  Swipeable: ({ renderLeftActions, renderRightActions, children, ...props }: any) =>
-    React.createElement(
+  Swipeable: ({ renderLeftActions, renderRightActions, children, ...props }: any) => {
+    const animated = { interpolate: (config: unknown) => ({ config }) };
+    return React.createElement(
       'Swipeable',
       props,
-      renderLeftActions ? renderLeftActions() : null,
-      renderRightActions ? renderRightActions() : null,
+      renderLeftActions ? renderLeftActions(animated, animated) : null,
+      renderRightActions ? renderRightActions(animated, animated) : null,
       children
-    ),
+    );
+  },
 }));
 
 vi.mock('expo-haptics', () => ({
   ImpactFeedbackStyle: {
     Light: 'light',
     Medium: 'medium',
+    Heavy: 'heavy',
+    Rigid: 'rigid',
   },
   NotificationFeedbackType: {
     Success: 'success',
@@ -172,6 +177,7 @@ vi.mock('expo-haptics', () => ({
   },
   impactAsync: hapticsMocks.impactAsync,
   notificationAsync: hapticsMocks.notificationAsync,
+  selectionAsync: hapticsMocks.selectionAsync,
 }));
 
 vi.mock('@react-navigation/native', async () => {
@@ -579,7 +585,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
     });
 
     expect(onDelete).toHaveBeenCalledTimes(1);
-    expect(hapticsMocks.impactAsync).toHaveBeenCalledWith('light');
+    expect(hapticsMocks.impactAsync).toHaveBeenCalledWith('rigid');
     expect(showToast).toHaveBeenCalledWith(expect.objectContaining({
       message: 'Task deleted',
       actionLabel: 'Undo',
@@ -629,6 +635,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
       tone: 'error',
     }));
     expect(showToast).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'Task deleted' }));
+    expect(hapticsMocks.impactAsync).not.toHaveBeenCalled();
   });
 
   it('surfaces resolved failures from delete undo and focus-star actions', async () => {
@@ -1418,7 +1425,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
     });
 
     expect(onStatusChange).toHaveBeenCalledWith('next');
-    expect(hapticsMocks.impactAsync).toHaveBeenCalledWith('light');
+    expect(hapticsMocks.selectionAsync).toHaveBeenCalledTimes(1);
   });
 
   it('uses localized status, due-date, and action-menu accessibility copy', () => {
@@ -1636,7 +1643,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
       doneAction.props.onLongPress();
     });
 
-    expect(hapticsMocks.impactAsync).toHaveBeenCalledWith('light');
+    expect(hapticsMocks.selectionAsync).toHaveBeenCalledTimes(1);
     expect(doneAction.props.accessibilityHint).toBe('Long-press to complete with a different time');
 
     const picker = tree.root.findByType('CompletedAtPicker' as any);

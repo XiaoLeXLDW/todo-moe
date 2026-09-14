@@ -1,6 +1,6 @@
 import React from 'react';
 import renderer, { act } from 'react-test-renderer';
-import { Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Pressable, Switch, Text, View } from 'react-native';
 import { describe, expect, it, vi } from 'vitest';
 
 import { SettingRow, SettingToggleRow } from './setting-row';
@@ -16,6 +16,11 @@ vi.mock('@/hooks/use-theme-colors', () => ({
     tint: '#3b82f6',
   }),
 }));
+vi.mock('@/hooks/use-theme-tokens', () => ({
+  useThemeTokens: () => ({ isMaterial: false, isDark: true, state: { rippleColor: undefined, stateLayerColor: () => 'transparent' } }),
+}));
+vi.mock('@/hooks/use-reduced-motion', () => ({ useReducedMotion: () => false }));
+vi.mock('@/moe/preferences', () => ({ useMoePreferences: () => ({ motion: 'maximal' }) }));
 
 const flattenStyle = (style: unknown): Record<string, unknown> => {
   if (Array.isArray(style)) {
@@ -56,12 +61,12 @@ describe('SettingRow', () => {
     expect(collectText(tree.root)).toEqual(['Only label']);
   });
 
-  it('renders a plain View by default and a TouchableOpacity when onPress is set', () => {
+  it('renders a plain View by default and an animated Pressable when onPress is set', () => {
     let staticTree!: renderer.ReactTestRenderer;
     act(() => {
       staticTree = renderer.create(<SettingRow label="Static" />);
     });
-    expect(staticTree.root.findAllByType(TouchableOpacity)).toHaveLength(0);
+    expect(staticTree.root.findAllByType(Pressable)).toHaveLength(0);
     expect(staticTree.root.findAllByType(View).length).toBeGreaterThan(0);
 
     const onPress = vi.fn();
@@ -69,7 +74,7 @@ describe('SettingRow', () => {
     act(() => {
       pressableTree = renderer.create(<SettingRow label="Pressable" onPress={onPress} />);
     });
-    const touchable = pressableTree.root.findByType(TouchableOpacity);
+    const touchable = pressableTree.root.findByType(Pressable);
     act(() => {
       touchable.props.onPress();
     });

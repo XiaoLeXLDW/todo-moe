@@ -12,40 +12,17 @@ describe('resolveStatusColors', () => {
         }
     });
 
-    it('uses lighter hues on dark default and oled themes', () => {
+    it('uses lighter hues for the effective dark appearance, including legacy presets', () => {
         const dark = resolveStatusColors({ themePreset: 'default', isDark: true });
         expect(dark.next.text).toBe('#60A5FA');
         expect(dark.next.text).not.toBe(getStatusColor('next').text);
         expect(resolveStatusColors({ themePreset: 'oled', isDark: true })).toEqual(dark);
     });
 
-    it('uses Nord frost/aurora hues on the nord preset', () => {
-        const nord = resolveStatusColors({ themePreset: 'nord', isDark: true });
-        expect(nord.next.text).toBe('#88C0D0');
-        expect(nord.someday.text).toBe('#B48EAD');
-        expect(nord.done.text).toBe('#A3BE8C');
-    });
-
-    it('uses each new preset theme own accents rather than the generic dark palette', () => {
+    it('does not mix a legacy preset with the effective Moe appearance', () => {
         const dark = resolveStatusColors({ themePreset: 'default', isDark: true });
-
-        const catppuccin = resolveStatusColors({ themePreset: 'catppuccin-macchiato', isDark: true });
-        expect(catppuccin.next.text).toBe('#8aadf4');
-        expect(catppuccin.someday.text).toBe('#c6a0f6');
-        expect(catppuccin.done.text).toBe('#a6da95');
-        expect(catppuccin).not.toEqual(dark);
-
-        const dracula = resolveStatusColors({ themePreset: 'dracula', isDark: true });
-        expect(dracula.next.text).toBe('#bd93f9');
-        expect(dracula.reference.text).toBe('#8be9fd');
-        expect(dracula.done.text).toBe('#50fa7b');
-        expect(dracula).not.toEqual(dark);
-    });
-
-    it('stays monochrome on eink and earthy on sepia', () => {
-        const eink = resolveStatusColors({ themePreset: 'eink', isDark: false });
-        for (const status of STATUSES) expect(eink[status].text).toBe('#000000');
-        expect(resolveStatusColors({ themePreset: 'sepia', isDark: false }).next.text).toBe('#509550');
+        expect(resolveStatusColors({ themePreset: 'eink', isDark: true })).toEqual(dark);
+        expect(resolveStatusColors({ themePreset: 'dracula', isDark: false })).toEqual(resolveStatusColors({ themePreset: 'default', isDark: false }));
     });
 
     it('provides bg, text, and border for every status in every palette', () => {

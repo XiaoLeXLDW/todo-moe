@@ -20,9 +20,11 @@ import {
 } from '@mindwtr/core';
 import type { Area, Project, ProjectSequenceTaskCue, Section, Task, TaskStatus } from '@mindwtr/core';
 import { useLanguage } from '../contexts/language-context';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Animated as NativeAnimated } from 'react-native';
+import { NavigationContext } from '@react-navigation/native';
 import { ArrowRight, Check, RotateCcw, Trash2 } from 'lucide-react-native';
-import { moeHaptic } from '../moe/haptics';
+import { emitMoeHaptic, moeHaptic } from '../moe/haptics';
 import { beginMoeCompletion, cancelMoeCompletion, finishMoeCompletion, publishListCompleted } from '../moe/completion';
 import { MoeCompletionRow, useMoeCompletionRow } from '../moe/MoeCompletionRow';
 import type { FeedbackAppearance } from '../moe/MoeCompletionFeedbackState';
@@ -268,6 +270,7 @@ function SwipeableTaskItemInner({
     const ignorePressUntil = useRef<number>(0);
     const { t, language } = useLanguage();
     const { showToast } = useToast();
+    const navigation = useContext(NavigationContext);
     const statusColors = useStatusColors();
     const {
         addTask,
@@ -376,7 +379,12 @@ function SwipeableTaskItemInner({
                     return;
                 }
                 if (status === 'done' && previousStatus !== 'done') {
-                    moeHaptic();
+                    void emitMoeHaptic({
+                        event: celebration ? 'listCompleted' : 'taskConfirmed',
+                        interactionId: operation.id,
+                        occurredAt: operation.occurredAt,
+                        ownerActive: navigation?.isFocused() !== false,
+                    });
                     if (celebration) publishListCompleted(celebration);
                     // Completing mirrors deleting: immediate, with an undo toast
                     // instead of a confirmation (matches the desktop undo).
@@ -387,6 +395,7 @@ function SwipeableTaskItemInner({
                         tone: 'info',
                         actionLabel: tFallback(t, 'common.undo', 'Undo'),
                         onAction: async () => {
+                            const undoOccurredAt = Date.now();
                             cancelMoeCompletion(task.id);
                             cancelRowExit(operation.id, true);
                             if (wasFocusedToday) beginRowUndo(operation.id);
@@ -397,6 +406,13 @@ function SwipeableTaskItemInner({
                                 if (!outcome.ok) {
                                     cancelRowExit(operation.id);
                                     showActionFailure(outcome.message);
+                                } else {
+                                    void emitMoeHaptic({
+                                        event: 'undoReleased',
+                                        interactionId: operation.id,
+                                        occurredAt: undoOccurredAt,
+                                        ownerActive: navigation?.isFocused() !== false,
+                                    });
                                 }
                             } finally {
                                 finishRowUndo(operation.id);
@@ -408,7 +424,7 @@ function SwipeableTaskItemInner({
                     openProjectNextActionPromptIfNeeded(task.id);
                 }
             });
-    }, [armRowExit, beginRowUndo, cancelRowExit, finishRowUndo, interactionDisabled, onStatusChange, openProjectNextActionPromptIfNeeded, settleRowExit, showActionFailure, showToast, t, task.id, task.isFocusedToday, task.status, task.title]);
+    }, [armRowExit, beginRowUndo, cancelRowExit, finishRowUndo, interactionDisabled, navigation, onStatusChange, openProjectNextActionPromptIfNeeded, settleRowExit, showActionFailure, showToast, t, task.id, task.isFocusedToday, task.status, task.title]);
 
     const [completedAtPicker, setCompletedAtPicker] = useState<null | 'complete' | 'edit'>(null);
     useEffect(() => {
@@ -443,12 +459,17 @@ function SwipeableTaskItemInner({
                     return;
                 }
                 if (mode === 'complete' && task.status !== 'done') {
-                    moeHaptic();
+                    void emitMoeHaptic({
+                        event: celebration ? 'listCompleted' : 'taskConfirmed',
+                        interactionId: operation.id,
+                        occurredAt: operation.occurredAt,
+                        ownerActive: navigation?.isFocused() !== false,
+                    });
                     if (celebration) publishListCompleted(celebration);
                     openProjectNextActionPromptIfNeeded(task.id);
                 }
             });
-    }, [armRowExit, cancelRowExit, completedAtPicker, interactionDisabled, openProjectNextActionPromptIfNeeded, settleRowExit, showActionFailure, task.id, task.status, task.title, timeSpentEnabled, updateTask]);
+    }, [armRowExit, cancelRowExit, completedAtPicker, interactionDisabled, navigation, openProjectNextActionPromptIfNeeded, settleRowExit, showActionFailure, task.id, task.status, task.title, timeSpentEnabled, updateTask]);
 
     const handlePromoteProjectNextAction = useCallback((nextTaskId: string) => {
         if (interactionDisabled || isProjectNextActionSubmitting) return;
@@ -564,9 +585,16 @@ function SwipeableTaskItemInner({
                 'Double-tap to edit task details. More actions are available in the accessibility actions menu.',
             );
 
-    const renderLeftActions = () => {
+    const renderLeftActions = (progress: NativeAnimated.AnimatedInterpolation<number>, dragX: NativeAnimated.AnimatedInterpolation<number>) => {
         const LeftIcon = leftAction.action === 'inbox' ? RotateCcw : leftAction.action === 'done' ? Check : ArrowRight;
         return (
+          <NativeAnimated.View style={{
+              opacity: progress.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 0.72, 1], extrapolate: 'clamp' }),
+              transform: [
+                  { translateX: dragX.interpolate({ inputRange: [0, 90], outputRange: [-18, 0], extrapolate: 'clamp' }) },
+                  { scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1.06], extrapolate: 'clamp' }) },
+              ],
+          }}>
             <AppPressable
                 style={[styles.swipeActionLeft, { backgroundColor: leftAction.color }]}
                 pressedColor="rgba(0, 0, 0, 0.18)"
@@ -593,10 +621,18 @@ function SwipeableTaskItemInner({
                     {leftAction.label}
                 </CompactText>
             </AppPressable>
+          </NativeAnimated.View>
         );
     };
 
-    const renderRightActions = () => (
+    const renderRightActions = (progress: NativeAnimated.AnimatedInterpolation<number>, dragX: NativeAnimated.AnimatedInterpolation<number>) => (
+      <NativeAnimated.View style={{
+          opacity: progress.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 0.72, 1], extrapolate: 'clamp' }),
+          transform: [
+              { translateX: dragX.interpolate({ inputRange: [-90, 0], outputRange: [0, 18], extrapolate: 'clamp' }) },
+              { scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1.06], extrapolate: 'clamp' }) },
+          ],
+      }}>
         <AppPressable
             style={styles.swipeActionRight}
             pressedColor="rgba(0, 0, 0, 0.18)"
@@ -612,6 +648,7 @@ function SwipeableTaskItemInner({
                 {t('common.delete')}
             </CompactText>
         </AppPressable>
+      </NativeAnimated.View>
     );
 
     const accessibilityLabel = [
@@ -657,8 +694,8 @@ function SwipeableTaskItemInner({
     // keeps its confirmation.
     const handleDelete = () => {
         if (interactionDisabled) return;
+        const deleteOccurredAt = Date.now();
         cancelRowExit();
-        moeHaptic();
         cancelPendingChecklist();
         void settleStoreAction(() => onDelete())
             .then((outcome) => {
@@ -666,15 +703,27 @@ function SwipeableTaskItemInner({
                     showActionFailure(outcome.message);
                     return;
                 }
+                void emitMoeHaptic({
+                    event: 'deleteConfirmed',
+                    occurredAt: deleteOccurredAt,
+                    ownerActive: navigation?.isFocused() !== false,
+                });
                 showToast({
                     message: tFallback(t, 'list.taskDeleted', 'Task deleted'),
                     tone: 'info',
                     actionLabel: tFallback(t, 'common.undo', 'Undo'),
                     onAction: () => {
-                        void settleStoreAction(() => restoreTask(task.id))
+                        const undoOccurredAt = Date.now();
+                        return settleStoreAction(() => restoreTask(task.id))
                             .then((restoreOutcome) => {
                                 if (!restoreOutcome.ok) {
                                     showActionFailure(restoreOutcome.message);
+                                } else {
+                                    void emitMoeHaptic({
+                                        event: 'undoReleased',
+                                        occurredAt: undoOccurredAt,
+                                        ownerActive: navigation?.isFocused() !== false,
+                                    });
                                 }
                             });
                     },
@@ -822,6 +871,7 @@ function SwipeableTaskItemInner({
                     dragOffsetFromRightEdge={TASK_SWIPE_DRAG_OFFSET}
                     overshootLeft={false}
                     overshootRight={false}
+                    onSwipeableWillOpen={() => moeHaptic('selectionTick')}
                     enabled={!selectionMode && !disableSwipe}
                 >
                     {content}

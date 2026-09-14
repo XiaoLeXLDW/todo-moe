@@ -4,6 +4,19 @@ vi.mock('@react-native-async-storage/async-storage', () => ({ default: storage }
 
 beforeEach(() => { vi.resetModules(); storage.getItem.mockReset().mockResolvedValue(null); storage.setItem.mockReset().mockResolvedValue(undefined); });
 describe('device preference persistence', () => {
+  it('upgrades the previous strongest choices once without overriding explicit reduced/off choices', async () => {
+    storage.getItem.mockResolvedValue(JSON.stringify({ motion: 'lively', haptics: 'light' }));
+    const first = await import('./preferences');
+    await first.hydrateMoePreferences();
+    expect(first.getMoePreferences()).toMatchObject({ presentationVersion: 2, motion: 'maximal', haptics: 'crisp' });
+    await vi.waitFor(() => expect(storage.setItem).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(storage.setItem.mock.calls[0][1])).toMatchObject({ presentationVersion: 2, motion: 'maximal', haptics: 'crisp' });
+
+    vi.resetModules(); storage.getItem.mockReset().mockResolvedValue(JSON.stringify({ motion: 'simple', haptics: 'off' })); storage.setItem.mockReset().mockResolvedValue(undefined);
+    const second = await import('./preferences');
+    await second.hydrateMoePreferences();
+    expect(second.getMoePreferences()).toMatchObject({ motion: 'simple', haptics: 'off' });
+  });
   it('hydrates before applying an edit, preserving other saved preferences', async () => {
     storage.getItem.mockResolvedValue(JSON.stringify({ theme: 'ink', followSystem: false, haptics: 'off' }));
     const { setMoePreferences, getMoePreferences } = await import('./preferences');

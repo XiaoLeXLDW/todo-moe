@@ -21,6 +21,9 @@ internal object GlassLensShader {
     uniform float2 velocity;
     uniform float lensHeight;
     uniform float lensAmount;
+    uniform float highlightStrength;
+    uniform float innerShadowStrength;
+    uniform float chromaticStrength;
 
     float sdRoundedRect(float2 coord, float2 halfSize, float radius) {
       float2 cornerCoord = abs(coord) - (halfSize - float2(radius));
@@ -97,7 +100,7 @@ internal object GlassLensShader {
           float amount = lensAmount * (0.35 + 0.65 * press);
           float2 bend = refraction(lensCoord, lensHalf, lensRadius,
                                    lensHeight, -amount, press);
-          float dispersion = 0.5 * press * (lensCoord.x * lensCoord.y)
+          float dispersion = 0.5 * press * chromaticStrength * (lensCoord.x * lensCoord.y)
                             / max(lensHalf.x * lensHalf.y, 1.0);
           color = press > 0.01 ? dispersed(sampleAt + bend, bend * dispersion)
                               : backdrop.eval(sampleAt + bend);
@@ -106,10 +109,10 @@ internal object GlassLensShader {
           float rim = 1.0 - smoothstep(pixel * 0.4, pixel * 1.8, abs(sd));
           float lighting = 0.45 + 0.55 * abs(dot(normal, lightDir));
           float innerShadow = (1.0 - smoothstep(0.0, pixel * 8.0, -min(sd, 0.0)))
-                              * max(dot(normal, -lightDir), 0.0) * press * 0.12;
+                              * max(dot(normal, -lightDir), 0.0) * press * 0.12 * innerShadowStrength;
           float spot = 1.0 - smoothstep(0.0, max(lensHalf.x, lensHalf.y) * 1.2,
                                      length(lensCoord - lensHalf * float2(-0.25, -0.3)));
-          half shine = half(rim * lighting * (0.10 + 0.16 * press) + spot * press * 0.06);
+          half shine = half((rim * lighting * (0.10 + 0.16 * press) + spot * press * 0.06) * highlightStrength);
           color.rgb = max(color.rgb - half3(innerShadow), half3(0.0));
           color.rgb = min(color.rgb + half3(shine) * color.a, half3(color.a));
         }

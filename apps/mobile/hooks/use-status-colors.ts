@@ -7,13 +7,11 @@ export type { StatusColorSet, StatusPalette } from '@mindwtr/core';
 
 type ResolvableTheme = Pick<ThemeContextType, 'isDark' | 'themePreset'>;
 
-// Data lives in core's theme-scheme.ts (STATUS_COLORS_BY_THEME); this hook is
-// only the adapter that reads ThemeContext and picks the right key.
+// Todo Moe's local presentation is always active on mobile. `isDark` is the
+// effective Moe appearance, while `themePreset` is a legacy synced preference
+// retained for compatibility. Mixing them can put black eink text on Moe dark.
 export function resolveStatusColors(theme?: ResolvableTheme | null): StatusPalette {
-    if (!theme || theme.themePreset === 'default') {
-        return STATUS_COLORS_BY_THEME[theme?.isDark ? 'dark' : 'light'];
-    }
-    return STATUS_COLORS_BY_THEME[theme.themePreset];
+    return STATUS_COLORS_BY_THEME[theme?.isDark ? 'dark' : 'light'];
 }
 
 export function useStatusColors(): StatusPalette {

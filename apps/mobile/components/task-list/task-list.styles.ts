@@ -301,6 +301,11 @@ export const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
   },
+  modalCardOuter: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 12,
+  },
   modalTitle: {
     fontSize: 16,
     fontWeight: '700',

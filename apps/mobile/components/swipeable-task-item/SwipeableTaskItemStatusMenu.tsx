@@ -4,6 +4,10 @@ import { TaskStatus, tFallback } from '@mindwtr/core';
 import type { ThemeColors } from '../../hooks/use-theme-colors';
 import { useStatusColors } from '../../hooks/use-status-colors';
 import { styles } from './swipeable-task-item.styles';
+import { GlassSurface } from '../../moe/glass/GlassSurface';
+import { useMoePreferences } from '../../moe/preferences';
+import { useReducedMotion } from '../../hooks/use-reduced-motion';
+import { useThemeTokens } from '../../hooks/use-theme-tokens';
 
 interface SwipeableTaskItemStatusMenuProps {
     /** Long-press on the Done option completes the task with a picked timestamp. */
@@ -28,6 +32,9 @@ export function SwipeableTaskItemStatusMenu({
     visible,
 }: SwipeableTaskItemStatusMenuProps) {
     const statusColors = useStatusColors();
+    const preferences = useMoePreferences();
+    const reduced = useReducedMotion();
+    const { isDark } = useThemeTokens();
     return (
         <Modal
             visible={visible}
@@ -37,7 +44,7 @@ export function SwipeableTaskItemStatusMenu({
             accessibilityViewIsModal
         >
             <Pressable style={styles.modalOverlay} onPress={onClose}>
-                <View style={[styles.menuContainer, { backgroundColor: tc.cardBg }]}>
+                <GlassSurface mode={preferences.glass} dark={isDark} reducedMotion={reduced} samplingEnabled={visible} style={styles.menuContainer}>
                     <Text style={[styles.menuTitle, { color: tc.text }]} accessibilityRole="header">
                         {t('taskStatus.changeStatus')}
                     </Text>
@@ -73,7 +80,7 @@ export function SwipeableTaskItemStatusMenu({
                             );
                         })}
                     </View>
-                </View>
+                </GlassSurface>
             </Pressable>
         </Modal>
     );

@@ -156,7 +156,7 @@ describe('completion-only native row configuration (not a Fabric animation simul
         act(() => tree.unmount());
         expect(callbacks.size).toBe(0); expect(mocks.appListeners.size).toBe(0); expect(vi.getTimerCount()).toBe(0);
     });
-    it('honors Simple/system reduction and the unified lively exit duration', () => {
+    it('honors Simple/system reduction and keeps the lively row and feedback lifetime aligned', () => {
         mocks.preference = 'simple'; const simple = mount('simple'); act(() => simple.handle.current.arm(12));
         expect(simple.handle.current.exiting().animations).toEqual({ opacity: 0 });
         mocks.preference = 'standard'; mocks.reduced = true; const reduced = mount('system'); act(() => reduced.handle.current.arm(13));
