@@ -182,7 +182,7 @@ function FeedbackPaint({ entry }: { entry: CompletionFeedback }) {
             </View>
         </NativeAnimated.View> : null}
         {motion.particles ? <View pointerEvents="none" style={{ position: 'absolute', left: check.x + check.width / 2, top: check.y + check.height / 2, overflow: 'visible' }}>
-            <MoeCompletionParticles progress={fragments} color={a.checkColor} secondaryColor={a.textColor} seed={entry.operationId} />
+            <MoeCompletionParticles progress={fragments} color={a.checkColor} secondaryColor={a.textColor} seed={entry.operationId} profile={motion.particleProfile} />
         </View> : null}
         </Animated.View>
     );

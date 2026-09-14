@@ -76,10 +76,20 @@ afterEach(() => {
 });
 
 describe('Moe Moment completion feedback', () => {
+  it('gives Maximal a larger list explosion instead of replaying Enhanced more slowly', async () => {
+    await setMoePreferences({ motion: 'maximal' });
+    await mount(); complete(76);
+    const visual = tree!.root.findByType(MoeCelebrationVisual);
+    expect(visual.props.motion).toMatchObject({ celebrationMs: 2100, particleProfile: 'maximal' });
+    expect(tree!.root.findAll(node => node.props.variant === 'list' && node.props.profile === 'maximal')).toHaveLength(1);
+    expect(renderedStyle(tree!.root.findByProps({ testID: 'moe-celebration-emblem' }).props.style)).toMatchObject({ width: 112, height: 112 });
+    act(() => cancelMoeCompletion('completed-task'));
+  });
   it('keeps amplified lively feedback for one second and cancels it immediately on Undo', async () => {
     await setMoePreferences({ motion: 'lively' });
     await mount(); complete(77);
     expect(tree!.root.findByType(MoeCelebrationVisual).props.motion.celebrationMs).toBe(1000);
+    expect(renderedStyle(tree!.root.findByProps({ testID: 'moe-celebration-emblem' }).props.style)).toMatchObject({ width: 80, height: 80 });
     act(() => { vi.advanceTimersByTime(650); });
     expect(visibleText()).toContain('清单已完成');
     act(() => cancelMoeCompletion('completed-task'));

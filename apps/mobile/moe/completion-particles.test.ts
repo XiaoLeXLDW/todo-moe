@@ -2,6 +2,35 @@ import { describe, expect, it } from 'vitest';
 import { createCompletionParticles } from './completion-particles';
 
 describe('completion particle trajectories', () => {
+  it.each(['task', 'list'] as const)('makes the maximal %s blast unmistakably denser and wider than Enhanced', variant => {
+    const lively = createCompletionParticles(variant, 194, 'lively');
+    const maximal = createCompletionParticles(variant, 194, 'maximal');
+    const furthest = (particles: ReturnType<typeof createCompletionParticles>) => Math.max(...particles.map(particle => (
+      Math.hypot(particle.x.at(-1)! - particle.x[0], particle.y.at(-1)! - particle.y[0])
+    )));
+
+    expect(maximal).not.toEqual(lively);
+    expect(maximal.length).toBeGreaterThanOrEqual(Math.ceil(lively.length * 1.5));
+    expect(furthest(maximal)).toBeGreaterThan(furthest(lively) * 1.3);
+  });
+
+  it.each([
+    ['task', 320, 430],
+    ['list', 500, 820],
+  ] as const)('keeps the maximal %s blast finite and within its bounded overlay budget', (variant, maxX, maxY) => {
+    for (const seed of [0, 1, 194, 712, -50, Number.NaN, Number.POSITIVE_INFINITY]) {
+      for (const particle of createCompletionParticles(variant, seed, 'maximal')) {
+        for (const table of [particle.x, particle.y, particle.scale, particle.squash, particle.opacity]) {
+          expect(table.every(Number.isFinite)).toBe(true);
+        }
+        expect(Math.max(...particle.x.map(Math.abs))).toBeLessThan(maxX);
+        expect(Math.max(...particle.y.map(Math.abs))).toBeLessThan(maxY);
+        expect(particle.opacity[0]).toBe(0);
+        expect(particle.opacity.at(-1)).toBe(0);
+      }
+    }
+  });
+
   it('replays the same operation without changing its blast, while a new seed varies it', () => {
     expect(createCompletionParticles('task', 712)).toEqual(createCompletionParticles('task', 712));
     expect(createCompletionParticles('task', 713)).not.toEqual(createCompletionParticles('task', 712));

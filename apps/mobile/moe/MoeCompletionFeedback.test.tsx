@@ -126,10 +126,11 @@ it('keeps non-interactive maximal shards only for their bounded lifetime after t
     state.motion = 'maximal';
     mount(); geometry();
     act(() => { transition.arm(80, details); tree!.update(layout({ row: false })); });
-    act(() => { vi.advanceTimersByTime(360); });
+    act(() => { vi.advanceTimersByTime(560); });
     expect(paints()).toHaveLength(1);
     expect(paints()[0].props.pointerEvents).toBe('none');
-    act(() => { vi.advanceTimersByTime(540); });
+    expect(paints()[0].findAll(node => node.props.profile === 'maximal')).toHaveLength(1);
+    act(() => { vi.advanceTimersByTime(690); });
     expect(paints()).toHaveLength(0);
     expect(feedbackActive).toBe(false);
     expect(vi.getTimerCount()).toBe(0);

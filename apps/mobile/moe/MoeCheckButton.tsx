@@ -80,7 +80,7 @@ export function MoeCheckButton({ checked, disabled, label, onPress, tc, measurem
       onPressOut={release}
       onPress={(event) => { event.stopPropagation(); if (!disabled) onPress(); }} style={styles.target}>
       {checked && bursting && motion.particles ? <View pointerEvents="none" style={styles.particleOrigin}>
-        <MoeCompletionParticles progress={fragments} color={tc.success} secondaryColor={tc.tint} />
+        <MoeCompletionParticles progress={fragments} color={tc.success} secondaryColor={tc.tint} profile={motion.particleProfile} />
       </View> : null}
       <Animated.View style={{ transform: [{ scale }] }}>
         <Reanimated.View ref={measurementRef} collapsable={false} style={styles.checkFrame}>

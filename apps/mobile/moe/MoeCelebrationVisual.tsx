@@ -12,31 +12,44 @@ export function MoeCelebrationVisual({ progress, motion, tc, label, title }: {
   tc: ThemeColors; label: string; title: string;
 }) {
   const checkColor = colorContrast(tc.success, '#FFFFFF') >= colorContrast(tc.success, '#000000') ? '#FFFFFF' : '#000000';
+  const maximal = motion.particles && motion.particleProfile === 'maximal';
+  const emblemSize = maximal ? 112 : 80;
+  const emblemCheckSize = maximal ? 72 : 48;
   const opacity = motion.reduced ? 1 : progress.interpolate({
     inputRange: [0, MOE_COMPLETION_MOTION.celebrationFadeInAt, MOE_COMPLETION_MOTION.celebrationFadeOutAt, 1],
     outputRange: [0, 1, 1, 0],
   });
   return <View pointerEvents="none" style={styles.host}>
-    {!motion.reduced ? <View style={styles.blast} pointerEvents="none">
+    {!motion.reduced ? <View style={[styles.blast, { height: maximal ? 230 : 150 }]} pointerEvents="none">
       {motion.particles ? <View style={styles.origin} pointerEvents="none">
-        <MoeCompletionParticles progress={progress} color={tc.success} secondaryColor={tc.tint} variant="list" />
+        <MoeCompletionParticles progress={progress} color={tc.success} secondaryColor={tc.tint} variant="list" profile={motion.particleProfile} />
       </View> : null}
       <Animated.View testID="moe-celebration-emblem" pointerEvents="none" accessible={false}
         accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
-        style={[styles.emblem, { backgroundColor: tc.success,
-          opacity: progress.interpolate({ inputRange: [0, .06, .78, 1], outputRange: [0, 1, 1, 0] }),
+        style={[styles.emblem, { width: emblemSize, height: emblemSize, borderRadius: maximal ? 36 : 26, backgroundColor: tc.success,
+          opacity: progress.interpolate(maximal
+            ? { inputRange: [0, .025, .84, 1], outputRange: [0, 1, 1, 0] }
+            : { inputRange: [0, .06, .78, 1], outputRange: [0, 1, 1, 0] }),
           transform: [
-            { scale: progress.interpolate({ inputRange: [0, .09, .19, .3, 1], outputRange: [.45, 1.3, .94, 1, 1] }) },
-            { rotate: progress.interpolate({ inputRange: [0, .12, .3, 1], outputRange: ['-12deg', '5deg', '0deg', '0deg'] }) },
+            { scale: progress.interpolate(maximal
+              ? { inputRange: [0, .07, .16, .32, .62, 1], outputRange: [.25, 1.55, .92, 1.18, 1, 1] }
+              : { inputRange: [0, .09, .19, .3, 1], outputRange: [.45, 1.3, .94, 1, 1] }) },
+            { rotate: progress.interpolate(maximal
+              ? { inputRange: [0, .1, .24, .42, 1], outputRange: ['-22deg', '9deg', '-3deg', '0deg', '0deg'] }
+              : { inputRange: [0, .12, .3, 1], outputRange: ['-12deg', '5deg', '0deg', '0deg'] }) },
           ],
         }]}>
-        <Check size={48} strokeWidth={2.8} color={checkColor} />
+        <Check size={emblemCheckSize} strokeWidth={maximal ? 3.2 : 2.8} color={checkColor} />
       </Animated.View>
     </View> : null}
     <Animated.View accessibilityLiveRegion="polite" style={[styles.card, { backgroundColor: tc.cardBg, borderColor: tc.border, opacity },
       !motion.reduced && { transform: [
-        { translateY: progress.interpolate({ inputRange: [0, .2, .72, 1], outputRange: [12, 0, 0, -6] }) },
-        { scale: progress.interpolate({ inputRange: [0, .2, .34, 1], outputRange: [.94, 1.02, 1, 1] }) },
+        { translateY: progress.interpolate(maximal
+          ? { inputRange: [0, .16, .76, 1], outputRange: [28, 0, 0, -12] }
+          : { inputRange: [0, .2, .72, 1], outputRange: [12, 0, 0, -6] }) },
+        { scale: progress.interpolate(maximal
+          ? { inputRange: [0, .14, .28, .48, 1], outputRange: [.82, 1.08, .98, 1, 1] }
+          : { inputRange: [0, .2, .34, 1], outputRange: [.94, 1.02, 1, 1] }) },
       ] }]}>
       <View style={styles.copy}>
         <Text style={{ color: tc.text, fontSize: 19, fontWeight: '800', textAlign: 'center' }}>{motion.reduced ? label : label.replace(/^✓\s*/, '')}</Text>
@@ -48,7 +61,7 @@ export function MoeCelebrationVisual({ progress, motion, tc, label, title }: {
 const styles = StyleSheet.create({ host: { alignItems: 'center', maxWidth: 340, width: '100%', overflow: 'visible' }, card: {
   borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 18, paddingVertical: 16,
   maxWidth: 340, alignItems: 'center',
-}, blast: { width: '100%', height: 150, alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
+}, blast: { width: '100%', alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
 origin: { position: 'absolute', left: '50%', top: '50%', overflow: 'visible' },
-emblem: { width: 80, height: 80, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
+emblem: { alignItems: 'center', justifyContent: 'center' },
 copy: { flexShrink: 1 } });

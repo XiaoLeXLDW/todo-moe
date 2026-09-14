@@ -1,21 +1,22 @@
 import React, { useMemo } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
-import { createCompletionParticles, type CompletionParticleVariant } from './completion-particles';
+import { createCompletionParticles, type CompletionParticleProfile, type CompletionParticleVariant } from './completion-particles';
 
 export interface MoeCompletionParticlesProps {
   progress: Animated.Value;
   color: string;
   secondaryColor?: string;
   variant?: CompletionParticleVariant;
+  profile?: CompletionParticleProfile;
   reduced?: boolean;
   seed?: number;
 }
 
 /** Place the zero-size origin at the check's centre in an unclipped overlay. */
 export const MoeCompletionParticles = React.memo(function MoeCompletionParticles({
-  progress, color, secondaryColor = color, variant = 'task', reduced = false, seed = 1,
+  progress, color, secondaryColor = color, variant = 'task', profile = 'lively', reduced = false, seed = 1,
 }: MoeCompletionParticlesProps) {
-  const particles = useMemo(() => reduced ? [] : createCompletionParticles(variant, seed), [variant, seed, reduced]);
+  const particles = useMemo(() => reduced ? [] : createCompletionParticles(variant, seed, profile), [variant, seed, profile, reduced]);
   const animatedParticles = useMemo(() => particles.map(particle => {
     const interpolate = (outputRange: number[]) => progress.interpolate({ inputRange: particle.frames, outputRange, extrapolate: 'clamp' });
     return {

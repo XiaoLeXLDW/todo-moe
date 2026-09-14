@@ -1,4 +1,5 @@
 export type CompletionParticleVariant = 'task' | 'list';
+export type CompletionParticleProfile = 'lively' | 'maximal';
 export type CompletionParticleShape = 'tile' | 'triangle' | 'sliver' | 'fleck';
 
 export interface CompletionParticle {
@@ -32,31 +33,46 @@ function seededRandom(seed: number) {
 }
 
 /** Precompute the whole blast once; the native driver only interpolates tables. */
-export function createCompletionParticles(variant: CompletionParticleVariant = 'task', seed = 1): CompletionParticle[] {
+export function createCompletionParticles(
+  variant: CompletionParticleVariant = 'task',
+  seed = 1,
+  profile: CompletionParticleProfile = 'lively',
+): CompletionParticle[] {
   const random = seededRandom(seed);
   const isList = variant === 'list';
+  const maximal = profile === 'maximal';
   const directionOffset = random() * Math.PI * 2;
-  return Array.from({ length: isList ? 54 : 28 }, (_, id) => {
+  const particleCount = isList ? (maximal ? 96 : 54) : (maximal ? 52 : 28);
+  return Array.from({ length: particleCount }, (_, id) => {
     const choice = random();
     const shape: CompletionParticleShape = choice < 0.35 ? 'triangle' : choice < 0.7 ? 'tile' : choice < 0.88 ? 'sliver' : 'fleck';
     const small = shape === 'fleck' || shape === 'sliver';
-    const size = (isList ? 6 : 4.5) + random() * (isList ? 7 : 5);
-    const width = shape === 'fleck' ? 2 + random() * 2 : shape === 'sliver' ? 2 + random() * 1.5 : size;
+    const size = (isList ? (maximal ? 8.5 : 6) : (maximal ? 6.5 : 4.5))
+      + random() * (isList ? (maximal ? 11 : 7) : (maximal ? 9 : 5));
+    const width = shape === 'fleck'
+      ? (maximal ? 2.5 : 2) + random() * (maximal ? 3 : 2)
+      : shape === 'sliver' ? (maximal ? 2.6 : 2) + random() * (maximal ? 2 : 1.5) : size;
     const height = shape === 'fleck' ? width : shape === 'sliver' ? size * 1.35 : size * (0.65 + random() * 0.5);
     // Jitter a distributed set of directions. No shared radius or radial lines:
     // every shard has its own launch point, drag, spin, delay and gravity.
     const angle = directionOffset + id * GOLDEN_ANGLE + (random() - 0.5) * 1.2;
-    const distance = (isList ? 135 : 72) + random() * (isList ? 115 : 62);
+    const distance = (isList ? (maximal ? 210 : 135) : (maximal ? 118 : 72))
+      + random() * (isList ? (maximal ? 230 : 115) : (maximal ? 142 : 62));
     const velocityX = Math.cos(angle) * distance;
-    const velocityY = Math.sin(angle) * distance - (isList ? 55 : 12);
-    const originX = (random() - 0.5) * 22;
-    const originY = (random() - 0.5) * 22;
-    const gravity = (isList ? 180 : 36) + random() * (isList ? 95 : 35);
-    const drag = 3.8 + random() * 2.7;
-    const delay = small ? 0.025 + random() * 0.075 : 0.004 + random() * 0.025;
-    const lifetime = (isList ? 0.84 : 0.7) + random() * (isList ? 0.15 : 0.27);
+    const velocityY = Math.sin(angle) * distance - (isList ? (maximal ? 105 : 55) : (maximal ? 28 : 12));
+    const originSpread = maximal ? 36 : 22;
+    const originX = (random() - 0.5) * originSpread;
+    const originY = (random() - 0.5) * originSpread;
+    const gravity = (isList ? (maximal ? 240 : 180) : (maximal ? 50 : 36))
+      + random() * (isList ? (maximal ? 170 : 95) : (maximal ? 90 : 35));
+    const drag = (maximal ? 2.7 : 3.8) + random() * (maximal ? 2.1 : 2.7);
+    const delay = small
+      ? (maximal ? 0.012 : 0.025) + random() * (maximal ? 0.05 : 0.075)
+      : (maximal ? 0.002 : 0.004) + random() * (maximal ? 0.014 : 0.025);
+    const lifetime = (isList ? (maximal ? 0.9 : 0.84) : (maximal ? 0.78 : 0.7))
+      + random() * (isList ? (maximal ? 0.1 : 0.15) : (maximal ? 0.2 : 0.27));
     const initialRotation = random() * 360;
-    const spin = (random() < 0.5 ? -1 : 1) * (220 + random() * 680);
+    const spin = (random() < 0.5 ? -1 : 1) * ((maximal ? 360 : 220) + random() * (maximal ? 900 : 680));
     const tumble = 1 + random() * 1.5;
     const tilt = (random() - 0.5) * 30;
     const tone = shape === 'fleck' ? 'highlight' : random() < 0.3 ? 'secondary' : 'primary';
