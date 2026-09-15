@@ -450,12 +450,13 @@ vi.mock('react-native-gesture-handler', () => ({
   GestureHandlerRootView: (props: any) => React.createElement('GestureHandlerRootView', props, props.children),
   Swipeable: React.forwardRef(function SwipeableMock({ children, renderLeftActions, renderRightActions, ...props }: any, ref: any) {
     React.useImperativeHandle(ref, () => ({ close: () => undefined }));
+    const animated = { interpolate: (config: unknown) => ({ config }) };
     return React.createElement(
       'Swipeable',
       props,
-      renderLeftActions ? renderLeftActions() : null,
+      renderLeftActions ? renderLeftActions(animated, animated) : null,
       children,
-      renderRightActions ? renderRightActions() : null,
+      renderRightActions ? renderRightActions(animated, animated) : null,
     );
   }),
 }));

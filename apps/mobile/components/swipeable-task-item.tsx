@@ -36,7 +36,13 @@ import { SwipeableTaskItemContent } from './swipeable-task-item/SwipeableTaskIte
 import { ProjectNextActionPromptModal } from './swipeable-task-item/ProjectNextActionPromptModal';
 import { SwipeableTaskItemStatusMenu } from './swipeable-task-item/SwipeableTaskItemStatusMenu';
 import { CompletedAtPicker } from './completed-at-picker';
-import { styles } from './swipeable-task-item/swipeable-task-item.styles';
+import {
+    MOE_SWIPE_DRAG_OFFSET,
+    MOE_SWIPE_FRICTION,
+    MOE_SWIPE_OPEN_THRESHOLD,
+    MoeSwipeActionsTrack,
+    moeSwipeActionStyles,
+} from './swipeable-action-track';
 import { CompactText } from '@/components/compact-text';
 import { useSwipeableChecklist } from './swipeable-task-item/useSwipeableChecklist';
 import { settleStoreAction } from './store-action-result';
@@ -130,10 +136,6 @@ export type SwipeableTaskItemRowContext = {
 };
 
 
-const TASK_SWIPE_FRICTION = 1.25;
-const TASK_SWIPE_OPEN_THRESHOLD = 72;
-const TASK_SWIPE_DRAG_OFFSET = 28;
-
 type ResolvedRowCallbacks = {
     onPress: () => void;
     onStatusChange: (status: TaskStatus) => void | Promise<unknown>;
@@ -223,13 +225,8 @@ function StoreBackedSwipeableTaskItem(props: Omit<SwipeableTaskItemInnerProps, '
 }
 
 /**
- * A swipeable task item with context-aware left swipe actions:
- * - Inbox: swipe to Next
- * - Next: swipe to Done
- * - Waiting/Someday: swipe to Next
- * - Done: swipe to restore to Inbox
- * 
- * Right swipe always shows Delete action.
+ * A task row with one finger-left action rail for More and Delete.
+ * Status changes stay on the checkbox, More menu, and accessibility actions.
  */
 function SwipeableTaskItemInner({
     task,
@@ -595,15 +592,9 @@ function SwipeableTaskItemInner({
             );
 
     const renderRightActions = (progress: NativeAnimated.AnimatedInterpolation<number>, dragX: NativeAnimated.AnimatedInterpolation<number>) => (
-      <NativeAnimated.View style={[styles.swipeActionsTrack, {
-          opacity: progress.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 0.72, 1], extrapolate: 'clamp' }),
-          transform: [
-              { translateX: dragX.interpolate({ inputRange: [-172, 0], outputRange: [0, 18], extrapolate: 'clamp' }) },
-              { scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1], extrapolate: 'clamp' }) },
-          ],
-      }]}>
+      <MoeSwipeActionsTrack progress={progress} dragX={dragX}>
         <AppPressable
-            style={[styles.swipeActionSecondary, { backgroundColor: tc.tint }]}
+            style={[moeSwipeActionStyles.secondary, { backgroundColor: tc.tint }]}
             pressedColor="rgba(0, 0, 0, 0.18)"
             onPress={() => {
                 swipeableRef.current?.close();
@@ -615,12 +606,12 @@ function SwipeableTaskItemInner({
             accessibilityRole="button"
         >
             <MoreHorizontal size={20} color="#FFFFFF" />
-            <CompactText style={styles.swipeActionText} numberOfLines={1}>
+            <CompactText style={moeSwipeActionStyles.label} numberOfLines={1}>
                 {tFallback(t, 'common.more', 'More')}
             </CompactText>
         </AppPressable>
         <AppPressable
-            style={styles.swipeActionRight}
+            style={moeSwipeActionStyles.destructive}
             pressedColor="rgba(0, 0, 0, 0.18)"
             onPress={() => {
                 swipeableRef.current?.close();
@@ -630,11 +621,11 @@ function SwipeableTaskItemInner({
             accessibilityRole="button"
         >
             <Trash2 size={20} color="#FFFFFF" />
-            <CompactText style={styles.swipeActionText} numberOfLines={1}>
+            <CompactText style={moeSwipeActionStyles.label} numberOfLines={1}>
                 {t('common.delete')}
             </CompactText>
         </AppPressable>
-      </NativeAnimated.View>
+      </MoeSwipeActionsTrack>
     );
 
     const accessibilityLabel = [
@@ -853,9 +844,9 @@ function SwipeableTaskItemInner({
                 <Swipeable
                     ref={swipeableRef}
                     renderRightActions={renderRightActions}
-                    friction={TASK_SWIPE_FRICTION}
-                    rightThreshold={TASK_SWIPE_OPEN_THRESHOLD}
-                    dragOffsetFromRightEdge={TASK_SWIPE_DRAG_OFFSET}
+                    friction={MOE_SWIPE_FRICTION}
+                    rightThreshold={MOE_SWIPE_OPEN_THRESHOLD}
+                    dragOffsetFromRightEdge={MOE_SWIPE_DRAG_OFFSET}
                     overshootRight={false}
                     onSwipeableWillOpen={() => {
                         if (!mutationBlockedRef.current) moeHaptic('selectionTick');

@@ -107,7 +107,7 @@ export const projectsScreenStyles = StyleSheet.create({
         backgroundColor: '#f9f9f9',
         borderRadius: MOE_VISUAL.cardRadius,
         padding: 16,
-        marginBottom: 8,
+        marginBottom: 6,
         alignItems: 'center',
     },
     projectTouchArea: {
@@ -291,25 +291,6 @@ export const projectsScreenStyles = StyleSheet.create({
     projectMeta: {
         fontSize: 12,
         color: '#666',
-    },
-    projectSwipeAction: {
-        width: 96,
-        marginBottom: 8,
-        borderRadius: 8,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 4,
-    },
-    projectSwipeDuplicateAction: {
-        backgroundColor: '#3B82F6',
-    },
-    projectSwipeDeleteAction: {
-        backgroundColor: '#EF4444',
-    },
-    projectSwipeActionText: {
-        color: '#FFFFFF',
-        fontSize: 12,
-        fontWeight: '700',
     },
     emptyContainer: {
         padding: 48,

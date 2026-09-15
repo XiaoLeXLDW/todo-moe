@@ -1,12 +1,21 @@
 import React, { useRef } from 'react';
-import { Alert, Pressable, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated as NativeAnimated, Text, TouchableOpacity, View } from 'react-native';
 import { tFallback, type Project } from '@mindwtr/core';
 import * as Haptics from '@/moe/haptics';
 import { Copy, Trash2, AlertTriangle } from 'lucide-react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 
+import { AppPressable } from '@/components/app-pressable';
+import { CompactText } from '@/components/compact-text';
 import { FocusStarIcon } from '@/components/FocusStarIcon';
 import { projectsScreenStyles as styles } from '@/components/projects-screen/projects-screen.styles';
+import {
+    MOE_SWIPE_DRAG_OFFSET,
+    MOE_SWIPE_FRICTION,
+    MOE_SWIPE_OPEN_THRESHOLD,
+    MoeSwipeActionsTrack,
+    moeSwipeActionStyles,
+} from '@/components/swipeable-action-track';
 import type { ProjectTaskSummary } from './project-list-model';
 
 type ThemeColors = {
@@ -32,10 +41,6 @@ type ProjectRowProps = {
 };
 
 const ROW_ACTION_HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 } as const;
-const PROJECT_SWIPE_FRICTION = 1.25;
-const PROJECT_SWIPE_OPEN_THRESHOLD = 72;
-const PROJECT_SWIPE_DRAG_OFFSET = 28;
-
 function getStatusLabel(project: Project, t: (key: string) => string) {
     if (project.status === 'active') return t('status.active');
     if (project.status === 'waiting') return t('status.waiting');
@@ -89,30 +94,38 @@ export function ProjectRow({
         );
     };
 
-    const renderLeftActions = () => (
-        <Pressable
-            testID={`project-row-duplicate-${project.id}`}
-            onPress={handleDuplicate}
-            style={[styles.projectSwipeAction, styles.projectSwipeDuplicateAction]}
-            accessibilityRole="button"
-            accessibilityLabel={t('projects.duplicate')}
-        >
-            <Copy size={20} color="#FFFFFF" />
-            <Text style={styles.projectSwipeActionText}>{t('projects.duplicate')}</Text>
-        </Pressable>
-    );
-
-    const renderRightActions = () => (
-        <Pressable
-            testID={`project-row-delete-${project.id}`}
-            onPress={confirmDelete}
-            style={[styles.projectSwipeAction, styles.projectSwipeDeleteAction]}
-            accessibilityRole="button"
-            accessibilityLabel={t('common.delete')}
-        >
-            <Trash2 size={20} color="#FFFFFF" />
-            <Text style={styles.projectSwipeActionText}>{t('common.delete')}</Text>
-        </Pressable>
+    const renderRightActions = (
+        progress: NativeAnimated.AnimatedInterpolation<number>,
+        dragX: NativeAnimated.AnimatedInterpolation<number>,
+    ) => (
+        <MoeSwipeActionsTrack progress={progress} dragX={dragX}>
+            <AppPressable
+                testID={`project-row-duplicate-${project.id}`}
+                onPress={handleDuplicate}
+                style={[moeSwipeActionStyles.secondary, { backgroundColor: tc.tint }]}
+                pressedColor="rgba(0, 0, 0, 0.18)"
+                accessibilityRole="button"
+                accessibilityLabel={t('projects.duplicate')}
+            >
+                <Copy size={20} color="#FFFFFF" />
+                <CompactText style={moeSwipeActionStyles.label} numberOfLines={1}>
+                    {t('projects.duplicate')}
+                </CompactText>
+            </AppPressable>
+            <AppPressable
+                testID={`project-row-delete-${project.id}`}
+                onPress={confirmDelete}
+                style={moeSwipeActionStyles.destructive}
+                pressedColor="rgba(0, 0, 0, 0.18)"
+                accessibilityRole="button"
+                accessibilityLabel={t('common.delete')}
+            >
+                <Trash2 size={20} color="#FFFFFF" />
+                <CompactText style={moeSwipeActionStyles.label} numberOfLines={1}>
+                    {t('common.delete')}
+                </CompactText>
+            </AppPressable>
+        </MoeSwipeActionsTrack>
     );
 
     const rowContent = (
@@ -208,14 +221,10 @@ export function ProjectRow({
     return (
         <Swipeable
             ref={swipeableRef}
-            renderLeftActions={renderLeftActions}
             renderRightActions={renderRightActions}
-            friction={PROJECT_SWIPE_FRICTION}
-            leftThreshold={PROJECT_SWIPE_OPEN_THRESHOLD}
-            rightThreshold={PROJECT_SWIPE_OPEN_THRESHOLD}
-            dragOffsetFromLeftEdge={PROJECT_SWIPE_DRAG_OFFSET}
-            dragOffsetFromRightEdge={PROJECT_SWIPE_DRAG_OFFSET}
-            overshootLeft={false}
+            friction={MOE_SWIPE_FRICTION}
+            rightThreshold={MOE_SWIPE_OPEN_THRESHOLD}
+            dragOffsetFromRightEdge={MOE_SWIPE_DRAG_OFFSET}
             overshootRight={false}
         >
             {rowContent}

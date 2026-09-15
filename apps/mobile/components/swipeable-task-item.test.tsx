@@ -4,6 +4,7 @@ import renderer from 'react-test-renderer';
 import { Alert } from 'react-native';
 
 import { SwipeableTaskItem, readTaskRowRenderCount, type TaskRowActions } from './swipeable-task-item';
+import { MoeSwipeActionsTrack } from './swipeable-action-track';
 import { MoeCheckButton } from '../moe/MoeCheckButton';
 import { subscribeListCompleted } from '../moe/completion';
 import { ToastProvider } from '../contexts/toast-context';
@@ -1976,6 +1977,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
     });
 
     expect(tree.root.findAll((node) => node.props.accessibilityLabel === 'Done action')).toHaveLength(0);
+    expect(tree.root.findAllByType(MoeSwipeActionsTrack)).toHaveLength(1);
     const moreAction = tree.root.find((node) => node.props.accessibilityLabel === 'More' && typeof node.props.onPress === 'function');
     expect(flattenStyle(moreAction.props.style)).toEqual(expect.objectContaining({
       alignSelf: 'stretch',
