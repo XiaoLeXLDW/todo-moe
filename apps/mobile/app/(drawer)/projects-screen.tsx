@@ -133,7 +133,30 @@ export default function ProjectsScreen() {
   const projectListOffsetRef = useRef(0);
   const restoreListFrameRef = useRef<number | null>(null);
   const screenMountedRef = useRef(true);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [selectedProject, setSelectedProjectState] = useState<Project | null>(null);
+  const selectedProjectIdRef = useRef<string | null>(null);
+  const projectPickerSessionRef = useRef(0);
+  const syncSelectedProject = useCallback((project: Project | null) => {
+    const nextProjectId = project?.id ?? null;
+    if (selectedProjectIdRef.current !== nextProjectId) {
+      selectedProjectIdRef.current = nextProjectId;
+      projectPickerSessionRef.current += 1;
+    }
+  }, []);
+  const setSelectedProject = useCallback<React.Dispatch<React.SetStateAction<Project | null>>>((nextProject) => {
+    if (typeof nextProject === 'function') {
+      setSelectedProjectState((currentProject) => {
+        const project = nextProject(currentProject);
+        syncSelectedProject(project);
+        return project;
+      });
+      return;
+    }
+    syncSelectedProject(nextProject);
+    setSelectedProjectState(nextProject);
+    // Refs above are intentionally updated synchronously so a delayed picker
+    // completion cannot win the gap before React renders the new project.
+  }, [syncSelectedProject]);
   const [projectTaskSortBy, setProjectTaskSortBy] = useState<ProjectTaskSortBy>('default');
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskModalDefaultTab, setTaskModalDefaultTab] = useState<TaskEditTab>('view');
@@ -363,7 +386,7 @@ export default function ProjectsScreen() {
     setProjectTaskSortBy(project.taskSortBy ?? 'default');
     resetProjectNotesUi();
     resetProjectAttachmentUi();
-  }, [resetProjectAttachmentUi, resetProjectNotesUi]);
+  }, [resetProjectAttachmentUi, resetProjectNotesUi, setSelectedProject]);
 
   // Keep the open project's sort in step with the store, so a sort chosen on
   // another device (arriving via sync) reorders the already-open detail view.
@@ -445,12 +468,14 @@ export default function ProjectsScreen() {
     reorderAreas(reordered);
   };
 
-  const toggleProjectTag = (tag: string) => {
+  const toggleProjectTag = (tag: string, isSelectionCurrent?: () => boolean) => {
     if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    const sessionRevision = projectPickerSessionRef.current;
     const normalized = normalizeProjectTag(tag);
     if (!normalized) return;
     applyLiveProjectUpdate({
-      projectId: selectedProject.id,
+      projectId,
       updates: (project) => {
         const current = project.tagIds || [];
         const exists = current.includes(normalized);
@@ -458,6 +483,10 @@ export default function ProjectsScreen() {
       },
       updateProject,
       setSelectedProject,
+      isSelectionCurrent: isSelectionCurrent ?? (() => (
+        selectedProjectIdRef.current === projectId
+        && projectPickerSessionRef.current === sessionRevision
+      )),
       onBlocked: () => setShowTagPicker(false),
     });
   };
@@ -501,6 +530,7 @@ export default function ProjectsScreen() {
     resolveText,
     restoreProject,
     selectedProject?.id,
+    setSelectedProject,
     showToast,
   ]);
 
@@ -530,7 +560,7 @@ export default function ProjectsScreen() {
           tone: 'error',
         });
       });
-  }, [duplicateProject, logProjectError, resolveText, showToast]);
+  }, [duplicateProject, logProjectError, resolveText, setSelectedProject, showToast]);
 
   const renderProjectItem = (project: Project) => {
     return (
@@ -849,11 +879,19 @@ export default function ProjectsScreen() {
 
   const openAreaPicker = () => {
     if (!selectedProject || !getLiveMutableProject(selectedProject.id)) return;
+    const projectId = selectedProject.id;
+    const sessionRevision = projectPickerSessionRef.current + 1;
+    projectPickerSessionRef.current = sessionRevision;
+    const isSelectionCurrent = () => (
+      selectedProjectIdRef.current === projectId
+      && projectPickerSessionRef.current === sessionRevision
+    );
     openProjectAreaPicker({
       addArea,
       areaUsage,
       colors,
       deleteArea,
+      isSelectionCurrent,
       logProjectError,
       selectedProject,
       setSelectedProject,
@@ -870,14 +908,22 @@ export default function ProjectsScreen() {
 
   const openTagPicker = () => {
     if (!selectedProject || !getLiveMutableProject(selectedProject.id)) return;
+    const projectId = selectedProject.id;
+    const sessionRevision = projectPickerSessionRef.current + 1;
+    projectPickerSessionRef.current = sessionRevision;
+    const isSelectionCurrent = () => (
+      selectedProjectIdRef.current === projectId
+      && projectPickerSessionRef.current === sessionRevision
+    );
     openProjectTagPicker({
+      isSelectionCurrent,
       projectTagOptions,
       selectedProject,
       setSelectedProject,
       setShowTagPicker,
       setTagDraft,
       t,
-      toggleProjectTag,
+      toggleProjectTag: (tag) => toggleProjectTag(tag, isSelectionCurrent),
       updateProject,
       showToast,
     });

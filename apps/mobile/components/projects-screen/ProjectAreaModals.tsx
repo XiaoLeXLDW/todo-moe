@@ -3,12 +3,12 @@ import { Modal, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View }
 import { Ban } from 'lucide-react-native';
 import { tFallback, type Area, type Project } from '@mindwtr/core';
 
+import { MoeFolderIcon } from '@/moe/MoeFolderIcon';
+import { MoeGlassPanel } from '@/moe/glass/MoeGlassPanel';
 import { projectsScreenStyles as styles } from './projects-screen.styles';
 import { applyLiveProjectUpdate, getLiveMutableProject } from './project-meta-pickers';
 import { useAndroidKeyboardInset } from '../../lib/use-android-keyboard-inset';
 import { isActionFailure } from '../store-action-result';
-import { MoeFolderIcon } from '@/moe/MoeFolderIcon';
-import { MoeGlassPanel } from '@/moe/glass/MoeGlassPanel';
 
 type ThemeColors = {
     danger?: string;
@@ -85,6 +85,20 @@ export function ProjectAreaModals({
     updateArea,
     updateProject,
 }: ProjectAreaModalsProps) {
+    const areaPickerSession = React.useRef({
+        projectId: selectedProject?.id ?? null,
+        visible: showAreaPicker,
+        revision: 0,
+    });
+    const selectedProjectId = selectedProject?.id ?? null;
+    if (areaPickerSession.current.projectId !== selectedProjectId
+        || areaPickerSession.current.visible !== showAreaPicker) {
+        areaPickerSession.current = {
+            projectId: selectedProjectId,
+            visible: showAreaPicker,
+            revision: areaPickerSession.current.revision + 1,
+        };
+    }
     const keyboardInset = useAndroidKeyboardInset(showAreaManager);
     const [editingAreaId, setEditingAreaId] = React.useState<string | null>(null);
     const [saving, setSaving] = React.useState(false);
@@ -108,11 +122,18 @@ export function ProjectAreaModals({
             dismissProjectPickers();
             return false;
         }
+        const projectId = selectedProject.id;
+        const sessionRevision = areaPickerSession.current.revision;
         return applyLiveProjectUpdate({
-            projectId: selectedProject.id,
+            projectId,
             updates: { areaId },
             updateProject,
             setSelectedProject: onSetSelectedProject,
+            isSelectionCurrent: () => (
+                areaPickerSession.current.projectId === projectId
+                && areaPickerSession.current.visible
+                && areaPickerSession.current.revision === sessionRevision
+            ),
             onBlocked: dismissProjectPickers,
             onFailed: (message) => onShowToast({
                 title: tFallback(t, 'common.error', 'Error'),

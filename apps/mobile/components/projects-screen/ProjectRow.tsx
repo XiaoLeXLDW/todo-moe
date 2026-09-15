@@ -15,7 +15,7 @@ import {
     MOE_SWIPE_OPEN_THRESHOLD,
     MoeSwipeActionsTrack,
     moeSwipeActionStyles,
-} from '@/components/swipeable-action-track';
+} from '@/moe/MoeSwipeActionsTrack';
 import type { ProjectTaskSummary } from './project-list-model';
 
 type ThemeColors = {

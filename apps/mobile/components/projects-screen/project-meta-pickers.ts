@@ -27,6 +27,7 @@ export const getLiveMutableProject = (
 
 export const applyLiveProjectUpdate = ({
     getProjectById = readLiveProject,
+    isSelectionCurrent,
     onBlocked,
     onFailed,
     projectId,
@@ -35,6 +36,7 @@ export const applyLiveProjectUpdate = ({
     updates,
 }: {
     getProjectById?: ProjectLookup;
+    isSelectionCurrent?: () => boolean;
     onBlocked?: () => void;
     onFailed?: (message?: string) => void;
     projectId: string;
@@ -59,6 +61,10 @@ export const applyLiveProjectUpdate = ({
             onBlocked?.();
             return false;
         }
+        // The store write belongs to the project captured above, but the user
+        // may have closed it or opened another project while it was pending.
+        // Keep the successful write and suppress only its stale UI result.
+        if (isSelectionCurrent && !isSelectionCurrent()) return false;
         setSelectedProject({ ...current, ...patch });
         return true;
     });
@@ -96,6 +102,8 @@ type OpenProjectAreaPickerArgs = {
     areaUsage: Map<string, number>;
     colors: readonly string[];
     deleteArea: (id: string) => void;
+    getProjectById?: ProjectLookup;
+    isSelectionCurrent?: () => boolean;
     logProjectError: (message: string, error?: unknown) => void;
     selectedProject: Project | null;
     setSelectedProject: (project: Project | null) => void;
@@ -110,6 +118,8 @@ type OpenProjectAreaPickerArgs = {
 };
 
 type OpenProjectTagPickerArgs = {
+    getProjectById?: ProjectLookup;
+    isSelectionCurrent?: () => boolean;
     projectTagOptions: string[];
     selectedProject: Project | null;
     setSelectedProject: (project: Project | null) => void;
@@ -126,6 +136,8 @@ export const openProjectAreaPicker = ({
     areaUsage,
     colors,
     deleteArea,
+    getProjectById,
+    isSelectionCurrent,
     logProjectError,
     selectedProject,
     setSelectedProject,
@@ -153,6 +165,8 @@ export const openProjectAreaPicker = ({
     const changeColorLabel = translateWithFallback(t, 'projects.changeColor', 'Change color');
 
     const setProjectArea = (areaId?: string) => applyLiveProjectUpdate({
+        getProjectById,
+        isSelectionCurrent,
         projectId: selectedProject.id,
         updates: { areaId },
         updateProject,
@@ -394,6 +408,8 @@ export const openProjectAreaPicker = ({
 };
 
 export const openProjectTagPicker = ({
+    getProjectById,
+    isSelectionCurrent,
     projectTagOptions,
     selectedProject,
     setSelectedProject,
@@ -440,6 +456,8 @@ export const openProjectTagPicker = ({
                                 const normalized = normalizeProjectTag(value ?? '');
                                 if (!normalized) return;
                                 void applyLiveProjectUpdate({
+                                    getProjectById,
+                                    isSelectionCurrent,
                                     projectId: selectedProject.id,
                                     updates: (project) => ({
                                         tagIds: Array.from(new Set([...(project.tagIds || []), normalized])),
@@ -462,6 +480,8 @@ export const openProjectTagPicker = ({
             }
             if (buttonIndex === 2) {
                 void applyLiveProjectUpdate({
+                    getProjectById,
+                    isSelectionCurrent,
                     projectId: selectedProject.id,
                     updates: { tagIds: [] },
                     updateProject,

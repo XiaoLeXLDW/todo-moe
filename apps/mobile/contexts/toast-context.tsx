@@ -230,9 +230,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             // immediately instead of waiting behind stale completion messages.
             if (claimed) {
                 const tail = remaining.filter((item) => item.id !== claimed.id);
-                return next.tone === 'error' || options.replaceKey
-                    ? [claimed, next, ...tail]
-                    : [claimed, ...tail, next];
+                if (next.tone === 'error') return [claimed, next, ...tail];
+                if (options.replaceKey) {
+                    const errors = tail.filter((item) => item.tone === 'error');
+                    const ordinary = tail.filter((item) => item.tone !== 'error');
+                    return [claimed, ...errors, next, ...ordinary];
+                }
+                return [claimed, ...tail, next];
             }
             if (next.tone === 'error') return [next, ...remaining];
             if (options.replaceKey) {

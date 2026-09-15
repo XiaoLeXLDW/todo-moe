@@ -224,6 +224,41 @@ describe('ToastProvider', () => {
         act(() => tree.unmount());
     });
 
+    it('keeps errors ahead of a newer replaceable message queued during a claimed undo', async () => {
+        let controls!: ToastControls;
+        let tree!: ReactTestRenderer;
+        let finish!: () => void;
+        const undo = () => new Promise<void>((resolve) => { finish = resolve; });
+        act(() => { tree = create(<ToastProvider><ToastHarness onReady={value => { controls = value; }} /></ToastProvider>); });
+        act(() => controls.showToast({
+            message: 'Claimed completion',
+            actionLabel: 'Undo',
+            onAction: undo,
+            replaceKey: 'task-undo',
+            durationMs: 10_000,
+        }));
+        let action!: Promise<void>;
+        act(() => { action = tree.root.findByType('Pressable' as any).props.onPress(); });
+        act(() => {
+            controls.showToast({ message: 'Persistence failed', tone: 'error', durationMs: 10_000 });
+            controls.showToast({
+                message: 'Newer completion',
+                actionLabel: 'Undo',
+                replaceKey: 'task-undo',
+                durationMs: 10_000,
+            });
+        });
+        expect(getRenderedText(tree)).toContain('Claimed completion');
+        await act(async () => { finish(); await action; });
+        act(() => { vi.advanceTimersByTime(QUEUE_GAP_MS); });
+        expect(getRenderedText(tree)).toContain('Persistence failed');
+        expect(getRenderedText(tree)).not.toContain('Newer completion');
+        act(() => controls.dismissToast());
+        act(() => { vi.advanceTimersByTime(QUEUE_GAP_MS); });
+        expect(getRenderedText(tree)).toContain('Newer completion');
+        act(() => tree.unmount());
+    });
+
     it('does not resurrect a toast displaced by an error during its dismiss animation', () => {
         let controls!: ToastControls;
         let tree!: ReactTestRenderer;

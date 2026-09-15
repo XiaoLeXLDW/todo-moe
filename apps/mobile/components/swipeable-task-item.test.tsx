@@ -4,7 +4,7 @@ import renderer from 'react-test-renderer';
 import { Alert } from 'react-native';
 
 import { SwipeableTaskItem, readTaskRowRenderCount, type TaskRowActions } from './swipeable-task-item';
-import { MoeSwipeActionsTrack } from './swipeable-action-track';
+import { MoeSwipeActionsTrack } from '@/moe/MoeSwipeActionsTrack';
 import { MoeCheckButton } from '../moe/MoeCheckButton';
 import { subscribeListCompleted } from '../moe/completion';
 import { ToastProvider } from '../contexts/toast-context';

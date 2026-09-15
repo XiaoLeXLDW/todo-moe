@@ -42,7 +42,7 @@ import {
     MOE_SWIPE_OPEN_THRESHOLD,
     MoeSwipeActionsTrack,
     moeSwipeActionStyles,
-} from './swipeable-action-track';
+} from '@/moe/MoeSwipeActionsTrack';
 import { CompactText } from '@/components/compact-text';
 import { useSwipeableChecklist } from './swipeable-task-item/useSwipeableChecklist';
 import { settleStoreAction } from './store-action-result';

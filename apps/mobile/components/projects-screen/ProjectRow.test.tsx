@@ -4,7 +4,7 @@ import { Alert, Text } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ProjectRow } from './ProjectRow';
-import { MoeSwipeActionsTrack } from '../swipeable-action-track';
+import { MoeSwipeActionsTrack } from '@/moe/MoeSwipeActionsTrack';
 
 const hapticsMocks = vi.hoisted(() => ({
   impactAsync: vi.fn().mockResolvedValue(undefined),

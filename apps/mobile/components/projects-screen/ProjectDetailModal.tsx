@@ -1,6 +1,4 @@
 import React from 'react';
-import { isGettingStartedProject } from '@mindwtr/core';
-import { GettingStartedActions, type GettingStartedAction } from '../GettingStartedActions';
 import {
     Alert,
     type FlatList,
@@ -18,7 +16,6 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
-import { MoeFolderIcon } from '@/moe/MoeFolderIcon';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
     type Attachment,
@@ -35,12 +32,18 @@ import {
     shallow,
     tFallback,
     useTaskStore,
+    isGettingStartedProject,
 } from '@mindwtr/core';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { workspaceSessionStorage as AsyncStorage } from '@/lib/workspace-session-storage';
 import { SandboxWorkspaceCue } from '@/components/sandbox-workspace-cue';
 import { useThemeColors, type ThemeColors } from '@/hooks/use-theme-colors';
 import { useFilledButtonColors } from '@/hooks/use-filled-button-colors';
+import { MoeCelebration } from '@/moe/MoeCelebration';
+import { MoeCompletionFeedbackHost } from '@/moe/MoeCompletionFeedback';
+import { MoeFolderIcon } from '@/moe/MoeFolderIcon';
+import { MoeGlassPanel } from '@/moe/glass/MoeGlassPanel';
 import { useLanguage } from '../../contexts/language-context';
 import { KeyboardAccessoryHost } from '../../components/keyboard-accessory-host';
 import { ToastViewport } from '../../contexts/toast-context';
@@ -58,10 +61,8 @@ import { buildProjectStatusPalette, formatProjectDate } from './projects-screen.
 import type { useProjectAttachments } from './use-project-attachments';
 import type { useProjectNotesEditor } from './use-project-notes-editor';
 import { getAndroidKeyboardFrame } from '../../lib/android-keyboard-frame';
-import { MoeCompletionFeedbackHost } from '@/moe/MoeCompletionFeedback';
-import { MoeCelebration } from '@/moe/MoeCelebration';
 import { isActionFailure, settleStoreAction } from '../store-action-result';
-import { MoeGlassPanel } from '@/moe/glass/MoeGlassPanel';
+import { GettingStartedActions, type GettingStartedAction } from '../GettingStartedActions';
 
 const PROJECT_TASK_SORT_OPTIONS: TaskSortBy[] = ['default', 'due', 'start', 'review', 'timeEstimate', 'title', 'created', 'created-desc'];
 const PROJECT_SHOW_COMPLETED_STORAGE_KEY = 'mindwtr:view:project-detail:show-completed:v1';

@@ -3,9 +3,9 @@ import { StyleSheet, View } from 'react-native';
 import renderer from 'react-test-renderer';
 import { describe, expect, it, vi } from 'vitest';
 
-import { MoeSwipeActionsTrack, moeSwipeActionStyles } from './swipeable-action-track';
-import { projectsScreenStyles } from './projects-screen/projects-screen.styles';
-import { styles as taskRowStyles } from './swipeable-task-item/swipeable-task-item.styles';
+import { projectsScreenStyles } from '../components/projects-screen/projects-screen.styles';
+import { styles as taskRowStyles } from '../components/swipeable-task-item/swipeable-task-item.styles';
+import { MoeSwipeActionsTrack, moeSwipeActionStyles } from './MoeSwipeActionsTrack';
 
 describe('MoeSwipeActionsTrack', () => {
   it('keeps task and project action rails on the same reveal animation', () => {

@@ -1,12 +1,12 @@
 import React from 'react';
 import { Image, Modal, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { type Attachment } from '@mindwtr/core';
-import { logError } from '../../lib/app-log';
-import { shareFileWithFeedback } from '../../lib/share-file-with-feedback';
 
 import { projectsScreenStyles as styles } from '@/components/projects-screen/projects-screen.styles';
-import { useAndroidKeyboardInset } from '../../lib/use-android-keyboard-inset';
 import { MoeGlassPanel } from '@/moe/glass/MoeGlassPanel';
+import { logError } from '../../lib/app-log';
+import { shareFileWithFeedback } from '../../lib/share-file-with-feedback';
+import { useAndroidKeyboardInset } from '../../lib/use-android-keyboard-inset';
 
 type ThemeColors = {
     border: string;
