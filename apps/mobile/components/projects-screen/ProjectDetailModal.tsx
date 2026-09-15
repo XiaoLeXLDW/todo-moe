@@ -605,12 +605,17 @@ export function ProjectDetailModal({
     const isArchivedProject = selectedProject?.status === 'archived' || liveSelectedProjectStatus === 'archived';
     const isArchivedProjectRef = React.useRef(isArchivedProject);
     isArchivedProjectRef.current = isArchivedProject;
-    const getMutableSelectedProject = React.useCallback(() => {
+    const getLiveSelectedProject = React.useCallback(() => {
         const current = selectedProjectRef.current;
-        if (!current || current.status === 'archived' || isArchivedProjectRef.current) return null;
+        if (!current) return null;
         const stored = useTaskStore.getState()._allProjects?.find((project) => project.id === current.id);
-        return !stored || stored.deletedAt || stored.status === 'archived' ? null : stored;
+        return !stored || stored.deletedAt ? null : stored;
     }, []);
+    const getMutableSelectedProject = React.useCallback(() => {
+        const current = getLiveSelectedProject();
+        if (!current || current.status === 'archived' || isArchivedProjectRef.current) return null;
+        return current;
+    }, [getLiveSelectedProject]);
     const projectMutationRef = React.useRef(0);
     const updateMutableSelectedProject = React.useCallback(async (updates: Partial<Project>) => {
         const current = getMutableSelectedProject();
@@ -625,12 +630,14 @@ export function ProjectDetailModal({
             );
             return null;
         }
-        const live = getMutableSelectedProject();
+        const live = getLiveSelectedProject();
         if (!live) return null;
-        const next = { ...live, ...updates };
+        if (updates.status === 'archived' && live.status !== 'archived') return null;
+        if (live.status === 'archived' && updates.status !== 'archived') return null;
+        const next = updates.status === 'archived' ? live : { ...live, ...updates };
         onProjectChange(next);
         return next;
-    }, [getMutableSelectedProject, onProjectChange, t, updateProject]);
+    }, [getLiveSelectedProject, getMutableSelectedProject, onProjectChange, t, updateProject]);
     const [projectTitleDraft, setProjectTitleDraft] = React.useState(selectedProject?.title ?? '');
     const projectTitleDraftRef = React.useRef(projectTitleDraft);
     const projectTitleFocusedRef = React.useRef(false);

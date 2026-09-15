@@ -86,6 +86,80 @@ describe('applyLiveProjectUpdate', () => {
         expect(setSelectedProject).not.toHaveBeenCalled();
     });
 
+    it('does not let a stale blocked result close the current project picker', async () => {
+        const activeProject = {
+            id: 'project-1',
+            title: 'Project',
+            status: 'active' as const,
+            color: '#3b82f6',
+            order: 0,
+            tagIds: [],
+            areaId: 'area-1',
+            createdAt: '2026-08-31T00:00:00.000Z',
+            updatedAt: '2026-08-31T00:00:00.000Z',
+        };
+        let finishWrite!: (value: unknown) => void;
+        let liveProject: Project = activeProject;
+        let selectionIsCurrent = true;
+        const updateProject = vi.fn(() => new Promise<unknown>((resolve) => { finishWrite = resolve; }));
+        const setSelectedProject = vi.fn();
+        const onBlocked = vi.fn();
+        const pending = applyLiveProjectUpdate({
+            projectId: activeProject.id,
+            updates: { areaId: 'area-2' },
+            updateProject,
+            setSelectedProject,
+            onBlocked,
+            isSelectionCurrent: () => selectionIsCurrent,
+            getProjectById: () => liveProject,
+        });
+
+        selectionIsCurrent = false;
+        liveProject = { ...activeProject, status: 'archived' };
+        finishWrite({ success: true });
+
+        await expect(pending).resolves.toBe(false);
+        expect(updateProject).toHaveBeenCalledTimes(1);
+        expect(setSelectedProject).not.toHaveBeenCalled();
+        expect(onBlocked).not.toHaveBeenCalled();
+    });
+
+    it('closes the current picker when its project becomes archived during the write', async () => {
+        const activeProject = {
+            id: 'project-1',
+            title: 'Project',
+            status: 'active' as const,
+            color: '#3b82f6',
+            order: 0,
+            tagIds: [],
+            areaId: 'area-1',
+            createdAt: '2026-08-31T00:00:00.000Z',
+            updatedAt: '2026-08-31T00:00:00.000Z',
+        };
+        let finishWrite!: (value: unknown) => void;
+        let liveProject: Project = activeProject;
+        const updateProject = vi.fn(() => new Promise<unknown>((resolve) => { finishWrite = resolve; }));
+        const setSelectedProject = vi.fn();
+        const onBlocked = vi.fn();
+        const pending = applyLiveProjectUpdate({
+            projectId: activeProject.id,
+            updates: { areaId: 'area-2' },
+            updateProject,
+            setSelectedProject,
+            onBlocked,
+            isSelectionCurrent: () => true,
+            getProjectById: () => liveProject,
+        });
+
+        liveProject = { ...activeProject, status: 'archived' };
+        finishWrite({ success: true });
+
+        await expect(pending).resolves.toBe(false);
+        expect(updateProject).toHaveBeenCalledTimes(1);
+        expect(setSelectedProject).not.toHaveBeenCalled();
+        expect(onBlocked).toHaveBeenCalledTimes(1);
+    });
+
     it('drops a delayed picker callback after the project becomes archived', async () => {
         const activeProject = {
             id: 'project-1',
@@ -138,6 +212,7 @@ describe('applyLiveProjectUpdate', () => {
             updateProject: vi.fn().mockResolvedValue({ success: false, error: 'Project is archived' }),
             setSelectedProject,
             onFailed,
+            isSelectionCurrent: () => false,
             getProjectById: () => activeProject,
         })).resolves.toBe(false);
 

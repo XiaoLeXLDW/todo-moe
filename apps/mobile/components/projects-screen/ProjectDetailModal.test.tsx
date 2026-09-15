@@ -1288,6 +1288,13 @@ describe('ProjectDetailModal lifecycle actions', () => {
         const alertSpy = vi.spyOn(Alert, 'alert');
         let tree!: ReturnType<typeof create>;
 
+        storeActions.updateProject.mockImplementation(async (projectId: string, updates: Partial<Project>) => {
+            storeActions._allProjects = storeActions._allProjects.map((storedProject) => (
+                storedProject.id === projectId ? { ...storedProject, ...updates } : storedProject
+            ));
+            return { success: true };
+        });
+
         act(() => {
             tree = create(<ProjectDetailModal {...createProjectDetailModalProps({ onProjectChange })} />);
         });
@@ -1300,8 +1307,33 @@ describe('ProjectDetailModal lifecycle actions', () => {
         });
 
         expect(storeActions.updateProject).toHaveBeenCalledWith('project-1', { status: 'archived' });
+        expect(storeActions._allProjects[0]?.status).toBe('archived');
         expect(onProjectChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'archived' }));
+        expect(tree.root.findByProps({ testID: 'project-actions-menu-button' }).props.accessibilityState).toEqual({
+            expanded: false,
+        });
         expect(alertSpy).not.toHaveBeenCalled();
+    });
+
+    it('keeps the actions menu open when archiving is rejected', async () => {
+        const onProjectChange = vi.fn();
+        const alertSpy = vi.spyOn(Alert, 'alert').mockImplementation(() => {});
+        storeActions.updateProject.mockResolvedValue({ success: false, error: 'Archive failed' });
+        let tree!: ReturnType<typeof create>;
+
+        act(() => {
+            tree = create(<ProjectDetailModal {...createProjectDetailModalProps({ onProjectChange })} />);
+        });
+        act(() => {
+            tree.root.findByProps({ testID: 'project-actions-menu-button' }).props.onPress();
+        });
+        await act(async () => {
+            await tree.root.findByProps({ testID: 'project-archive-button' }).props.onPress();
+        });
+
+        expect(onProjectChange).not.toHaveBeenCalled();
+        expect(findContainingModal(findOptionButton(tree.root, 'project-archive-button'))?.props.visible).toBe(true);
+        expect(alertSpy).toHaveBeenCalledWith('Error', 'Archive failed');
     });
 
     it('reactivates an archived project and clears cancellation from the local projection', async () => {

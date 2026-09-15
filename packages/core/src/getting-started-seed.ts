@@ -136,6 +136,12 @@ const getSampleTaskKeyByTitle = (): Map<string, string> => {
             map.set(normalizeStarterTaskTitle(resolveStarterString(lang, sampleKey)), sampleKey);
         }
     }
+    // Preserve recognition of the three sample titles renamed from Sam to
+    // Tibo. Re-seeding upgrades no user text; these aliases only prevent a
+    // second sample from being inserted beside an existing starter item.
+    map.set('reply to sam', 'starter.sampleReplySam');
+    map.set('回复 sam', 'starter.sampleReplySam');
+    map.set('回覆 sam', 'starter.sampleReplySam');
     sampleTaskKeyByTitleCache = map;
     return map;
 };

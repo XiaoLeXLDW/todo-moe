@@ -2415,7 +2415,7 @@ export const en: Record<string, string> = {
         'starter.weeklyReview.check2': 'Empty your Inbox',
         'starter.weeklyReview.check3': 'Pick the next few tasks and let the rest wait',
         'starter.sampleBuyMilk': 'Buy milk',
-        'starter.sampleReplySam': 'Reply to Sam',
+        'starter.sampleReplySam': 'Reply to Tibo',
 
         // Settings — moved from apps/desktop settings/labels.ts (settings-i18n-20260724-01)
         'settings.integrations': 'Integrations',

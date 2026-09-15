@@ -46,7 +46,7 @@ export const applyLiveProjectUpdate = ({
 }): Promise<boolean> => {
     const project = getLiveMutableProject(projectId, getProjectById);
     if (!project) {
-        onBlocked?.();
+        if (!isSelectionCurrent || isSelectionCurrent()) onBlocked?.();
         return Promise.resolve(false);
     }
     const patch = typeof updates === 'function' ? updates(project) : updates;
@@ -56,6 +56,9 @@ export const applyLiveProjectUpdate = ({
             onFailed?.(outcome.message);
             return false;
         }
+        // A result for a picker that has since closed or switched projects must
+        // not dismiss or otherwise mutate the newer picker session.
+        if (isSelectionCurrent && !isSelectionCurrent()) return false;
         const current = getLiveMutableProject(project.id, getProjectById);
         if (!current) {
             onBlocked?.();
@@ -64,7 +67,6 @@ export const applyLiveProjectUpdate = ({
         // The store write belongs to the project captured above, but the user
         // may have closed it or opened another project while it was pending.
         // Keep the successful write and suppress only its stale UI result.
-        if (isSelectionCurrent && !isSelectionCurrent()) return false;
         setSelectedProject({ ...current, ...patch });
         return true;
     });
