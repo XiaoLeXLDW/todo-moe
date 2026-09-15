@@ -218,6 +218,7 @@ import { MoeCelebration } from '@/moe/MoeCelebration';
 import { ToastViewport } from '../../contexts/toast-context';
 import { ThemedAlertHost } from '../../components/themed-alert';
 import { ProjectDetailModal, getProjectDetailModalSafeAreaEdges } from './ProjectDetailModal';
+import { projectsScreenStyles } from './projects-screen.styles';
 import { getProjectDetailTaskListOptions } from './ProjectTaskList';
 
 const project = (status: Project['status']): Project => ({
@@ -336,7 +337,7 @@ const expandProjectDetails = (tree: ReturnType<typeof create>) => {
 };
 
 beforeEach(() => {
-    storeActions._allProjects = [];
+    storeActions._allProjects = [project('active')];
     for (const action of Object.values(storeActions)) {
         if (typeof action === 'function') action.mockReset();
     }
@@ -364,6 +365,15 @@ describe('ProjectDetailModal safe area handling', () => {
 
     it('preserves the existing page-sheet header spacing path', () => {
         expect(getProjectDetailModalSafeAreaEdges('pageSheet')).toEqual(['left', 'right', 'bottom']);
+    });
+
+    it('keeps the folder and section chips clear of the title and first task', () => {
+        expect(projectsScreenStyles.projectContainerPath).toEqual(expect.objectContaining({
+            paddingTop: 14,
+            paddingBottom: 12,
+            flexWrap: 'wrap',
+            gap: 8,
+        }));
     });
 });
 
@@ -504,6 +514,42 @@ describe('ProjectDetailModal section management', () => {
         expect(storeActions.updateSection).toHaveBeenCalledWith('section-1', { title: 'Speaking' });
     });
 
+    it('keeps a new-section draft open when creation returns null', async () => {
+        storeActions.addSection.mockResolvedValue(null);
+        let tree!: ReturnType<typeof create>;
+        await act(async () => { tree = create(<ProjectDetailModal {...createProjectDetailModalProps()} />); });
+        expandProjectDetails(tree);
+        act(() => tree.root.findByProps({ testID: 'project-sections-button' }).props.onPress());
+        act(() => tree.root.findByProps({ testID: 'project-section-add-button' }).props.onPress());
+        act(() => tree.root.findByProps({ testID: 'project-section-title-input' }).props.onChangeText('Keep this draft'));
+
+        await act(async () => {
+            await tree.root.findByProps({ testID: 'project-section-save-button' }).props.onPress();
+        });
+
+        expect(tree.root.findByProps({ testID: 'project-section-title-input' }).props.value).toBe('Keep this draft');
+        expect(tree.root.findByProps({ testID: 'project-section-save-error' })).toBeTruthy();
+    });
+
+    it('keeps an edited-section draft open when update reports failure', async () => {
+        storeActions.updateSection.mockResolvedValue({ success: false, error: 'Section no longer exists' });
+        let tree!: ReturnType<typeof create>;
+        await act(async () => {
+            tree = create(<ProjectDetailModal {...createProjectDetailModalProps({ sections: [section('section-1', 'Planning')] })} />);
+        });
+        expandProjectDetails(tree);
+        act(() => tree.root.findByProps({ testID: 'project-sections-button' }).props.onPress());
+        act(() => tree.root.findByProps({ testID: 'project-section-edit-section-1' }).props.onPress());
+        act(() => tree.root.findByProps({ testID: 'project-section-title-input' }).props.onChangeText('Keep renamed draft'));
+
+        await act(async () => {
+            await tree.root.findByProps({ testID: 'project-section-save-button' }).props.onPress();
+        });
+
+        expect(tree.root.findByProps({ testID: 'project-section-title-input' }).props.value).toBe('Keep renamed draft');
+        expect(tree.root.findByProps({ testID: 'project-section-save-error' })).toBeTruthy();
+    });
+
     it('confirms before deleting a section from project details', async () => {
         vi.spyOn(Alert, 'alert').mockImplementation(((_title, _message, buttons) => {
             buttons?.[1]?.onPress?.();
@@ -560,7 +606,49 @@ describe('ProjectDetailModal section management', () => {
 });
 
 describe('ProjectDetailModal metadata pickers', () => {
-    it('opens the status menu and writes the picked status', () => {
+    it('commits the visible title draft instead of restoring the stale store title', async () => {
+        storeActions.updateProject.mockResolvedValue({ success: true });
+        const onProjectChange = vi.fn();
+        let tree!: ReturnType<typeof create>;
+        await act(async () => { tree = create(<ProjectDetailModal {...createProjectDetailModalProps({ onProjectChange })} />); });
+        const titleInput = tree.root.findAllByType(TextInput).find((input) => input.props.value === 'Launch')!;
+
+        act(() => {
+            titleInput.props.onFocus();
+            titleInput.props.onChangeText('  Renamed list  ');
+        });
+        await act(async () => {
+            titleInput.props.onEndEditing();
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+
+        expect(storeActions.updateProject).toHaveBeenCalledWith('project-1', { title: 'Renamed list' });
+        expect(tree.root.findAllByType(TextInput).some((input) => input.props.value === 'Renamed list')).toBe(true);
+    });
+
+    it('keeps the visible title draft and reports an explicit update failure', async () => {
+        storeActions.updateProject.mockResolvedValue({ success: false, error: 'Project no longer exists' });
+        const alertSpy = vi.spyOn(Alert, 'alert');
+        let tree!: ReturnType<typeof create>;
+        await act(async () => { tree = create(<ProjectDetailModal {...createProjectDetailModalProps()} />); });
+        const titleInput = tree.root.findAllByType(TextInput).find((input) => input.props.value === 'Launch')!;
+
+        act(() => {
+            titleInput.props.onFocus();
+            titleInput.props.onChangeText('Keep this title');
+        });
+        await act(async () => {
+            titleInput.props.onEndEditing();
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+
+        expect(tree.root.findAllByType(TextInput).some((input) => input.props.value === 'Keep this title')).toBe(true);
+        expect(alertSpy).toHaveBeenCalledWith('Error', 'Project no longer exists');
+    });
+
+    it('opens the status menu and writes the picked status', async () => {
         const onProjectChange = vi.fn();
         let tree!: ReturnType<typeof create>;
 
@@ -578,8 +666,8 @@ describe('ProjectDetailModal metadata pickers', () => {
 
         expect(tree.root.findByProps({ testID: 'project-status-menu-item-waiting' })).toBeTruthy();
 
-        act(() => {
-            tree.root.findByProps({ testID: 'project-status-menu-item-waiting' }).props.onPress();
+        await act(async () => {
+            await tree.root.findByProps({ testID: 'project-status-menu-item-waiting' }).props.onPress();
         });
 
         expect(storeActions.updateProject).toHaveBeenCalledWith('project-1', { status: 'waiting' });
@@ -1195,10 +1283,17 @@ describe('ProjectDetailModal lifecycle actions', () => {
         expect(storeActions.cancelProject).toHaveBeenCalledWith('project-1');
     });
 
-    it('archives from the Archive action with a single tap and no native confirm', () => {
+    it('archives from the Archive action with a single tap and no native confirm', async () => {
         const onProjectChange = vi.fn();
         const alertSpy = vi.spyOn(Alert, 'alert');
         let tree!: ReturnType<typeof create>;
+
+        storeActions.updateProject.mockImplementation(async (projectId: string, updates: Partial<Project>) => {
+            storeActions._allProjects = storeActions._allProjects.map((storedProject) => (
+                storedProject.id === projectId ? { ...storedProject, ...updates } : storedProject
+            ));
+            return { success: true };
+        });
 
         act(() => {
             tree = create(<ProjectDetailModal {...createProjectDetailModalProps({ onProjectChange })} />);
@@ -1207,16 +1302,41 @@ describe('ProjectDetailModal lifecycle actions', () => {
         act(() => {
             tree.root.findByProps({ testID: 'project-actions-menu-button' }).props.onPress();
         });
-        act(() => {
-            tree.root.findByProps({ testID: 'project-archive-button' }).props.onPress();
+        await act(async () => {
+            await tree.root.findByProps({ testID: 'project-archive-button' }).props.onPress();
         });
 
         expect(storeActions.updateProject).toHaveBeenCalledWith('project-1', { status: 'archived' });
+        expect(storeActions._allProjects[0]?.status).toBe('archived');
         expect(onProjectChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'archived' }));
+        expect(tree.root.findByProps({ testID: 'project-actions-menu-button' }).props.accessibilityState).toEqual({
+            expanded: false,
+        });
         expect(alertSpy).not.toHaveBeenCalled();
     });
 
-    it('reactivates an archived project and clears cancellation from the local projection', () => {
+    it('keeps the actions menu open when archiving is rejected', async () => {
+        const onProjectChange = vi.fn();
+        const alertSpy = vi.spyOn(Alert, 'alert').mockImplementation(() => {});
+        storeActions.updateProject.mockResolvedValue({ success: false, error: 'Archive failed' });
+        let tree!: ReturnType<typeof create>;
+
+        act(() => {
+            tree = create(<ProjectDetailModal {...createProjectDetailModalProps({ onProjectChange })} />);
+        });
+        act(() => {
+            tree.root.findByProps({ testID: 'project-actions-menu-button' }).props.onPress();
+        });
+        await act(async () => {
+            await tree.root.findByProps({ testID: 'project-archive-button' }).props.onPress();
+        });
+
+        expect(onProjectChange).not.toHaveBeenCalled();
+        expect(findContainingModal(findOptionButton(tree.root, 'project-archive-button'))?.props.visible).toBe(true);
+        expect(alertSpy).toHaveBeenCalledWith('Error', 'Archive failed');
+    });
+
+    it('reactivates an archived project and clears cancellation from the local projection', async () => {
         const onProjectChange = vi.fn();
         let tree!: ReturnType<typeof create>;
 
@@ -1234,8 +1354,8 @@ describe('ProjectDetailModal lifecycle actions', () => {
         act(() => {
             tree.root.findByProps({ testID: 'project-actions-menu-button' }).props.onPress();
         });
-        act(() => {
-            tree.root.findByProps({ testID: 'project-reactivate-button' }).props.onPress();
+        await act(async () => {
+            await tree.root.findByProps({ testID: 'project-reactivate-button' }).props.onPress();
         });
 
         expect(storeActions.updateProject).toHaveBeenCalledWith('project-1', { status: 'active' });

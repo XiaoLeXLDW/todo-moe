@@ -59,6 +59,8 @@ export const zhHans: Record<string, string> = {
         'projects.archiveFailed': '归档项目失败',
         'projects.reactivateFailed': '重新激活项目失败',
         'projects.createFailed': '创建项目失败',
+        'projects.updateFailed': '无法更新清单。',
+        'projects.sectionSaveFailed': '无法保存分区。',
         'projects.createAreaFailed': '创建领域失败',
         'projects.collapseSidebar': '收起项目面板',
         'projects.resizeSidebar': '调整项目面板大小',
@@ -2318,7 +2320,7 @@ export const zhHans: Record<string, string> = {
         'starter.weeklyReview.check2': '清空收集箱',
         'starter.weeklyReview.check3': '挑出接下来的几个任务,其余的先放着',
         'starter.sampleBuyMilk': '买牛奶',
-        'starter.sampleReplySam': '回复 Sam',
+        'starter.sampleReplySam': '回复 Tibo',
 
         'onboarding.title': '欢迎使用 Mindwtr',
         'onboarding.subtitle': '把脑子里的事情记下来,稍后整理,每次只专注几件事。可以带入已有数据,也可以从一个小的引导项目开始。',

@@ -51,7 +51,7 @@ const AREA_KEYS = new Set([
 
 const SECTION_KEYS = new Set([
   'projects.moveSectionUp', 'projects.moveSectionDown', 'projects.moveSectionLeft', 'projects.moveSectionRight',
-  'projects.sectionReorderFailed', 'projects.sectionNotes', 'projects.sectionNotesPlaceholder',
+  'projects.sectionReorderFailed', 'projects.sectionSaveFailed', 'projects.sectionNotes', 'projects.sectionNotesPlaceholder',
   'projects.sectionsLabel', 'projects.addSection', 'projects.sectionPlaceholder', 'projects.noSection',
   'projects.deleteSectionConfirm', 'projects.reorderSections', 'projects.sequentialScopeHelpText',
   'projects.sequentialAcrossSections', 'projects.sequentialWithinSections',

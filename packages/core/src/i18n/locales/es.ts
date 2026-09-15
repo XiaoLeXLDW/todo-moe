@@ -780,6 +780,8 @@ export const esOverrides: Record<string, string> = {
 'projects.archiveFailed': "No se pudo archivar el proyecto",
 'projects.reactivateFailed': "No se pudo reactivar el proyecto",
 'projects.createFailed': "No se pudo crear el proyecto",
+'projects.updateFailed': "No se pudo actualizar la lista.",
+'projects.sectionSaveFailed': "No se pudo guardar la sección.",
 'projects.createAreaFailed': "No se pudo crear el área",
 'projects.collapseSidebar': "Contraer el panel de proyectos",
 'projects.resizeSidebar': "Cambiar el tamaño del panel de proyectos",

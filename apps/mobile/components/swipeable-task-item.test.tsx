@@ -4,6 +4,7 @@ import renderer from 'react-test-renderer';
 import { Alert } from 'react-native';
 
 import { SwipeableTaskItem, readTaskRowRenderCount, type TaskRowActions } from './swipeable-task-item';
+import { MoeSwipeActionsTrack } from '@/moe/MoeSwipeActionsTrack';
 import { MoeCheckButton } from '../moe/MoeCheckButton';
 import { subscribeListCompleted } from '../moe/completion';
 import { ToastProvider } from '../contexts/toast-context';
@@ -245,6 +246,7 @@ vi.mock('lucide-react-native', () => ({
   History: (props: any) => React.createElement('History', props),
   Hourglass: (props: any) => React.createElement('Hourglass', props),
   ListChecks: (props: any) => React.createElement('ListChecks', props),
+  MoreHorizontal: (props: any) => React.createElement('MoreHorizontal', props),
   Repeat: (props: any) => React.createElement('Repeat', props),
   RotateCcw: (props: any) => React.createElement('RotateCcw', props),
   Star: (props: any) => React.createElement('Star', props),
@@ -409,11 +411,11 @@ describe('SwipeableTaskItem', () => {
 
     const swipeable = tree.root.find((node) => (node.type as unknown) === 'Swipeable');
     expect(swipeable.props.friction).toBe(1.25);
-    expect(swipeable.props.leftThreshold).toBe(72);
+    expect(swipeable.props.leftThreshold).toBeUndefined();
     expect(swipeable.props.rightThreshold).toBe(72);
-    expect(swipeable.props.dragOffsetFromLeftEdge).toBe(28);
+    expect(swipeable.props.dragOffsetFromLeftEdge).toBeUndefined();
     expect(swipeable.props.dragOffsetFromRightEdge).toBe(28);
-    expect(swipeable.props.overshootLeft).toBe(false);
+    expect(swipeable.props.overshootLeft).toBeUndefined();
     expect(swipeable.props.overshootRight).toBe(false);
   });
 
@@ -587,9 +589,10 @@ it('can keep the focus star without adding a redundant focus outline', () => {
     expect(onDelete).toHaveBeenCalledTimes(1);
     expect(hapticsMocks.impactAsync).toHaveBeenCalledWith('rigid');
     expect(showToast).toHaveBeenCalledWith(expect.objectContaining({
-      message: 'Task deleted',
+      message: 'Pay rent moved to Trash',
       actionLabel: 'Undo',
       onAction: expect.any(Function),
+      replaceKey: 'task-undo',
     }));
   });
 
@@ -634,7 +637,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
       message: 'Storage is read-only',
       tone: 'error',
     }));
-    expect(showToast).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'Task deleted' }));
+    expect(showToast).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'Pay rent moved to Trash' }));
     expect(hapticsMocks.impactAsync).not.toHaveBeenCalled();
   });
 
@@ -677,7 +680,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
       deleteAction.props.onPress();
       await Promise.resolve();
     });
-    const undo = showToast.mock.calls.find(([toast]) => toast.message === 'Task deleted')?.[0]?.onAction;
+    const undo = showToast.mock.calls.find(([toast]) => toast.message === 'Pay rent moved to Trash')?.[0]?.onAction;
     await renderer.act(async () => {
       undo?.();
       await Promise.resolve();
@@ -1374,7 +1377,13 @@ it('can keep the focus star without adding a redundant focus outline', () => {
       );
     });
 
-    const action = tree.root.find((node) => node.props.accessibilityLabel === actionLabel && typeof node.props.onPress === 'function');
+    renderer.act(() => {
+      tree.root.find((node) => node.props.accessibilityLabel === 'More' && typeof node.props.onPress === 'function').props.onPress();
+    });
+    const action = tree.root.findAll((node) => (
+      node.props.accessibilityLabel === actionLabel.replace(' action', '')
+      && typeof node.props.onPress === 'function'
+    )).at(-1)!;
     renderer.act(() => {
       action.props.onPress();
     });
@@ -1413,7 +1422,6 @@ it('can keep the focus star without adding a redundant focus outline', () => {
     });
 
     const taskButton = tree.root.find((node) => node.props.accessibilityRole === 'button' && node.props.accessibilityLabel?.includes('Status: Inbox'));
-    const nextAction = tree.root.find((node) => node.props.accessibilityLabel === 'Next action' && typeof node.props.onPress === 'function');
 
     expect(taskButton.props.accessibilityHint).toBe(
       'Double-tap to edit task details. More actions are available in the accessibility actions menu.'
@@ -1421,7 +1429,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
     expect(taskButton.props.accessibilityHint).not.toContain('Swipe right');
 
     renderer.act(() => {
-      nextAction.props.onPress();
+      taskButton.props.onAccessibilityAction({ nativeEvent: { actionName: 'changeStatus' } });
     });
 
     expect(onStatusChange).toHaveBeenCalledWith('next');
@@ -1483,6 +1491,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
       'task.aria.action': 'Action : {action}',
       'task.aria.changeStatus': 'Changer le statut. Statut actuel : {status}',
       'task.aria.changeStatusHint': 'Touchez deux fois pour ouvrir le menu des statuts',
+      'common.more': 'Plus',
       'status.inbox': 'Boite de reception',
       'status.next': 'Suivante',
     };
@@ -1524,7 +1533,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
     expect(tree.root.findByProps({ accessibilityLabel: 'Ouvrir le projet Mindwtr' })).toBeDefined();
     expect(tree.root.findByProps({ accessibilityLabel: 'Ouvrir le contexte @travail' })).toBeDefined();
     expect(tree.root.findByProps({ accessibilityLabel: 'Ouvrir le tag #urgent' })).toBeDefined();
-    expect(tree.root.findByProps({ accessibilityLabel: 'Action : Suivante' })).toBeDefined();
+    expect(tree.root.findByProps({ accessibilityLabel: 'Plus' })).toBeDefined();
     const statusButton = tree.root.findByProps({
       accessibilityLabel: 'Changer le statut. Statut actuel : Boite de reception',
     });
@@ -1635,13 +1644,11 @@ it('can keep the focus star without adding a redundant focus outline', () => {
       );
     });
 
-    const doneAction = tree.root.find((node) => (
-      node.props.accessibilityLabel === 'Done action' && typeof node.props.onLongPress === 'function'
-    ));
-
     renderer.act(() => {
-      doneAction.props.onLongPress();
+      tree.root.find((node) => node.props.accessibilityLabel === 'More' && typeof node.props.onPress === 'function').props.onPress();
     });
+    const doneAction = tree.root.find((node) => node.props.accessibilityLabel === 'Done' && typeof node.props.onLongPress === 'function');
+    renderer.act(() => { doneAction.props.onLongPress(); });
 
     expect(hapticsMocks.selectionAsync).toHaveBeenCalledTimes(1);
     expect(doneAction.props.accessibilityHint).toBe('Long-press to complete with a different time');
@@ -1819,7 +1826,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
       );
     });
 
-    const doneAction = tree.root.find((node) => node.props.accessibilityLabel === 'Done action' && typeof node.props.onPress === 'function');
+    const doneAction = tree.root.findByType(MoeCheckButton);
     await renderer.act(async () => {
       doneAction.props.onPress();
       await Promise.resolve();
@@ -1886,7 +1893,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
       );
     });
 
-    const doneAction = tree.root.find((node) => node.props.accessibilityLabel === 'Done action' && typeof node.props.onPress === 'function');
+    const doneAction = tree.root.findByType(MoeCheckButton);
     await renderer.act(async () => {
       doneAction.props.onPress();
       await Promise.resolve();
@@ -1931,9 +1938,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
       );
     });
 
-    const doneAction = tree.root.find(
-      (node) => node.props.accessibilityLabel === 'Done action' && typeof node.props.onPress === 'function'
-    );
+    const doneAction = tree.root.findByType(MoeCheckButton);
     await renderer.act(async () => {
       doneAction.props.onPress();
       await Promise.resolve();
@@ -1953,6 +1958,79 @@ it('can keep the focus star without adding a redundant focus outline', () => {
     expect(showToast).toHaveBeenCalledWith(expect.objectContaining({
       message: 'Could not restore status',
       tone: 'error',
+    }));
+  });
+
+  it('does not expose a task status mutation as a right-swipe action', () => {
+    let tree!: renderer.ReactTestRenderer;
+    renderer.act(() => {
+      tree = renderer.create(
+        <SwipeableTaskItem
+          task={{ id: 'task-1', title: 'Plan release', status: 'next', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' } as any}
+          isDark={false}
+          tc={{ taskItemBg: '#fff', border: '#ddd', text: '#111', secondaryText: '#666', tint: '#2563eb', warning: '#f59e0b' } as any}
+          onPress={vi.fn()}
+          onStatusChange={vi.fn()}
+          onDelete={vi.fn()}
+        />,
+      );
+    });
+
+    expect(tree.root.findAll((node) => node.props.accessibilityLabel === 'Done action')).toHaveLength(0);
+    expect(tree.root.findAllByType(MoeSwipeActionsTrack)).toHaveLength(1);
+    const moreAction = tree.root.find((node) => node.props.accessibilityLabel === 'More' && typeof node.props.onPress === 'function');
+    expect(flattenStyle(moreAction.props.style)).toEqual(expect.objectContaining({
+      alignSelf: 'stretch',
+      width: 78,
+    }));
+    expect(tree.root.find((node) => flattenStyle(node.props.style).flexDirection === 'row'
+      && flattenStyle(node.props.style).alignSelf === 'stretch')).toBeTruthy();
+  });
+
+  it('prevents a revealed delete callback from running after selection mode starts', async () => {
+    const onDelete = vi.fn().mockResolvedValue({ success: true });
+    const task = { id: 'task-stale-swipe', title: 'Do not delete', status: 'next', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' } as any;
+    const renderRow = (selectionMode: boolean) => (
+      <SwipeableTaskItem
+        task={task}
+        isDark={false}
+        tc={{ taskItemBg: '#fff', border: '#ddd', text: '#111', secondaryText: '#666', tint: '#2563eb', warning: '#f59e0b' } as any}
+        onPress={vi.fn()}
+        onStatusChange={vi.fn()}
+        onDelete={onDelete}
+        selectionMode={selectionMode}
+        onToggleSelect={vi.fn()}
+      />
+    );
+    let tree!: renderer.ReactTestRenderer;
+    renderer.act(() => { tree = renderer.create(renderRow(false)); });
+    const staleDelete = tree.root.find((node) => node.props.accessibilityLabel === 'Delete task' && typeof node.props.onPress === 'function').props.onPress;
+    renderer.act(() => { tree.update(renderRow(true)); });
+    await renderer.act(async () => { staleDelete(); await Promise.resolve(); });
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it('identifies the deleted task and replaces older task undo messages', async () => {
+    const task = { id: 'task-delete-toast', title: 'Buy eggs', status: 'next', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' } as any;
+    let tree!: renderer.ReactTestRenderer;
+    renderer.act(() => {
+      tree = renderer.create(
+        <SwipeableTaskItem
+          task={task}
+          isDark={false}
+          tc={{ taskItemBg: '#fff', border: '#ddd', text: '#111', secondaryText: '#666', tint: '#2563eb', warning: '#f59e0b' } as any}
+          onPress={vi.fn()}
+          onStatusChange={vi.fn()}
+          onDelete={vi.fn().mockResolvedValue({ success: true })}
+        />,
+      );
+    });
+    const deleteAction = tree.root.find((node) => node.props.accessibilityLabel === 'Delete task' && typeof node.props.onPress === 'function');
+    await renderer.act(async () => { deleteAction.props.onPress(); await Promise.resolve(); await Promise.resolve(); });
+
+    expect(showToast).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'Buy eggs moved to Trash',
+      replaceKey: 'task-undo',
     }));
   });
 
@@ -1979,9 +2057,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
         onPress={vi.fn()} onStatusChange={vi.fn().mockResolvedValue({ success: true })} onDelete={vi.fn()}
       /></ToastProvider>);
     });
-    const doneAction = tree.root.find(
-      (node) => node.props.accessibilityLabel === 'Done action' && typeof node.props.onPress === 'function'
-    );
+    const doneAction = tree.root.findByType(MoeCheckButton);
     await renderer.act(async () => { doneAction.props.onPress(); await Promise.resolve(); });
     const undoButton = tree.root.find(
       (node) => node.props.accessibilityRole === 'button' && flattenText(node.props.children) === 'Undo'
@@ -2055,7 +2131,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
       );
     });
 
-    const doneAction = tree.root.find((node) => node.props.accessibilityLabel === 'Done action' && typeof node.props.onPress === 'function');
+    const doneAction = tree.root.findByType(MoeCheckButton);
     await renderer.act(async () => {
       doneAction.props.onPress();
       await Promise.resolve();
@@ -2119,7 +2195,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
       );
     });
 
-    const doneAction = tree.root.find((node) => node.props.accessibilityLabel === 'Done action' && typeof node.props.onPress === 'function');
+    const doneAction = tree.root.findByType(MoeCheckButton);
     await renderer.act(async () => {
       doneAction.props.onPress();
       await Promise.resolve();
@@ -2145,7 +2221,6 @@ it('can keep the focus star without adding a redundant focus outline', () => {
 
   it('cancels pending checklist flushes when deleting a task', () => {
     vi.useFakeTimers();
-    const alertSpy = vi.spyOn(Alert, 'alert');
     const onDelete = vi.fn();
     const task = {
       id: 'task-1',

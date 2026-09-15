@@ -59,6 +59,8 @@ export const zhHant: Record<string, string> = {
         'projects.archiveFailed': '歸檔項目失敗',
         'projects.reactivateFailed': '重新激活項目失敗',
         'projects.createFailed': '創建項目失敗',
+        'projects.updateFailed': '無法更新清單。',
+        'projects.sectionSaveFailed': '無法儲存分區。',
         'projects.createAreaFailed': '創建領域失敗',
         'projects.collapseSidebar': '收起項目面板',
         'projects.resizeSidebar': '調整項目面板大小',
@@ -2318,7 +2320,7 @@ export const zhHant: Record<string, string> = {
         'starter.weeklyReview.check2': '清空收集箱',
         'starter.weeklyReview.check3': '挑出接下來的幾個任務,其餘的先放著',
         'starter.sampleBuyMilk': '買牛奶',
-        'starter.sampleReplySam': '回覆 Sam',
+        'starter.sampleReplySam': '回覆 Tibo',
 
         'onboarding.title': '歡迎使用 Mindwtr',
         'onboarding.subtitle': '把腦子裡的事情記下來,稍後整理,每次只專注幾件事。可以帶入既有資料,也可以從一個小的引導專案開始。',

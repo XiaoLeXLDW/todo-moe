@@ -796,6 +796,8 @@ export const svOverrides: Record<string, string> = {
         'projects.archiveFailed': 'Det gick inte att arkivera projektet',
         'projects.reactivateFailed': 'Det gick inte att återaktivera projektet',
         'projects.createFailed': 'Det gick inte att skapa projektet',
+        'projects.updateFailed': 'Det gick inte att uppdatera listan.',
+        'projects.sectionSaveFailed': 'Det gick inte att spara avsnittet.',
         'projects.createAreaFailed': 'Det gick inte att skapa området',
         'projects.collapseSidebar': 'Fäll ihop projektpanelen',
         'projects.resizeSidebar': 'Ändra storlek på projektpanelen',

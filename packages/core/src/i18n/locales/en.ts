@@ -816,6 +816,8 @@ export const en: Record<string, string> = {
         'projects.archiveFailed': 'Failed to archive project',
         'projects.reactivateFailed': 'Failed to reactivate project',
         'projects.createFailed': 'Failed to create project',
+        'projects.updateFailed': 'Could not update list.',
+        'projects.sectionSaveFailed': 'Could not save section.',
         'projects.createAreaFailed': 'Failed to create area',
         'projects.collapseSidebar': 'Collapse projects panel',
         'projects.resizeSidebar': 'Resize projects panel',
@@ -2413,7 +2415,7 @@ export const en: Record<string, string> = {
         'starter.weeklyReview.check2': 'Empty your Inbox',
         'starter.weeklyReview.check3': 'Pick the next few tasks and let the rest wait',
         'starter.sampleBuyMilk': 'Buy milk',
-        'starter.sampleReplySam': 'Reply to Sam',
+        'starter.sampleReplySam': 'Reply to Tibo',
 
         // Settings — moved from apps/desktop settings/labels.ts (settings-i18n-20260724-01)
         'settings.integrations': 'Integrations',

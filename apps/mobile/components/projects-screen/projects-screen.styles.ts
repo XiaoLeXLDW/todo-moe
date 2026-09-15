@@ -107,7 +107,7 @@ export const projectsScreenStyles = StyleSheet.create({
         backgroundColor: '#f9f9f9',
         borderRadius: MOE_VISUAL.cardRadius,
         padding: 16,
-        marginBottom: 8,
+        marginBottom: 6,
         alignItems: 'center',
     },
     projectTouchArea: {
@@ -122,6 +122,9 @@ export const projectsScreenStyles = StyleSheet.create({
     },
     projectDetailRoot: {
         flex: 1,
+    },
+    projectOperationLayer: {
+        flexShrink: 0,
     },
     projectReorderListFill: {
         flex: 1,
@@ -242,7 +245,15 @@ export const projectsScreenStyles = StyleSheet.create({
         alignItems: 'center',
         gap: 6,
     },
-    projectContainerPath: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingHorizontal: MOE_VISUAL.pageGutter, paddingBottom: 8 },
+    projectContainerPath: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        gap: 8,
+        paddingHorizontal: MOE_VISUAL.pageGutter,
+        paddingTop: 14,
+        paddingBottom: 12,
+    },
     projectContainerChip: { minHeight: 44, maxWidth: '100%', borderWidth: 1, borderRadius: MOE_VISUAL.cardRadius, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 8, flexShrink: 1 },
     projectContainerText: { fontSize: 13, flexShrink: 1, minWidth: 0 },
     areaRenameButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
@@ -280,25 +291,6 @@ export const projectsScreenStyles = StyleSheet.create({
     projectMeta: {
         fontSize: 12,
         color: '#666',
-    },
-    projectSwipeAction: {
-        width: 96,
-        marginBottom: 8,
-        borderRadius: 8,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 4,
-    },
-    projectSwipeDuplicateAction: {
-        backgroundColor: '#3B82F6',
-    },
-    projectSwipeDeleteAction: {
-        backgroundColor: '#EF4444',
-    },
-    projectSwipeActionText: {
-        color: '#FFFFFF',
-        fontSize: 12,
-        fontWeight: '700',
     },
     emptyContainer: {
         padding: 48,
@@ -628,9 +620,12 @@ export const projectsScreenStyles = StyleSheet.create({
         gap: 12,
         marginTop: 14,
     },
-    previewCard: {
+    previewCardFrame: {
         width: '100%',
         maxWidth: 520,
+    },
+    previewCard: {
+        width: '100%',
         borderRadius: 12,
         borderWidth: 1,
         overflow: 'hidden',
