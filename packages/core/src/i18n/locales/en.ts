@@ -816,6 +816,8 @@ export const en: Record<string, string> = {
         'projects.archiveFailed': 'Failed to archive project',
         'projects.reactivateFailed': 'Failed to reactivate project',
         'projects.createFailed': 'Failed to create project',
+        'projects.updateFailed': 'Could not update list.',
+        'projects.sectionSaveFailed': 'Could not save section.',
         'projects.createAreaFailed': 'Failed to create area',
         'projects.collapseSidebar': 'Collapse projects panel',
         'projects.resizeSidebar': 'Resize projects panel',

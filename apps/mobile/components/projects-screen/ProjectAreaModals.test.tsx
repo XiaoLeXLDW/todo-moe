@@ -4,6 +4,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { ProjectAreaModals } from './ProjectAreaModals';
 
 vi.mock('../../lib/use-android-keyboard-inset', () => ({ useAndroidKeyboardInset: () => 0 }));
+vi.mock('@/moe/glass/MoeGlassPanel', () => ({
+  MoeGlassPanel: ({ children, ...props }: any) => React.createElement('MoeGlassPanel', props, children),
+}));
 
 describe('folder management from the lists screen', () => {
   it('allows standalone creation and keeps the typed name and manager open when creation fails', async () => {
@@ -29,6 +32,7 @@ describe('folder management from the lists screen', () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(setName).not.toHaveBeenCalledWith('');
     expect(tree.root.find(node => node.props.value === '旅行准备')).toBeTruthy();
+    expect(tree.root.findAllByType('MoeGlassPanel' as any).some(node => node.props.active === true)).toBe(true);
     act(() => tree.unmount());
   });
 });

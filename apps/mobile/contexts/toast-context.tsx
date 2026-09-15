@@ -29,7 +29,9 @@ export type ToastOptions = {
     replaceKey?: string;
 };
 
-export const TASK_COMPLETION_TOAST_KEY = 'task-completion';
+export const TASK_UNDO_TOAST_KEY = 'task-undo';
+/** Compatibility name for completion callers sharing the latest task undo slot. */
+export const TASK_COMPLETION_TOAST_KEY = TASK_UNDO_TOAST_KEY;
 
 type ToastState = ToastOptions & {
     id: number;
@@ -213,18 +215,24 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             ...options,
         };
         if (next.replaceKey) latestReplaceIdRef.current.set(next.replaceKey, next.id);
+        const dismissingId = isDismissingRef.current ? activeToastRef.current?.id : undefined;
         setQueue((current) => {
+            const liveQueue = dismissingId === undefined
+                ? current
+                : current.filter((item) => item.id !== dismissingId);
             const claimedId = claimedActionIdRef.current;
-            const claimed = current[0]?.id === claimedId ? current[0] : null;
+            const claimed = liveQueue[0]?.id === claimedId ? liveQueue[0] : null;
             const remaining = options.replaceKey
-                ? current.filter((item) => item.replaceKey !== options.replaceKey)
-                : current;
+                ? liveQueue.filter((item) => item.replaceKey !== options.replaceKey)
+                : liveQueue;
             // A claimed action owns the visible slot until its Promise settles.
             // Otherwise failures and a newer replaceable action become visible
             // immediately instead of waiting behind stale completion messages.
             if (claimed) {
                 const tail = remaining.filter((item) => item.id !== claimed.id);
-                return [claimed, next, ...tail];
+                return next.tone === 'error' || options.replaceKey
+                    ? [claimed, next, ...tail]
+                    : [claimed, ...tail, next];
             }
             if (next.tone === 'error') return [next, ...remaining];
             if (options.replaceKey) {

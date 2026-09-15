@@ -29,6 +29,9 @@ vi.mock('../app-pressable', () => ({
 }));
 
 vi.mock('../../moe/haptics', () => ({ moeHaptic: vi.fn() }));
+vi.mock('../../moe/glass/MoeGlassPanel', () => ({
+  MoeGlassPanel: ({ children, ...props }: any) => React.createElement('section', { ...props, 'data-moe-glass': 'true' }, children),
+}));
 
 const themeColors = {
   border: '#d1d5db',
@@ -74,6 +77,7 @@ describe('TaskListHeader', () => {
     expect(html).toContain('data-icon="arrow-up-down"');
     expect(html).toContain('aria-label="Filters"');
     expect(html).toContain('data-icon="sliders-horizontal"');
+    expect(html).toContain('data-moe-glass="true"');
     expect(html).not.toContain('Inbox');
   });
 

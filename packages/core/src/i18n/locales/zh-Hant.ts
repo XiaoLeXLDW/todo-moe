@@ -59,6 +59,8 @@ export const zhHant: Record<string, string> = {
         'projects.archiveFailed': '歸檔項目失敗',
         'projects.reactivateFailed': '重新激活項目失敗',
         'projects.createFailed': '創建項目失敗',
+        'projects.updateFailed': '無法更新清單。',
+        'projects.sectionSaveFailed': '無法儲存分區。',
         'projects.createAreaFailed': '創建領域失敗',
         'projects.collapseSidebar': '收起項目面板',
         'projects.resizeSidebar': '調整項目面板大小',

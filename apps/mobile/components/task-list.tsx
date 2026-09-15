@@ -83,6 +83,7 @@ import {
   type ProjectTaskReorderGroup,
   sortProjectTasksByOrder,
 } from './task-list-utils';
+import { settleStoreAction } from './store-action-result';
 import { TaskFilterSheet } from './task-filter-sheet';
 import { resolveTimeEstimateFilterOptions } from './time-estimate-filter-utils';
 import {
@@ -839,6 +840,11 @@ function TaskListComponent({
   const projectReorderFlatItemsRef = useRef(projectReorderFlatItems);
   projectReorderFlatItemsRef.current = projectReorderFlatItems;
   const lastDroppedProjectReorderItemsRef = useRef<ProjectReorderFlatItem<Task>[] | null>(null);
+  const projectReorderOperationRef = useRef(0);
+  useEffect(() => {
+    projectReorderOperationRef.current += 1;
+    lastDroppedProjectReorderItemsRef.current = null;
+  }, [projectId]);
   const projectReorderScrollOffsetRef = useRef(0);
   const listViewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
   const handleListViewableItemsChanged = useRef((info: { viewableItems: { item?: unknown }[] }) => {
@@ -1032,6 +1038,7 @@ function TaskListComponent({
     // see so exiting Task order before the store rerenders anchors to the
     // post-drop viewport instead of stale props (#784).
     lastDroppedProjectReorderItemsRef.current = params.data;
+    const operation = ++projectReorderOperationRef.current;
     // #784 next-round evidence: what the drop asked for, so a later mismatch
     // separates "wrong write" from "write lost afterwards".
     const movedAt = plan.orderedIds.indexOf(moved.task.id);
@@ -1047,6 +1054,8 @@ function TaskListComponent({
       },
     });
     const reportFailure = (error: unknown) => {
+      if (operation !== projectReorderOperationRef.current) return;
+      lastDroppedProjectReorderItemsRef.current = null;
       void logError(error, { scope: 'project', extra: { message: 'Failed to reorder project tasks' } });
       showToast({
         title: t('common.notice'),
@@ -1061,9 +1070,14 @@ function TaskListComponent({
     }
     // Crossing a header re-homes the task into the section it was dropped in.
     void (async () => {
-      await Promise.resolve(updateTask(moved.task.id, {
+      const moveOutcome = await settleStoreAction(() => updateTask(moved.task.id, {
         sectionId: plan.sectionId ?? undefined,
       }));
+      if (operation !== projectReorderOperationRef.current) return;
+      if (!moveOutcome.ok) {
+        reportFailure(moveOutcome.cause ?? moveOutcome.message ?? new Error('Failed to move task'));
+        return;
+      }
       await Promise.resolve(reorderProjectTasks(projectId, plan.orderedIds, plan.sectionId));
     })().catch(reportFailure);
   }, [projectId, reorderProjectTasks, showToast, t, updateTask]);

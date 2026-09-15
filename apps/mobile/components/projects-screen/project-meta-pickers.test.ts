@@ -25,7 +25,7 @@ describe('AREA_COLOR_DISPLAY_BY_HEX', () => {
 });
 
 describe('applyLiveProjectUpdate', () => {
-    it('drops a delayed picker callback after the project becomes archived', () => {
+    it('drops a delayed picker callback after the project becomes archived', async () => {
         const activeProject = {
             id: 'project-1',
             title: 'Project',
@@ -50,9 +50,37 @@ describe('applyLiveProjectUpdate', () => {
         });
 
         liveProject = { ...activeProject, status: 'archived' };
-        expect(delayedSelect()).toBe(false);
+        await expect(delayedSelect()).resolves.toBe(false);
         expect(updateProject).not.toHaveBeenCalled();
         expect(setSelectedProject).not.toHaveBeenCalled();
         expect(onBlocked).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not publish an optimistic project when the store rejects the write', async () => {
+        const activeProject = {
+            id: 'project-1',
+            title: 'Project',
+            status: 'active' as const,
+            color: '#3b82f6',
+            order: 0,
+            tagIds: [],
+            areaId: 'area-1',
+            createdAt: '2026-08-31T00:00:00.000Z',
+            updatedAt: '2026-08-31T00:00:00.000Z',
+        };
+        const setSelectedProject = vi.fn();
+        const onFailed = vi.fn();
+
+        await expect(applyLiveProjectUpdate({
+            projectId: activeProject.id,
+            updates: { areaId: 'area-2' },
+            updateProject: vi.fn().mockResolvedValue({ success: false, error: 'Project is archived' }),
+            setSelectedProject,
+            onFailed,
+            getProjectById: () => activeProject,
+        })).resolves.toBe(false);
+
+        expect(setSelectedProject).not.toHaveBeenCalled();
+        expect(onFailed).toHaveBeenCalledWith('Project is archived');
     });
 });

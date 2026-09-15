@@ -60,6 +60,8 @@ import type { useProjectNotesEditor } from './use-project-notes-editor';
 import { getAndroidKeyboardFrame } from '../../lib/android-keyboard-frame';
 import { MoeCompletionFeedbackHost } from '@/moe/MoeCompletionFeedback';
 import { MoeCelebration } from '@/moe/MoeCelebration';
+import { isActionFailure, settleStoreAction } from '../store-action-result';
+import { MoeGlassPanel } from '@/moe/glass/MoeGlassPanel';
 
 const PROJECT_TASK_SORT_OPTIONS: TaskSortBy[] = ['default', 'due', 'start', 'review', 'timeEstimate', 'title', 'created', 'created-desc'];
 const PROJECT_SHOW_COMPLETED_STORAGE_KEY = 'mindwtr:view:project-detail:show-completed:v1';
@@ -124,6 +126,9 @@ function ProjectSectionManagerModal({
     const [draft, setDraft] = React.useState('');
     const [editingSectionId, setEditingSectionId] = React.useState<string | null>(null);
     const [saving, setSaving] = React.useState(false);
+    const [saveError, setSaveError] = React.useState('');
+    const savePendingRef = React.useRef(false);
+    const saveSessionRef = React.useRef(0);
     const sectionTitle = tFallback(t, 'projects.sectionsLabel', 'Sections');
     const addSectionLabel = tFallback(t, 'projects.addSection', 'Add Section');
     const sectionPlaceholder = tFallback(t, 'projects.sectionPlaceholder', 'Section title');
@@ -144,45 +149,68 @@ function ProjectSectionManagerModal({
     const showEditor = canManage && editingSectionId !== null;
 
     React.useEffect(() => {
+        saveSessionRef.current += 1;
+        savePendingRef.current = false;
         if (visible) return;
         setDraft('');
         setEditingSectionId(null);
         setSaving(false);
-    }, [visible]);
+        setSaveError('');
+    }, [projectId, visible]);
 
     const openCreate = React.useCallback(() => {
         if (!canMutateProject()) return;
         setEditingSectionId('');
         setDraft('');
+        setSaveError('');
     }, [canMutateProject]);
 
     const openEdit = React.useCallback((section: Section) => {
         if (!canMutateProject()) return;
         setEditingSectionId(section.id);
         setDraft(section.title);
+        setSaveError('');
     }, [canMutateProject]);
 
     const closeEditor = React.useCallback(() => {
         setEditingSectionId(null);
         setDraft('');
+        setSaveError('');
     }, []);
 
     const saveSection = React.useCallback(async () => {
-        if (!canMutateProject() || saving) return;
+        if (!canMutateProject() || savePendingRef.current) return;
         const title = draft.trim();
         if (!title) return;
+        savePendingRef.current = true;
         setSaving(true);
+        setSaveError('');
+        const session = saveSessionRef.current;
         try {
-            if (editingSectionId) {
-                await updateSection(editingSectionId, { title });
-            } else {
-                await addSection(projectId, title);
+            const result = editingSectionId
+                ? await updateSection(editingSectionId, { title })
+                : await addSection(projectId, title);
+            if (session !== saveSessionRef.current) return;
+            if (isActionFailure(result) || (!editingSectionId && !result)) {
+                const message = typeof result === 'object' && result && 'error' in result
+                    && typeof result.error === 'string' ? result.error : undefined;
+                setSaveError(message || tFallback(t, 'projects.sectionSaveFailed', 'Could not save section.'));
+                return;
             }
             closeEditor();
+        } catch (error) {
+            if (session === saveSessionRef.current) {
+                setSaveError(error instanceof Error && error.message.trim()
+                    ? error.message
+                    : tFallback(t, 'projects.sectionSaveFailed', 'Could not save section.'));
+            }
         } finally {
-            setSaving(false);
+            if (session === saveSessionRef.current) {
+                savePendingRef.current = false;
+                setSaving(false);
+            }
         }
-    }, [addSection, canMutateProject, closeEditor, draft, editingSectionId, projectId, saving, updateSection]);
+    }, [addSection, canMutateProject, closeEditor, draft, editingSectionId, projectId, t, updateSection]);
 
     const confirmDeleteSection = React.useCallback((section: Section) => {
         if (!canMutateProject()) return;
@@ -229,7 +257,7 @@ function ProjectSectionManagerModal({
             accessibilityViewIsModal
         >
             <View style={styles.overlay}>
-                <View style={[styles.sectionManagerCard, { backgroundColor: tc.cardBg, borderColor: tc.border }]}>
+                <MoeGlassPanel active={visible} cornerRadius={12} style={[styles.sectionManagerCard, { borderColor: tc.border }]}>
                     <View style={styles.sectionManagerHeader}>
                         <Text style={[styles.sectionManagerTitle, { color: tc.text }]} accessibilityRole="header">
                             {sectionTitle}
@@ -275,6 +303,11 @@ function ProjectSectionManagerModal({
                                 onSubmitEditing={saveSection}
                                 testID="project-section-title-input"
                             />
+                            {saveError ? (
+                                <Text testID="project-section-save-error" style={[styles.helperText, { color: tc.danger }]}>
+                                    {saveError}
+                                </Text>
+                            ) : null}
                             <View style={styles.sectionEditorActions}>
                                 <TouchableOpacity
                                     accessibilityRole="button"
@@ -384,7 +417,7 @@ function ProjectSectionManagerModal({
                             })}
                         </ScrollView>
                     )}
-                </View>
+                </MoeGlassPanel>
             </View>
             {/* Its own delete/reorder confirms fire while this sheet is up (#940). */}
             <ThemedAlertHost />
@@ -440,7 +473,7 @@ function ProjectOptionsModal({
             accessibilityViewIsModal
         >
             <View style={styles.overlay}>
-                <View style={[styles.projectOptionsCard, { backgroundColor: tc.cardBg, borderColor: tc.border }]}>
+                <MoeGlassPanel active={visible} cornerRadius={14} style={[styles.projectOptionsCard, { borderColor: tc.border }]}>
                     <View style={styles.projectOptionsHeader}>
                         <Text style={[styles.projectOptionsTitle, { color: tc.text }]} accessibilityRole="header">
                             {title}
@@ -457,7 +490,7 @@ function ProjectOptionsModal({
                     <View style={[styles.projectOptionsList, { borderColor: tc.border }]}>
                         {children}
                     </View>
-                </View>
+                </MoeGlassPanel>
             </View>
         </Modal>
     );
@@ -575,16 +608,69 @@ export function ProjectDetailModal({
         const current = selectedProjectRef.current;
         if (!current || current.status === 'archived' || isArchivedProjectRef.current) return null;
         const stored = useTaskStore.getState()._allProjects?.find((project) => project.id === current.id);
-        return stored?.status === 'archived' ? null : current;
+        return !stored || stored.deletedAt || stored.status === 'archived' ? null : stored;
     }, []);
-    const updateMutableSelectedProject = React.useCallback((updates: Partial<Project>) => {
+    const projectMutationRef = React.useRef(0);
+    const updateMutableSelectedProject = React.useCallback(async (updates: Partial<Project>) => {
         const current = getMutableSelectedProject();
         if (!current) return null;
-        updateProject(current.id, updates);
-        const next = { ...current, ...updates };
+        const mutation = ++projectMutationRef.current;
+        const outcome = await settleStoreAction(() => updateProject(current.id, updates));
+        if (mutation !== projectMutationRef.current || selectedProjectRef.current?.id !== current.id) return null;
+        if (!outcome.ok) {
+            Alert.alert(
+                tFallback(t, 'common.error', 'Error'),
+                outcome.message || tFallback(t, 'projects.updateFailed', 'Could not update list.'),
+            );
+            return null;
+        }
+        const live = getMutableSelectedProject();
+        if (!live) return null;
+        const next = { ...live, ...updates };
         onProjectChange(next);
         return next;
-    }, [getMutableSelectedProject, onProjectChange, updateProject]);
+    }, [getMutableSelectedProject, onProjectChange, t, updateProject]);
+    const [projectTitleDraft, setProjectTitleDraft] = React.useState(selectedProject?.title ?? '');
+    const projectTitleDraftRef = React.useRef(projectTitleDraft);
+    const projectTitleFocusedRef = React.useRef(false);
+    const projectTitleIdRef = React.useRef(selectedProject?.id);
+    const committedProjectTitleRef = React.useRef(selectedProject?.title ?? '');
+    projectTitleDraftRef.current = projectTitleDraft;
+    React.useEffect(() => {
+        const nextId = selectedProject?.id;
+        if (projectTitleIdRef.current !== nextId) {
+            projectTitleIdRef.current = nextId;
+            const nextTitle = selectedProject?.title ?? '';
+            committedProjectTitleRef.current = nextTitle;
+            projectTitleDraftRef.current = nextTitle;
+            setProjectTitleDraft(nextTitle);
+            return;
+        }
+        if (!projectTitleFocusedRef.current && selectedProject?.title !== undefined) {
+            committedProjectTitleRef.current = selectedProject.title;
+            projectTitleDraftRef.current = selectedProject.title;
+            setProjectTitleDraft(selectedProject.title);
+        }
+    }, [selectedProject?.id, selectedProject?.title]);
+    const projectTitleSaveRef = React.useRef<string | null>(null);
+    const commitProjectTitle = React.useCallback(async () => {
+        const current = getMutableSelectedProject();
+        const visible = selectedProjectRef.current;
+        if (!current || !visible || visible.id !== current.id) return;
+        const title = projectTitleDraftRef.current.trim();
+        if (!title || projectTitleSaveRef.current === title || committedProjectTitleRef.current === title) return;
+        projectTitleSaveRef.current = title;
+        try {
+            const next = await updateMutableSelectedProject({ title });
+            if (next) {
+                committedProjectTitleRef.current = title;
+                projectTitleDraftRef.current = title;
+                setProjectTitleDraft(title);
+            }
+        } finally {
+            if (projectTitleSaveRef.current === title) projectTitleSaveRef.current = null;
+        }
+    }, [getMutableSelectedProject, updateMutableSelectedProject]);
     // A stored 'timeEstimate' project sort reverts to default order while the
     // feature is off — list, sort sheet and label all read this one value (#1107).
     const projectTaskSortBy = resolveTaskSortByForFeatures(storedProjectTaskSortBy, settings);
@@ -624,7 +710,6 @@ export function ProjectDetailModal({
     const statusPalette = buildProjectStatusPalette(tc);
     const modalHeaderStyle = [styles.modalHeader, {
         borderBottomColor: tc.border,
-        backgroundColor: tc.cardBg,
         paddingTop: Platform.OS === 'ios' ? Math.max(insets.top, 10) : 10,
         paddingBottom: 8,
     }];
@@ -817,7 +902,7 @@ export function ProjectDetailModal({
     const sortIsActive = projectTaskSortBy !== 'default';
     const projectViewOptionsActive = sortIsActive || showCompletedTasks || projectTaskReorderMode;
     const projectTaskPinnedToolbar = selectedProject ? (
-        <View style={[styles.projectTaskPinnedToolbar, { backgroundColor: tc.cardBg, borderBottomColor: tc.border }]}>
+        <View style={[styles.projectTaskPinnedToolbar, { borderBottomColor: tc.border }]}>
             <TouchableOpacity
                 accessibilityLabel={projectTaskFilterActiveCount > 0 ? `${filterButtonLabel}: ${projectTaskFilterActiveCount}` : filterButtonLabel}
                 accessibilityRole="button"
@@ -894,29 +979,40 @@ export function ProjectDetailModal({
         </View>
     ) : null;
     const setSelectedProjectSequentialScope = (sequentialScope: Project['sequentialScope']) => {
-        updateMutableSelectedProject({ sequentialScope });
+        void updateMutableSelectedProject({ sequentialScope });
     };
-    const handleSetProjectStatus = (status: Project['status']) => {
+    const handleSetProjectStatus = async (status: Project['status']) => {
         const current = liveSelectedProjectStatus === 'archived'
             ? liveSelectedProject
             : selectedProjectRef.current;
-        if (!current) return;
+        if (!current) return null;
         if (current.status === 'archived' || isArchivedProjectRef.current) {
-            if (status !== 'active') return;
-            updateProject(current.id, { status: 'active' });
-            onProjectChange({ ...current, status: 'active', cancelledAt: undefined });
+            if (status !== 'active') return null;
+            const outcome = await settleStoreAction(() => updateProject(current.id, { status: 'active' }));
+            if (!outcome.ok) {
+                Alert.alert(
+                    tFallback(t, 'common.error', 'Error'),
+                    outcome.message || tFallback(t, 'projects.updateFailed', 'Could not update list.'),
+                );
+                return null;
+            }
+            if (selectedProjectRef.current?.id !== current.id) return null;
+            const next = { ...current, status: 'active' as const, cancelledAt: undefined };
+            onProjectChange(next);
+            setShowStatusMenu(false);
+            return next;
         } else {
-            updateMutableSelectedProject({ status });
+            const updated = await updateMutableSelectedProject({ status });
+            if (!updated) return null;
+            setShowStatusMenu(false);
+            return updated;
         }
-        setShowStatusMenu(false);
     };
     // Archive without a native confirm: the action is fully reversible (the same
     // button slot becomes Reactivate, task statuses are restored), and Alert.alert
     // can present behind the pageSheet detail modal on iOS, leaving the button
     // apparently dead.
-    const handleArchiveSelectedProject = () => {
-        updateMutableSelectedProject({ status: 'archived' });
-    };
+    const handleArchiveSelectedProject = () => updateMutableSelectedProject({ status: 'archived' });
     const handleCancelSelectedProject = () => {
         const current = getMutableSelectedProject();
         if (!current) return;
@@ -1685,6 +1781,7 @@ export function ProjectDetailModal({
                         <SandboxWorkspaceCue />
                         {selectedProject ? (
                             <>
+                                <MoeGlassPanel active={overlayVisible} cornerRadius={0} style={styles.projectOperationLayer}>
                                 <View style={modalHeaderStyle}>
                                     <TouchableOpacity
                                         onPress={onClose}
@@ -1697,29 +1794,23 @@ export function ProjectDetailModal({
                                     </TouchableOpacity>
                                     <TextInput
                                         style={[styles.modalTitle, { color: tc.text, marginLeft: 8, flex: 1 }]}
-                                        value={selectedProject.title}
+                                        value={projectTitleDraft}
                                         editable={!isArchivedProject}
                                         accessibilityHint={isArchivedProject ? t('projects.reactivate') : undefined}
                                         accessibilityState={{ disabled: isArchivedProject }}
                                         onChangeText={(text) => {
                                             const current = getMutableSelectedProject();
-                                            if (current) onProjectChange({ ...current, title: text });
+                                            const visible = selectedProjectRef.current;
+                                            if (!current || !visible || visible.id !== current.id) return;
+                                            projectTitleDraftRef.current = text;
+                                            setProjectTitleDraft(text);
+                                            onProjectChange({ ...current, ...visible, title: text });
                                         }}
-                                        onSubmitEditing={() => {
-                                            const current = getMutableSelectedProject();
-                                            if (!current) return;
-                                            const title = current.title.trim();
-                                            if (!title) return;
-                                            updateProject(current.id, { title });
-                                            onProjectChange({ ...current, title });
-                                        }}
+                                        onFocus={() => { projectTitleFocusedRef.current = true; }}
+                                        onSubmitEditing={() => { void commitProjectTitle(); }}
                                         onEndEditing={() => {
-                                            const current = getMutableSelectedProject();
-                                            if (!current) return;
-                                            const title = current.title.trim();
-                                            if (!title) return;
-                                            updateProject(current.id, { title });
-                                            onProjectChange({ ...current, title });
+                                            projectTitleFocusedRef.current = false;
+                                            void commitProjectTitle();
                                         }}
                                         returnKeyType="done"
                                     />
@@ -1753,6 +1844,7 @@ export function ProjectDetailModal({
                                     ) : null}
                                 </View>
                                 {projectTaskPinnedToolbar}
+                                </MoeGlassPanel>
                                 {projectTaskSelectionBulkBar}
                                 <ProjectDetailScrollFrame backgroundColor={tc.bg}>
                                 {projectTaskReorderMode ? projectDetailListHeader : null}
@@ -1863,13 +1955,11 @@ export function ProjectDetailModal({
                                         description={isArchivedProject ? undefined : projectActionsHelpText}
                                         icon={isArchivedProject ? 'refresh-outline' : 'archive-outline'}
                                         label={isArchivedProject ? t('projects.reactivate') : t('projects.complete')}
-                                        onPress={() => {
-                                            setProjectActionsVisible(false);
-                                            if (isArchivedProject) {
-                                                handleSetProjectStatus('active');
-                                            } else {
-                                                handleArchiveSelectedProject();
-                                            }
+                                        onPress={async () => {
+                                            const changed = isArchivedProject
+                                                ? await handleSetProjectStatus('active')
+                                                : await handleArchiveSelectedProject();
+                                            if (changed) setProjectActionsVisible(false);
                                         }}
                                         testID={isArchivedProject
                                             ? 'project-reactivate-button'

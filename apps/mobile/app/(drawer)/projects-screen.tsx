@@ -879,6 +879,7 @@ export default function ProjectsScreen() {
       t,
       toggleProjectTag,
       updateProject,
+      showToast,
     });
   };
 
