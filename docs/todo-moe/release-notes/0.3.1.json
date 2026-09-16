@@ -19,7 +19,7 @@
   "validation": [
     "Dev vc49 定向 Mobile 60 项、Core 236 项；UTC Core 3876 pass / 8 skip、Mobile 296 files / 2923 tests、类型、lint、国际化和补丁检查通过。",
     "USB zizhan 从 vc48 覆盖到 vc49；项目归档后菜单关闭和只读态、重新激活、单向滑动、完成撤销及 5 项快速上手清单状态恢复实测通过。",
-    "PR #12 的 27f4be4c 远端检查为 14 successful、3 skipped、0 failure；正式发布工作流还会对合并后的批准源码重新检查、构建、签名并回读产物身份。"
+    "PR #12 的 27f4be4c 远端检查为 14 successful、3 skipped、0 failure；正式发布工作流 35064591234 已从合并提交 b8ac5d62 重新检查、构建、隔离签名、回读产物身份并公开发布。"
   ],
   "versionRecord": "docs/todo-moe/docs/versions/0.3.1-release-candidate-vc50-2026-09-16.md"
 }
