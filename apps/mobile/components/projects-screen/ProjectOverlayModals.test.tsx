@@ -3,6 +3,7 @@ import renderer from 'react-test-renderer';
 import { Alert } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProjectImagePreviewModal } from './ProjectOverlayModals';
+import { projectsScreenStyles } from './projects-screen.styles';
 
 const sharingMocks = vi.hoisted(() => ({
   isAvailableAsync: vi.fn(async () => true),
@@ -10,6 +11,9 @@ const sharingMocks = vi.hoisted(() => ({
 }));
 
 vi.mock('expo-sharing', () => sharingMocks);
+vi.mock('@/moe/glass/MoeGlassPanel', () => ({
+  MoeGlassPanel: ({ children, ...props }: any) => React.createElement('MoeGlassPanel', props, children),
+}));
 
 beforeEach(() => {
   sharingMocks.isAvailableAsync.mockReset().mockResolvedValue(true);
@@ -67,5 +71,8 @@ describe('ProjectImagePreviewModal', () => {
 
     expect(sharingMocks.isAvailableAsync).toHaveBeenCalledTimes(1);
     expect(alertSpy).toHaveBeenCalledWith('Attachments', 'Share unavailable');
+    const glassPanel = tree.root.findByType('MoeGlassPanel' as any);
+    expect(glassPanel.props.active).toBe(true);
+    expect(glassPanel.parent?.parent?.props.style).toBe(projectsScreenStyles.previewCardFrame);
   });
 });

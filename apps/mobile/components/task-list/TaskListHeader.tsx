@@ -5,6 +5,7 @@ import { ArrowUpDown, Folder, SlidersHorizontal, X } from 'lucide-react-native';
 import { AppPressable } from '../app-pressable';
 import { moeHaptic } from '../../moe/haptics';
 import { styles } from './task-list.styles';
+import { MoeGlassPanel } from '../../moe/glass/MoeGlassPanel';
 
 type ThemeColors = {
   border: string;
@@ -124,7 +125,7 @@ export function TaskListHeader({
   return (
     <>
       {showHeader ? (
-        <View style={[styles.header, { borderBottomColor: themeColors.border, backgroundColor: themeColors.cardBg }]}>
+        <MoeGlassPanel cornerRadius={0} style={[styles.header, { borderBottomColor: themeColors.border }]}>
           <View style={styles.headerTopRow}>
             <Text style={[styles.title, { color: themeColors.text }]} accessibilityRole="header" numberOfLines={1}>
               {title}
@@ -139,9 +140,9 @@ export function TaskListHeader({
             {filterControl}
             {headerAccessory}
           </View>
-        </View>
+        </MoeGlassPanel>
       ) : sortControl || groupControl || filterControl || headerAccessory ? (
-        <View style={styles.headerAccessoryRow}>
+        <MoeGlassPanel cornerRadius={0} style={styles.headerAccessoryRow}>
           <View style={styles.headerAccessoryLeft}>
             <View style={styles.headerAccessoryControls}>
               {sortControl}
@@ -152,11 +153,11 @@ export function TaskListHeader({
           <View style={styles.headerAccessoryRight}>
             {headerAccessory}
           </View>
-        </View>
+        </MoeGlassPanel>
       ) : null}
 
       {activeFilterChips.length > 0 ? (
-        <View style={[styles.filterSection, { borderBottomColor: themeColors.border, backgroundColor: themeColors.cardBg }]}>
+        <MoeGlassPanel cornerRadius={0} style={[styles.filterSection, { borderBottomColor: themeColors.border }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
             {activeFilterChips.map((chip) => {
               const accent = chip.excluded ? themeColors.danger : themeColors.tint;
@@ -200,7 +201,7 @@ export function TaskListHeader({
               </Text>
             </AppPressable>
           </ScrollView>
-        </View>
+        </MoeGlassPanel>
       ) : null}
     </>
   );

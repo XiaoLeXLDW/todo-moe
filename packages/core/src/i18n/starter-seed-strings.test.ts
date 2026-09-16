@@ -21,4 +21,10 @@ describe('generated starter seed strings', () => {
         expect(Object.keys(strings).sort()).toEqual([...starterKeys].sort());
         expect(Object.values(strings).filter((value) => !value)).toEqual([]);
     });
+
+    it('uses Tibo in the English and Chinese sample reply titles', () => {
+        expect(STARTER_SEED_STRINGS.en['starter.sampleReplySam']).toBe('Reply to Tibo');
+        expect(STARTER_SEED_STRINGS.zh['starter.sampleReplySam']).toBe('回复 Tibo');
+        expect(STARTER_SEED_STRINGS['zh-Hant']['starter.sampleReplySam']).toBe('回覆 Tibo');
+    });
 });

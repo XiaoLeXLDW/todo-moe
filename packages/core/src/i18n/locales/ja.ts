@@ -824,6 +824,8 @@ export const jaOverrides: Record<string, string> = {
         'projects.archiveFailed': 'プロジェクトをアーカイブできませんでした',
         'projects.reactivateFailed': 'プロジェクトを再開できませんでした',
         'projects.createFailed': 'プロジェクトを作成できませんでした',
+        'projects.updateFailed': 'リストを更新できませんでした。',
+        'projects.sectionSaveFailed': 'セクションを保存できませんでした。',
         'projects.createAreaFailed': 'エリアを作成できませんでした',
         'projects.collapseSidebar': 'プロジェクトパネルを折りたたむ',
         'projects.resizeSidebar': 'プロジェクトパネルの幅を変更',

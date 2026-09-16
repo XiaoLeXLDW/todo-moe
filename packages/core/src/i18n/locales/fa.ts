@@ -796,6 +796,8 @@ export const faOverrides: Record<string, string> = {
         'projects.archiveFailed': 'بایگانی پروژه ناموفق بود',
         'projects.reactivateFailed': 'فعال‌سازی مجدد پروژه ناموفق بود',
         'projects.createFailed': 'ایجاد پروژه ناموفق بود',
+        'projects.updateFailed': 'به‌روزرسانی فهرست ممکن نشد.',
+        'projects.sectionSaveFailed': 'ذخیره بخش ممکن نشد.',
         'projects.createAreaFailed': 'ایجاد حوزه ناموفق بود',
         'projects.collapseSidebar': 'جمع کردن پنل پروژه‌ها',
         'projects.resizeSidebar': 'تغییر اندازه پنل پروژه‌ها',

@@ -134,7 +134,9 @@ const initialData = (): AppData => ({
     sections: [section()],
     areas: [],
     people: [],
-    settings: { deviceId: 'device-a' },
+    // Auto-archive is unrelated to this durability scenario. Disable it so
+    // the fixed completion fixture does not change meaning as real time moves.
+    settings: { deviceId: 'device-a', gtd: { autoArchiveDays: 0 } },
 });
 
 describeSqlite('task-driven project reactivation SQLite durability', () => {

@@ -1,10 +1,11 @@
 import React from 'react';
 import { Image, Modal, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { type Attachment } from '@mindwtr/core';
-import { logError } from '../../lib/app-log';
-import { shareFileWithFeedback } from '../../lib/share-file-with-feedback';
 
 import { projectsScreenStyles as styles } from '@/components/projects-screen/projects-screen.styles';
+import { MoeGlassPanel } from '@/moe/glass/MoeGlassPanel';
+import { logError } from '../../lib/app-log';
+import { shareFileWithFeedback } from '../../lib/share-file-with-feedback';
 import { useAndroidKeyboardInset } from '../../lib/use-android-keyboard-inset';
 
 type ThemeColors = {
@@ -53,7 +54,7 @@ export function ProjectLinkModal({
             onRequestClose={onClose}
         >
             <View style={keyboardInset > 0 ? [styles.overlay, { paddingBottom: keyboardInset }] : styles.overlay}>
-                <View style={[styles.linkModalCard, { backgroundColor: tc.cardBg, borderColor: tc.border }]}>
+                <MoeGlassPanel active={visible} cornerRadius={12} style={[styles.linkModalCard, { borderColor: tc.border }]}>
                     <Text style={[styles.linkModalTitle, { color: tc.text }]}>{t('attachments.addLink')}</Text>
                     <TextInput
                         value={linkInput}
@@ -84,7 +85,7 @@ export function ProjectLinkModal({
                             <Text style={[styles.linkModalButtonText, { color: tc.tint }]}>{t('common.save')}</Text>
                         </TouchableOpacity>
                     </View>
-                </View>
+                </MoeGlassPanel>
             </View>
         </Modal>
     );
@@ -114,9 +115,10 @@ export function ProjectImagePreviewModal({
         >
             <Pressable style={styles.overlay} onPress={onClose}>
                 <Pressable
-                    style={[styles.previewCard, { backgroundColor: tc.cardBg, borderColor: tc.border }]}
+                    style={styles.previewCardFrame}
                     onPress={(event) => event.stopPropagation()}
                 >
+                    <MoeGlassPanel active={visible} cornerRadius={12} style={[styles.previewCard, { borderColor: tc.border }]}>
                     <View style={styles.previewHeader}>
                         <Text style={[styles.previewTitle, { color: tc.text }]} numberOfLines={1}>
                             {attachment?.title || t('attachments.title')}
@@ -148,6 +150,7 @@ export function ProjectImagePreviewModal({
                     ) : (
                         <Text style={[styles.helperText, { color: tc.secondaryText }]}>{t('attachments.missing')}</Text>
                     )}
+                    </MoeGlassPanel>
                 </Pressable>
             </Pressable>
         </Modal>
@@ -192,9 +195,9 @@ export function ProjectTagPickerModal({
                 onPress={onClose}
             >
                 <Pressable
-                    style={[styles.pickerCard, { backgroundColor: tc.cardBg, borderColor: tc.border }]}
                     onPress={(event) => event.stopPropagation()}
                 >
+                    <MoeGlassPanel active={visible} cornerRadius={14} style={[styles.pickerCard, { borderColor: tc.border }]}>
                     <Text style={[styles.linkModalTitle, { color: tc.text }]}>{t('taskEdit.tagsLabel')}</Text>
                     <View style={[styles.tagInputRow, { borderColor: tc.border, backgroundColor: tc.inputBg }]}>
                         <TextInput
@@ -233,6 +236,7 @@ export function ProjectTagPickerModal({
                             );
                         })}
                     </View>
+                    </MoeGlassPanel>
                 </Pressable>
             </Pressable>
         </Modal>

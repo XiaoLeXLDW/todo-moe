@@ -3,11 +3,12 @@ import { Modal, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View }
 import { Ban } from 'lucide-react-native';
 import { tFallback, type Area, type Project } from '@mindwtr/core';
 
+import { MoeFolderIcon } from '@/moe/MoeFolderIcon';
+import { MoeGlassPanel } from '@/moe/glass/MoeGlassPanel';
 import { projectsScreenStyles as styles } from './projects-screen.styles';
 import { applyLiveProjectUpdate, getLiveMutableProject } from './project-meta-pickers';
 import { useAndroidKeyboardInset } from '../../lib/use-android-keyboard-inset';
 import { isActionFailure } from '../store-action-result';
-import { MoeFolderIcon } from '@/moe/MoeFolderIcon';
 
 type ThemeColors = {
     danger?: string;
@@ -49,7 +50,7 @@ type ProjectAreaModalsProps = {
     t: (key: string) => string;
     tc: ThemeColors;
     updateArea: (id: string, updates: Partial<Area>) => void | Promise<unknown>;
-    updateProject: (id: string, updates: Partial<Project>) => void;
+    updateProject: (id: string, updates: Partial<Project>) => Promise<unknown>;
 };
 
 export function ProjectAreaModals({
@@ -84,6 +85,20 @@ export function ProjectAreaModals({
     updateArea,
     updateProject,
 }: ProjectAreaModalsProps) {
+    const areaPickerSession = React.useRef({
+        projectId: selectedProject?.id ?? null,
+        visible: showAreaPicker,
+        revision: 0,
+    });
+    const selectedProjectId = selectedProject?.id ?? null;
+    if (areaPickerSession.current.projectId !== selectedProjectId
+        || areaPickerSession.current.visible !== showAreaPicker) {
+        areaPickerSession.current = {
+            projectId: selectedProjectId,
+            visible: showAreaPicker,
+            revision: areaPickerSession.current.revision + 1,
+        };
+    }
     const keyboardInset = useAndroidKeyboardInset(showAreaManager);
     const [editingAreaId, setEditingAreaId] = React.useState<string | null>(null);
     const [saving, setSaving] = React.useState(false);
@@ -107,14 +122,26 @@ export function ProjectAreaModals({
             dismissProjectPickers();
             return false;
         }
+        const projectId = selectedProject.id;
+        const sessionRevision = areaPickerSession.current.revision;
         return applyLiveProjectUpdate({
-            projectId: selectedProject.id,
+            projectId,
             updates: { areaId },
             updateProject,
             setSelectedProject: onSetSelectedProject,
+            isSelectionCurrent: () => (
+                areaPickerSession.current.projectId === projectId
+                && areaPickerSession.current.visible
+                && areaPickerSession.current.revision === sessionRevision
+            ),
             onBlocked: dismissProjectPickers,
+            onFailed: (message) => onShowToast({
+                title: tFallback(t, 'common.error', 'Error'),
+                message: message || tFallback(t, 'projects.updateFailed', 'Could not update list.'),
+                tone: 'error',
+            }),
         });
-    }, [dismissProjectPickers, onSetSelectedProject, selectedProject, updateProject]);
+    }, [dismissProjectPickers, onSetSelectedProject, onShowToast, selectedProject, t, updateProject]);
 
     React.useEffect(() => {
         if (standalone || selectedProject?.status !== 'archived') return;
@@ -164,9 +191,10 @@ export function ProjectAreaModals({
             >
                 <Pressable style={styles.overlay} onPress={() => onSetShowAreaPicker(false)}>
                     <Pressable
-                        style={[styles.pickerCard, { backgroundColor: tc.cardBg, borderColor: tc.border, maxHeight: pickerCardMaxHeight }]}
                         onPress={(event) => event.stopPropagation()}
                     >
+                        <MoeGlassPanel active={showAreaPicker} cornerRadius={14}
+                            style={[styles.pickerCard, { borderColor: tc.border, maxHeight: pickerCardMaxHeight }]}>
                         <Text style={[styles.linkModalTitle, { color: tc.text }]}>{t('projects.areaLabel')}</Text>
                         <TouchableOpacity
                             style={[styles.pickerRow, { borderColor: tc.border }]}
@@ -185,9 +213,8 @@ export function ProjectAreaModals({
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.pickerRow, { borderColor: tc.border }]}
-                            onPress={() => {
-                                if (!setProjectArea(undefined)) return;
-                                onSetShowAreaPicker(false);
+                            onPress={async () => {
+                                if (await setProjectArea(undefined)) onSetShowAreaPicker(false);
                             }}
                         >
                             <Text style={[styles.pickerRowText, { color: tc.text }]}>{t('projects.noArea')}</Text>
@@ -197,9 +224,8 @@ export function ProjectAreaModals({
                                 <TouchableOpacity
                                     key={area.id}
                                     style={[styles.pickerRow, { borderColor: tc.border }]}
-                                    onPress={() => {
-                                        if (!setProjectArea(area.id)) return;
-                                        onSetShowAreaPicker(false);
+                                    onPress={async () => {
+                                        if (await setProjectArea(area.id)) onSetShowAreaPicker(false);
                                     }}
                                 >
                                     <MoeFolderIcon icon={area.icon} color={area.color || tc.tint} />
@@ -207,6 +233,7 @@ export function ProjectAreaModals({
                                 </TouchableOpacity>
                             ))}
                         </ScrollView>
+                        </MoeGlassPanel>
                     </Pressable>
                 </Pressable>
             </Modal>
@@ -223,9 +250,10 @@ export function ProjectAreaModals({
                     onPress={saving ? undefined : onCloseAreaManager}
                 >
                     <Pressable
-                        style={[styles.pickerCard, { backgroundColor: tc.cardBg, borderColor: tc.border, maxHeight: pickerCardMaxHeight }]}
                         onPress={(event) => event.stopPropagation()}
                     >
+                        <MoeGlassPanel active={showAreaManager} cornerRadius={14}
+                            style={[styles.pickerCard, { borderColor: tc.border, maxHeight: pickerCardMaxHeight }]}>
                         <View style={styles.areaManagerHeader}>
                             <Text style={[styles.linkModalTitle, { color: tc.text }]}>{t('projects.areaLabel')}</Text>
                             <View style={styles.areaSortButtons}>
@@ -387,6 +415,7 @@ export function ProjectAreaModals({
                                 <Text style={[styles.linkModalButtonText, { color: tc.tint }]}>{t('common.save')}</Text>
                             </TouchableOpacity>
                         </View>
+                        </MoeGlassPanel>
                     </Pressable>
                 </Pressable>
             </Modal>

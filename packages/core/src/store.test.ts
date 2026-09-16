@@ -3382,7 +3382,7 @@ describe('TaskStore', () => {
             .filter((task) => task.status === 'inbox')
             .map((task) => task.title)
             .sort();
-        expect(sampleInboxTasks).toEqual(['Buy milk', 'Reply to Sam']);
+        expect(sampleInboxTasks).toEqual(['Buy milk', 'Reply to Tibo']);
 
         const secondResult = await useTaskStore.getState().seedGettingStarted();
         await flushPendingSave();
@@ -3390,6 +3390,53 @@ describe('TaskStore', () => {
         expect(secondResult).toEqual(firstResult);
         expect(useTaskStore.getState().projects.map((project) => project.title)).toEqual(['Getting Started']);
         expect(useTaskStore.getState().tasks).toHaveLength(9);
+    });
+
+    it.each([
+        ['en', 'Reply to Tibo'],
+        ['zh', '回复 Tibo'],
+        ['zh-Hant', '回覆 Tibo'],
+    ])('seeds the renamed sample reply title in %s', async (language, expectedTitle) => {
+        await useTaskStore.getState().seedGettingStarted({ language });
+        await flushPendingSave();
+
+        expect(useTaskStore.getState()._allTasks).toContainEqual(expect.objectContaining({
+            projectId: undefined,
+            status: 'inbox',
+            title: expectedTitle,
+        }));
+    });
+
+    it.each([
+        ['en', 'Reply to Tibo', 'Reply to Sam'],
+        ['zh', '回复 Tibo', '回复 Sam'],
+        ['zh-Hant', '回覆 Tibo', '回覆 Sam'],
+    ])('recognizes the legacy sample reply title when re-seeding in %s', async (language, currentTitle, legacyTitle) => {
+        await useTaskStore.getState().seedGettingStarted({ language });
+        await flushPendingSave();
+        const seededState = useTaskStore.getState();
+        const seededReply = seededState._allTasks.find((task) => task.title === currentTitle);
+        expect(seededReply).toBeTruthy();
+
+        const replaceTitle = (task: Task) => task.id === seededReply?.id ? { ...task, title: legacyTitle } : task;
+        const allTasks = seededState._allTasks.map(replaceTitle);
+        useTaskStore.setState({
+            tasks: seededState.tasks.map(replaceTitle),
+            _allTasks: allTasks,
+            _tasksById: buildEntityMap(allTasks),
+        });
+
+        await useTaskStore.getState().seedGettingStarted({ language });
+        await flushPendingSave();
+
+        const replySamples = useTaskStore.getState()._allTasks.filter((task) => (
+            !task.deletedAt
+            && !task.projectId
+            && task.status === 'inbox'
+            && (task.title === currentTitle || task.title === legacyTitle)
+        ));
+        expect(replySamples).toHaveLength(1);
+        expect(replySamples[0]).toMatchObject({ id: seededReply?.id, title: legacyTitle });
     });
 
     it('reports getting started success only after the seeded snapshot is durable', async () => {

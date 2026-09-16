@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "version": "0.3.1",
+  "changes": [
+    "修复清单元数据、分组和跨分组移动失败时仍继续更新界面的问题，让写入结果、回滚与提示保持一致。",
+    "统一任务行与清单卡片的单方向左滑动作轨；右滑不再触发操作，多选和只读状态会使旧回调失效。",
+    "完成与删除共用最新撤销槽，修复普通提示积压、错误提示被阻塞及异步撤销过早收起。",
+    "修复项目归档成功后详情菜单不关闭、文件夹和标签过期回调污染当前项目，并补齐归档后的重新激活闭环。",
+    "快速上手示例在英文、简体中文和繁体中文中改为 Tibo；历史 Sam 示例仅作为防重复兼容标识，不批量改写用户任务。"
+  ],
+  "knownIssues": [
+    "Dev 与 Stable 使用不同包名且不会自动共享数据；从 Dev 迁移到 Stable 前应先导出备份，再在 Stable 恢复并核对。",
+    "本轮代表性真机验收来自 Xiaomi MIX Fold 2 / Android 15，不代表所有 Android 设备、无障碍组合或长期功耗表现。",
+    "任务同步仍按本轮 local-only 边界保持未启用；后续启用具体后端时需单独验证对端、冲突合并与恢复。"
+  ],
+  "supportedDevices": [
+    "Android arm64-v8a，最低 API24；本轮真实升级与交互证据来自 Xiaomi MIX Fold 2 / Android 15。"
+  ],
+  "validation": [
+    "Dev vc49 定向 Mobile 60 项、Core 236 项；UTC Core 3876 pass / 8 skip、Mobile 296 files / 2923 tests、类型、lint、国际化和补丁检查通过。",
+    "USB zizhan 从 vc48 覆盖到 vc49；项目归档后菜单关闭和只读态、重新激活、单向滑动、完成撤销及 5 项快速上手清单状态恢复实测通过。",
+    "PR #12 的 27f4be4c 远端检查为 14 successful、3 skipped、0 failure；正式发布工作流还会对合并后的批准源码重新检查、构建、签名并回读产物身份。"
+  ],
+  "versionRecord": "docs/todo-moe/docs/versions/0.3.1-release-candidate-vc50-2026-09-16.md"
+}

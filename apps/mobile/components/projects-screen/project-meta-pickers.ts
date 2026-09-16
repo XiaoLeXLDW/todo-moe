@@ -3,6 +3,7 @@ import { ActionSheetIOS, Alert, Keyboard, Platform } from 'react-native';
 
 import type { ToastOptions } from '@/contexts/toast-context';
 import { normalizeProjectTag } from '@/components/projects-screen/projects-screen.utils';
+import { settleStoreAction } from '../store-action-result';
 
 type AreaColorMeta = {
     nameKey: string;
@@ -26,29 +27,49 @@ export const getLiveMutableProject = (
 
 export const applyLiveProjectUpdate = ({
     getProjectById = readLiveProject,
+    isSelectionCurrent,
     onBlocked,
+    onFailed,
     projectId,
     setSelectedProject,
     updateProject,
     updates,
 }: {
     getProjectById?: ProjectLookup;
+    isSelectionCurrent?: () => boolean;
     onBlocked?: () => void;
+    onFailed?: (message?: string) => void;
     projectId: string;
     setSelectedProject: (project: Project | null) => void;
-    updateProject: (id: string, updates: Partial<Project>) => unknown;
+    updateProject: (id: string, updates: Partial<Project>) => unknown | Promise<unknown>;
     updates: Partial<Project> | ((project: Project) => Partial<Project> | null);
-}): boolean => {
+}): Promise<boolean> => {
     const project = getLiveMutableProject(projectId, getProjectById);
     if (!project) {
-        onBlocked?.();
-        return false;
+        if (!isSelectionCurrent || isSelectionCurrent()) onBlocked?.();
+        return Promise.resolve(false);
     }
     const patch = typeof updates === 'function' ? updates(project) : updates;
-    if (!patch) return false;
-    updateProject(project.id, patch);
-    setSelectedProject({ ...project, ...patch });
-    return true;
+    if (!patch) return Promise.resolve(false);
+    return settleStoreAction(() => updateProject(project.id, patch)).then((outcome) => {
+        if (!outcome.ok) {
+            onFailed?.(outcome.message);
+            return false;
+        }
+        // A result for a picker that has since closed or switched projects must
+        // not dismiss or otherwise mutate the newer picker session.
+        if (isSelectionCurrent && !isSelectionCurrent()) return false;
+        const current = getLiveMutableProject(project.id, getProjectById);
+        if (!current) {
+            onBlocked?.();
+            return false;
+        }
+        // The store write belongs to the project captured above, but the user
+        // may have closed it or opened another project while it was pending.
+        // Keep the successful write and suppress only its stale UI result.
+        setSelectedProject({ ...current, ...patch });
+        return true;
+    });
 };
 
 /**
@@ -83,6 +104,8 @@ type OpenProjectAreaPickerArgs = {
     areaUsage: Map<string, number>;
     colors: readonly string[];
     deleteArea: (id: string) => void;
+    getProjectById?: ProjectLookup;
+    isSelectionCurrent?: () => boolean;
     logProjectError: (message: string, error?: unknown) => void;
     selectedProject: Project | null;
     setSelectedProject: (project: Project | null) => void;
@@ -93,10 +116,12 @@ type OpenProjectAreaPickerArgs = {
     sortedAreas: Area[];
     t: TranslateFn;
     updateArea: (id: string, updates: Partial<Area>) => Promise<unknown>;
-    updateProject: (id: string, updates: Partial<Project>) => void;
+    updateProject: (id: string, updates: Partial<Project>) => Promise<unknown>;
 };
 
 type OpenProjectTagPickerArgs = {
+    getProjectById?: ProjectLookup;
+    isSelectionCurrent?: () => boolean;
     projectTagOptions: string[];
     selectedProject: Project | null;
     setSelectedProject: (project: Project | null) => void;
@@ -104,7 +129,8 @@ type OpenProjectTagPickerArgs = {
     setTagDraft: (value: string) => void;
     t: TranslateFn;
     toggleProjectTag: (tag: string) => void;
-    updateProject: (id: string, updates: Partial<Project>) => void;
+    updateProject: (id: string, updates: Partial<Project>) => Promise<unknown>;
+    showToast: (toast: ToastOptions) => void;
 };
 
 export const openProjectAreaPicker = ({
@@ -112,6 +138,8 @@ export const openProjectAreaPicker = ({
     areaUsage,
     colors,
     deleteArea,
+    getProjectById,
+    isSelectionCurrent,
     logProjectError,
     selectedProject,
     setSelectedProject,
@@ -139,11 +167,18 @@ export const openProjectAreaPicker = ({
     const changeColorLabel = translateWithFallback(t, 'projects.changeColor', 'Change color');
 
     const setProjectArea = (areaId?: string) => applyLiveProjectUpdate({
+        getProjectById,
+        isSelectionCurrent,
         projectId: selectedProject.id,
         updates: { areaId },
         updateProject,
         setSelectedProject,
         onBlocked: () => setShowAreaPicker(false),
+        onFailed: (message) => showToast({
+            title: tFallback(t, 'common.error', 'Error'),
+            message: message || tFallback(t, 'projects.updateFailed', 'Could not update list.'),
+            tone: 'error',
+        }),
     });
 
     const createAreaWithColor = (
@@ -273,7 +308,7 @@ export const openProjectAreaPicker = ({
                 if (manageIndex === 0) return;
                 if (manageIndex === 1) {
                     createAreaWithColor((created) => {
-                        setProjectArea(created.id);
+                        void setProjectArea(created.id);
                     }, 'Failed to create area from iOS manager');
                     return;
                 }
@@ -354,12 +389,12 @@ export const openProjectAreaPicker = ({
         (buttonIndex) => {
             if (buttonIndex === 0) return;
             if (buttonIndex === 1) {
-                setProjectArea(undefined);
+                void setProjectArea(undefined);
                 return;
             }
             if (buttonIndex === 2) {
                 createAreaWithColor((created) => {
-                    setProjectArea(created.id);
+                    void setProjectArea(created.id);
                 }, 'Failed to create area from iOS action sheet');
                 return;
             }
@@ -369,12 +404,14 @@ export const openProjectAreaPicker = ({
             }
             const pickedArea = sortedAreas[buttonIndex - 4];
             if (!pickedArea) return;
-            setProjectArea(pickedArea.id);
+            void setProjectArea(pickedArea.id);
         }
     );
 };
 
 export const openProjectTagPicker = ({
+    getProjectById,
+    isSelectionCurrent,
     projectTagOptions,
     selectedProject,
     setSelectedProject,
@@ -383,6 +420,7 @@ export const openProjectTagPicker = ({
     t,
     toggleProjectTag,
     updateProject,
+    showToast,
 }: OpenProjectTagPickerArgs) => {
     Keyboard.dismiss();
 
@@ -419,7 +457,9 @@ export const openProjectTagPicker = ({
                             onPress: (value?: string) => {
                                 const normalized = normalizeProjectTag(value ?? '');
                                 if (!normalized) return;
-                                applyLiveProjectUpdate({
+                                void applyLiveProjectUpdate({
+                                    getProjectById,
+                                    isSelectionCurrent,
                                     projectId: selectedProject.id,
                                     updates: (project) => ({
                                         tagIds: Array.from(new Set([...(project.tagIds || []), normalized])),
@@ -427,6 +467,11 @@ export const openProjectTagPicker = ({
                                     updateProject,
                                     setSelectedProject,
                                     onBlocked: () => setShowTagPicker(false),
+                                    onFailed: (message) => showToast({
+                                        title: tFallback(t, 'common.error', 'Error'),
+                                        message: message || tFallback(t, 'projects.updateFailed', 'Could not update list.'),
+                                        tone: 'error',
+                                    }),
                                 });
                             },
                         },
@@ -436,12 +481,19 @@ export const openProjectTagPicker = ({
                 return;
             }
             if (buttonIndex === 2) {
-                applyLiveProjectUpdate({
+                void applyLiveProjectUpdate({
+                    getProjectById,
+                    isSelectionCurrent,
                     projectId: selectedProject.id,
                     updates: { tagIds: [] },
                     updateProject,
                     setSelectedProject,
                     onBlocked: () => setShowTagPicker(false),
+                    onFailed: (message) => showToast({
+                        title: tFallback(t, 'common.error', 'Error'),
+                        message: message || tFallback(t, 'projects.updateFailed', 'Could not update list.'),
+                        tone: 'error',
+                    }),
                 });
                 return;
             }

@@ -4,6 +4,7 @@ import { Alert, Text } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ProjectRow } from './ProjectRow';
+import { MoeSwipeActionsTrack } from '@/moe/MoeSwipeActionsTrack';
 
 const hapticsMocks = vi.hoisted(() => ({
   impactAsync: vi.fn().mockResolvedValue(undefined),
@@ -27,15 +28,20 @@ vi.mock('lucide-react-native', () => ({
   Trash2: (props: any) => React.createElement('Trash2', props),
 }));
 
+vi.mock('@/components/app-pressable', () => ({
+  AppPressable: ({ children, ...props }: any) => React.createElement('AppPressable', props, children),
+}));
+
 vi.mock('react-native-gesture-handler', () => ({
   Swipeable: React.forwardRef(function SwipeableMock({ children, renderLeftActions, renderRightActions, ...props }: any, ref: any) {
     React.useImperativeHandle(ref, () => ({ close: () => undefined }));
+    const animated = { interpolate: (config: unknown) => ({ config }) };
     return React.createElement(
       'Swipeable',
       props,
-      renderLeftActions ? renderLeftActions() : null,
+      renderLeftActions ? renderLeftActions(animated, animated) : null,
       children,
-      renderRightActions ? renderRightActions() : null,
+      renderRightActions ? renderRightActions(animated, animated) : null,
     );
   }),
 }));
@@ -68,7 +74,7 @@ describe('ProjectRow', () => {
     vi.clearAllMocks();
   });
 
-  it('requires a deliberate horizontal drag before opening project swipe actions', () => {
+  it('uses one-way left swiping for project actions', () => {
     let tree!: renderer.ReactTestRenderer;
     renderer.act(() => {
       tree = renderer.create(
@@ -88,11 +94,11 @@ describe('ProjectRow', () => {
 
     const swipeable = tree.root.find((node) => (node.type as unknown) === 'Swipeable');
     expect(swipeable.props.friction).toBe(1.25);
-    expect(swipeable.props.leftThreshold).toBe(72);
+    expect(swipeable.props.leftThreshold).toBeUndefined();
     expect(swipeable.props.rightThreshold).toBe(72);
-    expect(swipeable.props.dragOffsetFromLeftEdge).toBe(28);
+    expect(swipeable.props.dragOffsetFromLeftEdge).toBeUndefined();
     expect(swipeable.props.dragOffsetFromRightEdge).toBe(28);
-    expect(swipeable.props.overshootLeft).toBe(false);
+    expect(swipeable.props.overshootLeft).toBeUndefined();
     expect(swipeable.props.overshootRight).toBe(false);
   });
 
@@ -208,9 +214,8 @@ describe('ProjectRow', () => {
     expect(onDeleteProject).toHaveBeenCalledWith('project-1');
   });
 
-  it('exposes a duplicate action for project templates', () => {
+  it('reveals duplicate and delete together through the shared task-row action track', () => {
     const onDuplicateProject = vi.fn();
-
     let tree!: renderer.ReactTestRenderer;
     renderer.act(() => {
       tree = renderer.create(
@@ -228,9 +233,12 @@ describe('ProjectRow', () => {
       );
     });
 
+    expect(tree.root.findAllByType(MoeSwipeActionsTrack)).toHaveLength(1);
     const duplicateButton = tree.root.find((node) => node.props.testID === 'project-row-duplicate-project-1');
+    const deleteButton = tree.root.find((node) => node.props.testID === 'project-row-delete-project-1');
 
     expect(duplicateButton.props.accessibilityLabel).toBe('Duplicate');
+    expect(deleteButton.props.accessibilityLabel).toBe('common.delete');
 
     renderer.act(() => {
       duplicateButton.props.onPress();

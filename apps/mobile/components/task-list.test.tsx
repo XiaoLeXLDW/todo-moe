@@ -14,6 +14,7 @@ const flatListPropsSpy = vi.hoisted(() => vi.fn());
 const flatListScrollToIndexMock = vi.hoisted(() => vi.fn());
 const flatListScrollToOffsetMock = vi.hoisted(() => vi.fn());
 const rowRenderSpy = vi.hoisted(() => vi.fn());
+const showToastMock = vi.hoisted(() => vi.fn());
 const mobileAreaFilterState = vi.hoisted(() => ({
   current: {
     areaById: new Map<string, Area>(),
@@ -267,7 +268,7 @@ vi.mock('@/hooks/use-mobile-area-filter', () => ({
 
 vi.mock('@/contexts/toast-context', () => ({
   ToastViewport: () => null,
-  useToast: () => ({ showToast: vi.fn() }),
+  useToast: () => ({ showToast: showToastMock }),
 }));
 
 vi.mock('@/components/PullSyncIndicator', () => ({
@@ -1128,6 +1129,46 @@ describe('TaskList', () => {
     act(() => {
       tree.unmount();
     });
+  });
+
+  it('stops a cross-section reorder when moving the task reports failure', async () => {
+    const movedTask = makeTask('task-move', 'Move me', { sectionId: 'section-a' });
+    const peerTask = makeTask('task-peer', 'Peer', { sectionId: 'section-b' });
+    updateTaskMock.mockResolvedValue({ success: false, error: 'Task no longer exists' });
+    storeState.reorderProjectTasks.mockResolvedValue(undefined);
+    let tree!: ReturnType<typeof create>;
+    await act(async () => {
+      tree = create(
+        <TaskList
+          project={{ id: project.id, enableReorder: true, reorderMode: true }}
+          showHeader={false}
+          statusFilter="all"
+          taskSource={[movedTask, peerTask]}
+          title={project.title}
+        />,
+      );
+    });
+    const droppedData = [
+      { type: 'header', key: 'header-section-a', group: { id: 'section-a', sectionId: 'section-a', title: 'A', tasks: [] } },
+      { type: 'header', key: 'header-section-b', group: { id: 'section-b', sectionId: 'section-b', title: 'B', tasks: [] } },
+      { type: 'task', key: peerTask.id, task: peerTask },
+      { type: 'task', key: movedTask.id, task: movedTask },
+    ];
+
+    await act(async () => {
+      tree.root.findByType('DraggableFlatList' as unknown as React.ElementType).props.onDragEnd({
+        data: droppedData,
+        from: 1,
+        to: 3,
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(updateTaskMock).toHaveBeenCalledWith('task-move', { sectionId: 'section-b' });
+    expect(storeState.reorderProjectTasks).not.toHaveBeenCalled();
+    expect(showToastMock).toHaveBeenCalledWith(expect.objectContaining({ tone: 'error' }));
+    act(() => tree.unmount());
   });
 
   it('uses a single self-scrolling draggable list when a section-less project owns the scroll', async () => {

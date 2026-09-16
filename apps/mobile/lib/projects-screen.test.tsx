@@ -24,6 +24,10 @@ const taskEditModal = vi.hoisted(() => ({ props: null as Record<string, any> | n
 const focusEffect = vi.hoisted(() => ({ callback: null as null | (() => void | (() => void)) }));
 const consumePendingCaptureTaskOpenMock = vi.hoisted(() => vi.fn());
 const showToastMock = vi.hoisted(() => vi.fn());
+const projectPickerMocks = vi.hoisted(() => ({
+  openArea: vi.fn(),
+  openTag: vi.fn(),
+}));
 
 const createDeferred = <T,>() => {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -114,6 +118,8 @@ beforeEach(() => {
   focusEffect.callback = null;
   consumePendingCaptureTaskOpenMock.mockReset();
   consumePendingCaptureTaskOpenMock.mockReturnValue(null);
+  projectPickerMocks.openArea.mockReset();
+  projectPickerMocks.openTag.mockReset();
   storeState.projects = [testProject];
   storeState._allProjects = [testProject];
   storeState.tasks = [];
@@ -282,6 +288,14 @@ vi.mock('@/components/projects-screen/use-project-attachments', () => ({
 }));
 
 vi.mock('@/components/projects-screen/ProjectAreaModals', () => ({ ProjectAreaModals: () => null }));
+vi.mock('@/components/projects-screen/project-meta-pickers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/projects-screen/project-meta-pickers')>();
+  return {
+    ...actual,
+    openProjectAreaPicker: projectPickerMocks.openArea,
+    openProjectTagPicker: projectPickerMocks.openTag,
+  };
+});
 vi.mock('@/components/projects-screen/ProjectDetailModal', () => ({
   ProjectDetailModal: (props: Record<string, any>) => {
     detailModal.props = props;
@@ -389,6 +403,36 @@ describe('ProjectsScreen project quick add', () => {
     await act(async () => {
       tree.unmount();
     });
+  });
+
+  it('invalidates an iOS picker session when another project opens or the picker reopens', async () => {
+    const projectB: Project = { ...testProject, id: 'project-2', title: 'Project B' };
+    routeParams.current = { projectId: testProject.id };
+    storeState.projects = [testProject, projectB];
+    storeState._allProjects = [testProject, projectB];
+
+    let tree!: ReturnType<typeof create>;
+    await act(async () => {
+      tree = create(<ProjectsScreen />);
+      await Promise.resolve();
+    });
+
+    act(() => { detailModal.props?.onOpenAreaPicker?.(); });
+    const areaSession = projectPickerMocks.openArea.mock.calls[0]?.[0].isSelectionCurrent;
+    expect(areaSession?.()).toBe(true);
+
+    act(() => { detailModal.props?.onProjectChange?.(projectB); });
+    expect(areaSession?.()).toBe(false);
+
+    act(() => { detailModal.props?.onOpenTagPicker?.(); });
+    const firstTagSession = projectPickerMocks.openTag.mock.calls[0]?.[0].isSelectionCurrent;
+    expect(firstTagSession?.()).toBe(true);
+    act(() => { detailModal.props?.onOpenTagPicker?.(); });
+    const secondTagSession = projectPickerMocks.openTag.mock.calls[1]?.[0].isSelectionCurrent;
+    expect(firstTagSession?.()).toBe(false);
+    expect(secondTagSession?.()).toBe(true);
+
+    act(() => tree.unmount());
   });
 });
 
