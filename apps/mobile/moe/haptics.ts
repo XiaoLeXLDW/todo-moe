@@ -12,6 +12,8 @@ export const NotificationFeedbackType = {
 
 export type MoeHapticEvent =
   | 'selectionTick'
+  | 'checklistStepConfirmed'
+  | 'checklistStepReopened'
   | 'taskConfirmed'
   | 'undoReleased'
   | 'listCompleted'
@@ -67,11 +69,11 @@ const androidEvent = (event: MoeHapticEvent): Haptics.AndroidHaptics => {
   switch (event) {
     case 'taskConfirmed': case 'captureSaved': case 'listCompleted':
     case 'auditionSingle': case 'auditionTriple': return Haptics.AndroidHaptics.Confirm;
-    case 'undoReleased': case 'auditionDouble': return Haptics.AndroidHaptics.Gesture_End;
+    case 'undoReleased': case 'checklistStepReopened': case 'auditionDouble': return Haptics.AndroidHaptics.Gesture_End;
     case 'dragStarted': return Haptics.AndroidHaptics.Drag_Start;
     case 'deleteConfirmed': return Haptics.AndroidHaptics.Long_Press;
     case 'errorRejected': return Haptics.AndroidHaptics.Reject;
-    case 'selectionTick': case 'tabSelected': return Haptics.AndroidHaptics.Segment_Tick;
+    case 'selectionTick': case 'checklistStepConfirmed': case 'tabSelected': return Haptics.AndroidHaptics.Segment_Tick;
   }
 };
 
@@ -89,7 +91,7 @@ async function platformEvent(event: MoeHapticEvent) {
     }
     if (event === 'errorRejected') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     else if (event === 'listCompleted' || event === 'auditionTriple') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    else if (event === 'selectionTick' || event === 'tabSelected') await Haptics.selectionAsync();
+    else if (event === 'selectionTick' || event === 'checklistStepConfirmed' || event === 'checklistStepReopened' || event === 'tabSelected') await Haptics.selectionAsync();
     else await Haptics.impactAsync(strength === 'strong' ? Haptics.ImpactFeedbackStyle.Heavy : Haptics.ImpactFeedbackStyle.Rigid);
   } catch { /* Hardware feedback is optional and never blocks the action. */ }
 }

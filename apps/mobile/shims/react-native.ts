@@ -159,6 +159,8 @@ export const Dimensions = {
   get: () => ({ width: 390, height: 844 }),
 };
 
+export const useWindowDimensions = () => Dimensions.get();
+
 export const Keyboard = {
   addListener: () => ({ remove: () => {} }),
   dismiss: () => {},

@@ -2,6 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { createCompletionParticles } from './completion-particles';
 
 describe('completion particle trajectories', () => {
+  it('keeps checklist feedback compact and visibly below the parent task blast', () => {
+    const checklist = createCompletionParticles('checklist', 194, 'maximal');
+    const parent = createCompletionParticles('task', 194, 'maximal');
+    const furthest = (particles: ReturnType<typeof createCompletionParticles>) => Math.max(...particles.map(particle => (
+      Math.hypot(particle.x.at(-1)! - particle.x[0], particle.y.at(-1)! - particle.y[0])
+    )));
+
+    expect(checklist).toHaveLength(10);
+    expect(checklist.length).toBeLessThan(parent.length / 3);
+    expect(furthest(checklist)).toBeLessThan(furthest(parent) / 2);
+  });
+
   it.each(['task', 'list'] as const)('makes the maximal %s blast unmistakably denser and wider than Enhanced', variant => {
     const lively = createCompletionParticles(variant, 194, 'lively');
     const maximal = createCompletionParticles(variant, 194, 'maximal');

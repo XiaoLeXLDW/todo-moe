@@ -32,7 +32,7 @@ class MoeHapticsModule : Module() {
     if (!vibrator.hasVibrator()) return false
     val tick = VibrationEffect.Composition.PRIMITIVE_TICK
     val click = VibrationEffect.Composition.PRIMITIVE_CLICK
-    val needsTick = pattern in setOf("selectionTick", "undoReleased", "dragStarted", "tabSelected")
+    val needsTick = pattern in setOf("selectionTick", "checklistStepConfirmed", "checklistStepReopened", "undoReleased", "dragStarted", "tabSelected")
     if (!vibrator.areAllPrimitivesSupported(*(if (needsTick) intArrayOf(tick) else intArrayOf(click)))) {
       return root.performHapticFeedback(systemFeedback(pattern))
     }
@@ -61,8 +61,8 @@ class MoeHapticsModule : Module() {
   }
 
   private fun systemFeedback(pattern: String): Int = when (pattern) {
-    "selectionTick", "tabSelected" -> HapticFeedbackConstants.CLOCK_TICK
-    "undoReleased", "auditionDouble" -> if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.GESTURE_END else HapticFeedbackConstants.VIRTUAL_KEY
+    "selectionTick", "checklistStepConfirmed", "tabSelected" -> HapticFeedbackConstants.CLOCK_TICK
+    "checklistStepReopened", "undoReleased", "auditionDouble" -> if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.GESTURE_END else HapticFeedbackConstants.VIRTUAL_KEY
     "dragStarted" -> if (Build.VERSION.SDK_INT >= 34) HapticFeedbackConstants.DRAG_START else HapticFeedbackConstants.LONG_PRESS
     "deleteConfirmed" -> HapticFeedbackConstants.LONG_PRESS
     "errorRejected" -> if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.LONG_PRESS

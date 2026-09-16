@@ -409,6 +409,26 @@ describe('TaskList', () => {
     });
   });
 
+  it('keeps checklist progress available in the inbox task list', async () => {
+    const listTask = makeTask('list-inbox', 'Inbox checklist', {
+      projectId: undefined,
+      status: 'inbox',
+      taskMode: 'list',
+      checklist: [{ id: 'step-1', title: 'First step', isCompleted: false }],
+    });
+    storeState.tasks = [listTask];
+    storeState._allTasks = [listTask];
+
+    let tree!: ReturnType<typeof create>;
+    await act(async () => {
+      tree = create(<TaskList statusFilter="inbox" title="Inbox" taskSource={[listTask]} showHeader={false} />);
+    });
+
+    const row = tree.root.findByType('SwipeableTaskItem' as any);
+    expect(row.props.hideChecklistProgress).toBe(false);
+    act(() => tree.unmount());
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
   });

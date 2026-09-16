@@ -1,12 +1,13 @@
 import React from 'react';
-import { type CellRendererProps } from 'react-native';
+import { StyleSheet, type CellRendererProps } from 'react-native';
 import Animated, { withTiming, type LayoutAnimationsValues } from 'react-native-reanimated';
 import { useReducedMotion } from '../hooks/use-reduced-motion';
 import { useMoePreferences } from './preferences';
 import { resolveMoeCompletionMotion } from './completion-motion';
-import { useMoeCompletionLayoutGate } from './MoeCompletionFeedback';
+import { useMoeCompletionLayoutGate, useMoeInteractiveLayoutUntil } from './MoeCompletionFeedback';
 
 type CompletionCellProps = Pick<CellRendererProps<unknown>, 'children' | 'style' | 'onLayout' | 'onFocusCapture'> & { item?: unknown };
+const INTERACTIVE_LAYOUT_MS = 180;
 
 // Keep the native cell ancestor alive while a completed child exits. Forward
 // VirtualizedList's measurement and focus handlers without changing its data.
@@ -15,10 +16,12 @@ export function MoeCompletionCell({ children, style, onLayout, onFocusCapture }:
     const preferences = useMoePreferences();
     const motion = resolveMoeCompletionMotion(preferences.motion, reduced);
     const gate = useMoeCompletionLayoutGate();
+    const interactiveLayoutUntil = useMoeInteractiveLayoutUntil();
     const layout = React.useMemo(() => motion.reduced ? undefined : (values: LayoutAnimationsValues) => {
         'worklet';
         const state = gate?.value;
         const epoch = state?.epoch ?? 0;
+        const interactive = Boolean(interactiveLayoutUntil && Date.now() < interactiveLayoutUntil.value);
         const target = { originX: values.targetOriginX, originY: values.targetOriginY,
             width: values.targetWidth, height: values.targetHeight };
         if (state && (state.pending || Date.now() < state.until)) return { initialValues: target, animations: target };
@@ -28,21 +31,39 @@ export function MoeCompletionCell({ children, style, onLayout, onFocusCapture }:
         const easing = (progress: number) => {
             const latest = gate?.value;
             if (latest && (latest.epoch !== epoch || latest.pending || Date.now() < latest.until)) return 1;
+            if (interactive) {
+                const remaining = 1 - progress;
+                return 1 - (remaining * remaining * remaining);
+            }
             const hold = motion.confirmationHold;
             return Math.min(1, Math.max(0, (progress - hold) / (1 - hold)));
         };
-        const config = { duration: motion.exitMs, easing };
+        const config = { duration: interactive ? INTERACTIVE_LAYOUT_MS : motion.exitMs, easing };
         return {
             initialValues: { originX: values.currentOriginX, originY: values.currentOriginY,
                 width: values.currentWidth, height: values.currentHeight },
             animations: { originX: withTiming(target.originX, config), originY: withTiming(target.originY, config),
                 width: withTiming(target.width, config), height: withTiming(target.height, config) },
         };
-    }, [gate, motion.reduced, motion.exitMs, motion.confirmationHold]);
-    const viewProps = { style, onLayout, onFocusCapture };
+    }, [gate, interactiveLayoutUntil, motion.reduced, motion.exitMs, motion.confirmationHold]);
+    // A checklist's children commit at their final height immediately while
+    // this native cell and its following neighbor animate to their new frames.
+    // Clip to the cell's in-flight height so the new children reveal with the
+    // expansion instead of painting over the next task for a few frames.
+    const viewProps = {
+        style: motion.reduced ? style : [style, styles.layoutClip],
+        onLayout,
+        onFocusCapture,
+    };
     return (
         <Animated.View {...viewProps} collapsable={false} layout={layout}>
             {children}
         </Animated.View>
     );
 }
+
+const styles = StyleSheet.create({
+    layoutClip: {
+        overflow: 'hidden',
+    },
+});

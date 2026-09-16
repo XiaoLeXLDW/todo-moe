@@ -1,4 +1,4 @@
-export type CompletionParticleVariant = 'task' | 'list';
+export type CompletionParticleVariant = 'checklist' | 'task' | 'list';
 export type CompletionParticleProfile = 'lively' | 'maximal';
 export type CompletionParticleShape = 'tile' | 'triangle' | 'sliver' | 'fleck';
 
@@ -40,15 +40,16 @@ export function createCompletionParticles(
 ): CompletionParticle[] {
   const random = seededRandom(seed);
   const isList = variant === 'list';
+  const isChecklist = variant === 'checklist';
   const maximal = profile === 'maximal';
   const directionOffset = random() * Math.PI * 2;
-  const particleCount = isList ? (maximal ? 96 : 54) : (maximal ? 52 : 28);
+  const particleCount = isChecklist ? 10 : isList ? (maximal ? 96 : 54) : (maximal ? 52 : 28);
   return Array.from({ length: particleCount }, (_, id) => {
     const choice = random();
     const shape: CompletionParticleShape = choice < 0.35 ? 'triangle' : choice < 0.7 ? 'tile' : choice < 0.88 ? 'sliver' : 'fleck';
     const small = shape === 'fleck' || shape === 'sliver';
-    const size = (isList ? (maximal ? 8.5 : 6) : (maximal ? 6.5 : 4.5))
-      + random() * (isList ? (maximal ? 11 : 7) : (maximal ? 9 : 5));
+    const size = (isChecklist ? 2.6 : isList ? (maximal ? 8.5 : 6) : (maximal ? 6.5 : 4.5))
+      + random() * (isChecklist ? 3.4 : isList ? (maximal ? 11 : 7) : (maximal ? 9 : 5));
     const width = shape === 'fleck'
       ? (maximal ? 2.5 : 2) + random() * (maximal ? 3 : 2)
       : shape === 'sliver' ? (maximal ? 2.6 : 2) + random() * (maximal ? 2 : 1.5) : size;
@@ -56,15 +57,15 @@ export function createCompletionParticles(
     // Jitter a distributed set of directions. No shared radius or radial lines:
     // every shard has its own launch point, drag, spin, delay and gravity.
     const angle = directionOffset + id * GOLDEN_ANGLE + (random() - 0.5) * 1.2;
-    const distance = (isList ? (maximal ? 210 : 135) : (maximal ? 118 : 72))
-      + random() * (isList ? (maximal ? 230 : 115) : (maximal ? 142 : 62));
+    const distance = (isChecklist ? 20 : isList ? (maximal ? 210 : 135) : (maximal ? 118 : 72))
+      + random() * (isChecklist ? 24 : isList ? (maximal ? 230 : 115) : (maximal ? 142 : 62));
     const velocityX = Math.cos(angle) * distance;
-    const velocityY = Math.sin(angle) * distance - (isList ? (maximal ? 105 : 55) : (maximal ? 28 : 12));
-    const originSpread = maximal ? 36 : 22;
+    const velocityY = Math.sin(angle) * distance - (isChecklist ? 5 : isList ? (maximal ? 105 : 55) : (maximal ? 28 : 12));
+    const originSpread = isChecklist ? 7 : maximal ? 36 : 22;
     const originX = (random() - 0.5) * originSpread;
     const originY = (random() - 0.5) * originSpread;
-    const gravity = (isList ? (maximal ? 240 : 180) : (maximal ? 50 : 36))
-      + random() * (isList ? (maximal ? 170 : 95) : (maximal ? 90 : 35));
+    const gravity = (isChecklist ? 16 : isList ? (maximal ? 240 : 180) : (maximal ? 50 : 36))
+      + random() * (isChecklist ? 20 : isList ? (maximal ? 170 : 95) : (maximal ? 90 : 35));
     const drag = (maximal ? 2.7 : 3.8) + random() * (maximal ? 2.1 : 2.7);
     const delay = small
       ? (maximal ? 0.012 : 0.025) + random() * (maximal ? 0.05 : 0.075)

@@ -257,7 +257,13 @@ export const projectsScreenStyles = StyleSheet.create({
     projectContainerChip: { minHeight: 44, maxWidth: '100%', borderWidth: 1, borderRadius: MOE_VISUAL.cardRadius, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 8, flexShrink: 1 },
     projectContainerText: { fontSize: 13, flexShrink: 1, minWidth: 0 },
     areaRenameButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
-    areaEditorHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 12 },
+    areaEditorHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+    areaEditorSection: {
+        borderTopWidth: StyleSheet.hairlineWidth,
+        marginTop: 12,
+        paddingTop: 14,
+        gap: 12,
+    },
     projectTagDots: {
         flexDirection: 'row',
         gap: 4,
@@ -835,14 +841,17 @@ export const projectsScreenStyles = StyleSheet.create({
         paddingBottom: 8,
     },
     areaManagerHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 8,
+        alignItems: 'stretch',
+        gap: 10,
+        marginBottom: 4,
+    },
+    areaManagerTitle: {
+        marginBottom: 0,
     },
     areaSortButtons: {
         flexDirection: 'row',
         alignItems: 'center',
+        flexWrap: 'wrap',
         gap: 6,
     },
     areaSortButton: {
@@ -926,12 +935,17 @@ export const projectsScreenStyles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '700',
     },
+    pickerFrame: {
+        width: '100%',
+        maxWidth: 420,
+    },
     pickerCard: {
+        width: '100%',
         padding: MOE_VISUAL.pageGutter,
         borderRadius: MOE_VISUAL.cardRadius,
         borderWidth: 1,
         minWidth: 280,
-        maxWidth: 360,
+        maxWidth: 420,
     },
     pickerRow: {
         flexDirection: 'row',

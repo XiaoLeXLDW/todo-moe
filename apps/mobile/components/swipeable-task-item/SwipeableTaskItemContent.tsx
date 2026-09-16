@@ -1,6 +1,6 @@
-import React, { type ReactNode, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View, type ViewStyle } from 'react-native';
-import { CircleDot, History, Hourglass, ListChecks, Repeat } from 'lucide-react-native';
+import React, { type ReactNode, useMemo } from 'react';
+import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { CircleDot, History, Hourglass, ListChecks, Pencil, Repeat } from 'lucide-react-native';
 import { MOE_VISUAL } from '../../moe/visual-system';
 import { useStatusColors } from '../../hooks/use-status-colors';
 import {
@@ -33,6 +33,8 @@ import { MoeCompletionTitle } from '../../moe/MoeCompletionRow';
 import Reanimated from 'react-native-reanimated';
 import type { CompletionMeasureRefs } from '../../moe/MoeCompletionFeedback';
 import type { FeedbackAppearance } from '../../moe/MoeCompletionFeedbackState';
+import { MoeChecklistItem } from '../../moe/MoeChecklistItem';
+import { MoeChecklistProgress } from '../../moe/MoeChecklistProgress';
 
 interface SwipeableTaskItemContentProps {
     accessibilityActions: { label: string; name: string }[];
@@ -56,23 +58,24 @@ interface SwipeableTaskItemContentProps {
     showFocusHighlight: boolean;
     language: string;
     localChecklist: Task['checklist'];
+    checklistWriteDisabled?: boolean;
     interactionDisabled?: boolean;
     allowInspectionWhenDisabled?: boolean;
     onAccessibilityAction: (event: { nativeEvent: { actionName: string } }) => void;
-    onAddChecklistItem: (title: string) => void;
     onContextPress?: (context: string) => void;
     onEditCompletedAt?: () => void;
     onLongPress: () => void;
     onOpenStatusMenu: () => void;
     onPress: () => void;
     onComplete?: () => void;
+    onEditChecklist: () => void;
     completionPending?: boolean;
     completionMeasureRefs?: CompletionMeasureRefs;
     completionAppearanceRef?: React.MutableRefObject<FeedbackAppearance | null>;
     onProjectPress?: (projectId: string) => void;
     onTagPress?: (tag: string) => void;
     onToggleChecklist: () => void;
-    onToggleChecklistItem: (index: number) => void;
+    onToggleChecklistItem: (itemId: string) => void;
     onToggleFocus: () => void;
     projects: Project[];
     sectionById: Map<string, Section>;
@@ -111,14 +114,15 @@ export function SwipeableTaskItemContent({
     allowInspectionWhenDisabled = false,
     language,
     localChecklist,
+    checklistWriteDisabled = false,
     onAccessibilityAction,
-    onAddChecklistItem,
     onContextPress,
     onEditCompletedAt,
     onLongPress,
     onOpenStatusMenu,
     onPress,
     onComplete,
+    onEditChecklist,
     completionPending = false,
     completionMeasureRefs,
     completionAppearanceRef,
@@ -152,12 +156,11 @@ export function SwipeableTaskItemContent({
         };
     }, [areas, projects, sectionById, task.projectId, task.sectionId]);
 
-    // Draft text lives here, not in useSwipeableChecklist: it must never reach the
-    // pending-checklist flush, so an unsubmitted line is discarded with the row.
-    const [checklistDraft, setChecklistDraft] = useState('');
-    const checklistDraftRef = useRef<TextInput>(null);
-
     const resolvedDirection = resolveTaskTextDirection(task);
+    const editChecklistLabel = `${tFallback(t, 'common.edit', 'Edit')}: ${tFallback(t, 'taskEdit.checklist', 'Checklist')}`;
+    const canInspectChecklist = task.taskMode === 'list'
+        && task.status !== 'reference'
+        && Boolean(checklistProgress?.total);
     const textDirection = resolvedDirection === 'rtl' ? 'rtl' : 'ltr';
     const textAlign = resolvedDirection === 'rtl' ? 'right' : 'left';
     const timeEstimateLabel = (() => {
@@ -470,7 +473,7 @@ export function SwipeableTaskItemContent({
         );
     }
 
-    if (!hideChecklistProgress && checklistProgress) {
+    if (task.taskMode !== 'list' && !hideChecklistProgress && checklistProgress) {
         addMetaPart(
             <Pressable
                 key="checklist"
@@ -517,13 +520,13 @@ export function SwipeableTaskItemContent({
             onPress={onPress}
             onLongPress={onLongPress}
             delayLongPress={300}
-            disabled={interactionDisabled && !allowInspectionWhenDisabled}
+            disabled={interactionDisabled && !allowInspectionWhenDisabled && !canInspectChecklist}
             accessibilityLabel={accessibilityLabel}
             accessibilityHint={accessibilityHint}
             accessibilityRole="button"
-            accessibilityState={(interactionDisabled && !allowInspectionWhenDisabled) || selectionMode
+            accessibilityState={(interactionDisabled && !allowInspectionWhenDisabled && !canInspectChecklist) || selectionMode
                 ? {
-                    ...(interactionDisabled && !allowInspectionWhenDisabled ? { disabled: true } : {}),
+                    ...(interactionDisabled && !allowInspectionWhenDisabled && !canInspectChecklist ? { disabled: true } : {}),
                     ...(selectionMode ? { selected: isMultiSelected } : {}),
                 }
                 : undefined}
@@ -531,7 +534,7 @@ export function SwipeableTaskItemContent({
             onAccessibilityAction={onAccessibilityAction}
         >
             <Reanimated.View ref={completionMeasureRefs?.row} collapsable={false} pointerEvents="none"
-                accessible={false} importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFillObject} />
+                accessible={false} importantForAccessibility="no-hide-descendants" style={styles.completionMeasureSurface} />
             {task.priority && (
                 <View
                     style={[styles.priorityStrip, { backgroundColor: TASK_PRIORITY_COLORS[task.priority] }]}
@@ -554,9 +557,14 @@ export function SwipeableTaskItemContent({
                 </View>
             )}
             {!selectionMode && onComplete && task.status !== 'reference' && task.status !== 'archived' && !isTaskCancelled(task) ? (
-                <MoeCheckButton particleFeedback="host" checked={task.status === 'done' || completionPending} disabled={interactionDisabled || completionPending}
-                    label={task.status === 'done' ? tFallback(t, 'archived.restoreToInbox', 'Restore to Inbox') : tFallback(t, 'common.done', 'Done')}
-                    onPress={onComplete} tc={tc} measurementRef={completionMeasureRefs?.check} />
+                <View
+                    testID={canInspectChecklist ? 'list-parent-completion-control' : undefined}
+                    style={canInspectChecklist ? styles.listParentCompletionControl : undefined}
+                >
+                    <MoeCheckButton particleFeedback="host" checked={task.status === 'done' || completionPending} disabled={interactionDisabled || completionPending}
+                        label={task.status === 'done' ? tFallback(t, 'archived.restoreToInbox', 'Restore to Inbox') : tFallback(t, 'common.done', 'Done')}
+                        onPress={onComplete} tc={tc} measurementRef={completionMeasureRefs?.check} />
+                </View>
             ) : null}
             <View style={styles.taskContent}>
                 <View style={styles.titleRow}>
@@ -593,6 +601,16 @@ export function SwipeableTaskItemContent({
                         </Pressable>
                     )}
                 </View>
+                {task.taskMode === 'list' && task.status !== 'reference' && checklistProgress ? (
+                    <MoeChecklistProgress
+                        disabled={selectionMode}
+                        expanded={showChecklist}
+                        label={t('checklist.progress')}
+                        onPress={onToggleChecklist}
+                        progress={checklistProgress}
+                        tc={tc}
+                    />
+                ) : null}
                 {!hideDetails && descriptionPreview ? (
                     <MarkdownInlineText
                         markdown={descriptionPreview}
@@ -609,54 +627,33 @@ export function SwipeableTaskItemContent({
                 )}
                 {footerContent}
                 {showChecklist && (localChecklist || []).length > 0 && (
-                    <View style={styles.checklistItems}>
+                    <View style={[styles.checklistItems, { borderColor: tc.border }]}>
                         {(localChecklist || []).map((item, index) => (
-                            <Pressable
+                            <MoeChecklistItem
                                 key={item.id || index}
-                                disabled={interactionDisabled}
-                                onPress={interactionDisabled ? undefined : () => onToggleChecklistItem(index)}
-                                style={styles.checklistItem}
-                                accessibilityRole="button"
-                                accessibilityLabel={item.title}
-                                accessibilityState={{
-                                    checked: item.isCompleted,
-                                    ...(interactionDisabled ? { disabled: true } : {}),
-                                }}
-                            >
-                                <MarkdownInlineText
-                                    markdown={`${item.isCompleted ? '✓' : '○'} ${item.title}`}
-                                    tc={tc}
-                                    style={[
-                                        styles.checklistItemText,
-                                        { color: tc.secondaryText },
-                                        item.isCompleted ? styles.checklistItemCompleted : undefined,
-                                    ]}
-                                    numberOfLines={1}
-                                />
-                            </Pressable>
-                        ))}
-                        {!selectionMode && !interactionDisabled && (
-                            <TextInput
-                                ref={checklistDraftRef}
-                                value={checklistDraft}
-                                onChangeText={setChecklistDraft}
-                                onSubmitEditing={() => {
-                                    if (!checklistDraft.trim()) {
-                                        checklistDraftRef.current?.blur();
-                                        return;
-                                    }
-                                    onAddChecklistItem(checklistDraft);
-                                    setChecklistDraft('');
-                                }}
-                                placeholder={`+ ${t('taskEdit.addItem')}`}
-                                placeholderTextColor={tc.secondaryText}
-                                style={[styles.checklistAddInput, { color: tc.text }]}
-                                accessibilityLabel={t('taskEdit.addItem')}
-                                returnKeyType="done"
-                                blurOnSubmit={false}
-                                submitBehavior="submit"
+                                checked={item.isCompleted === true}
+                                disabled={checklistWriteDisabled}
+                                label={item.title}
+                                onPress={() => onToggleChecklistItem(item.id)}
+                                tc={tc}
                             />
-                        )}
+                        ))}
+                        {!selectionMode && !interactionDisabled && task.taskMode === 'list' ? (
+                            <Pressable
+                                accessibilityLabel={editChecklistLabel}
+                                accessibilityRole="button"
+                                onPress={(event) => {
+                                    event?.stopPropagation?.();
+                                    onEditChecklist();
+                                }}
+                                style={styles.checklistEditButton}
+                            >
+                                <Pencil size={14} color={tc.tint} strokeWidth={2.2} />
+                                <Text style={[styles.checklistEditText, { color: tc.tint }]}>
+                                    {editChecklistLabel}
+                                </Text>
+                            </Pressable>
+                        ) : null}
                     </View>
                 )}
                 {showAge && (

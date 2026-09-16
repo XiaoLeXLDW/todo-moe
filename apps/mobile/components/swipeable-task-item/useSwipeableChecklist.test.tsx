@@ -1,160 +1,124 @@
 import React from 'react';
 import renderer from 'react-test-renderer';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useSwipeableChecklist } from './useSwipeableChecklist';
-
-const { updateTask, storeState } = vi.hoisted(() => ({
-    updateTask: vi.fn(),
-    storeState: {
-        updateTask: vi.fn(),
-        tasks: [] as any[],
-        _allTasks: [] as any[],
-    },
-}));
-
-vi.mock('@mindwtr/core', async (importOriginal) => {
-    const { mockCore } = await import('../../test-support/mock-core');
-    storeState.updateTask = updateTask;
-    return mockCore(importOriginal, () => storeState);
-});
+import { useSwipeableChecklist, type CommitChecklistItemMutation } from './useSwipeableChecklist';
 
 type Hook = ReturnType<typeof useSwipeableChecklist>;
 
-function renderChecklistHook(task: any) {
+const task = {
+    id: 'task-1',
+    title: 'Release',
+    status: 'next',
+    taskMode: 'list',
+    checklist: [
+        { id: 'item-1', title: 'Build', isCompleted: false },
+        { id: 'item-2', title: 'Upload', isCompleted: false },
+    ],
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+} as any;
+
+function renderChecklistHook(commit: CommitChecklistItemMutation, disabled = false) {
     const captured: { current: Hook | null } = { current: null };
-    const Probe = ({ value }: { value: any }) => {
-        captured.current = useSwipeableChecklist(value, updateTask as any);
+    const Probe = ({ value, writeDisabled }: { value: any; writeDisabled: boolean }) => {
+        captured.current = useSwipeableChecklist(value, commit, writeDisabled);
         return null;
     };
     let tree!: renderer.ReactTestRenderer;
     renderer.act(() => {
-        tree = renderer.create(<Probe value={task} />);
+        tree = renderer.create(<Probe value={task} writeDisabled={disabled} />);
     });
-    return { hook: () => captured.current!, tree };
+    return {
+        hook: () => captured.current!,
+        setDisabled: (value: boolean) => renderer.act(() => {
+            tree.update(<Probe value={task} writeDisabled={value} />);
+        }),
+        tree,
+    };
 }
 
-describe('useSwipeableChecklist addChecklistItem', () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-        vi.useFakeTimers();
-        updateTask.mockResolvedValue({ success: true });
-    });
+describe('useSwipeableChecklist execution', () => {
+    beforeEach(() => vi.clearAllMocks());
 
-    afterEach(() => {
-        vi.useRealTimers();
-    });
+    it('optimistically toggles by stable item identity and starts persistence immediately', () => {
+        const commit = vi.fn(async () => true);
+        const { hook } = renderChecklistHook(commit);
 
-    it('appends a trimmed item and flushes it through the pending update', () => {
-        const task = {
-            id: 'task-1',
-            title: 'Groceries',
-            status: 'next',
-            checklist: [{ id: 'item-1', title: 'Bread', isCompleted: false }],
-            createdAt: '2026-01-01T00:00:00.000Z',
-            updatedAt: '2026-01-01T00:00:00.000Z',
-        } as any;
-        storeState._allTasks = [task];
-        const { hook } = renderChecklistHook(task);
-
-        renderer.act(() => {
-            hook().addChecklistItem('  Milk  ');
-        });
+        renderer.act(() => hook().toggleChecklistItem('item-2'));
 
         expect(hook().localChecklist).toEqual([
-            { id: 'item-1', title: 'Bread', isCompleted: false },
-            expect.objectContaining({ title: 'Milk', isCompleted: false }),
+            { id: 'item-1', title: 'Build', isCompleted: false },
+            { id: 'item-2', title: 'Upload', isCompleted: true },
         ]);
-        expect(hook().localChecklist![1].id).toBeTruthy();
-        expect(updateTask).not.toHaveBeenCalled();
-
-        renderer.act(() => {
-            vi.runAllTimers();
-        });
-
-        expect(updateTask).toHaveBeenCalledWith('task-1', {
-            checklist: [
-                { id: 'item-1', title: 'Bread', isCompleted: false },
-                expect.objectContaining({ title: 'Milk', isCompleted: false }),
-            ],
-        });
+        expect(commit).toHaveBeenCalledTimes(1);
+        expect(commit).toHaveBeenCalledWith(expect.objectContaining({
+            taskId: 'task-1',
+            itemId: 'item-2',
+            itemIndex: 1,
+            isCompleted: true,
+        }));
     });
 
-    it('ignores a whitespace-only title', () => {
-        const task = {
-            id: 'task-1',
-            title: 'Groceries',
-            status: 'next',
-            checklist: [{ id: 'item-1', title: 'Bread', isCompleted: false }],
-            createdAt: '2026-01-01T00:00:00.000Z',
-            updatedAt: '2026-01-01T00:00:00.000Z',
-        } as any;
-        storeState._allTasks = [task];
-        const { hook } = renderChecklistHook(task);
+    it('keeps rapid item writes ordered without moving completed items', async () => {
+        let finishFirst!: (value: boolean) => void;
+        const commit = vi.fn()
+            .mockImplementationOnce(() => new Promise<boolean>((resolve) => { finishFirst = resolve; }))
+            .mockResolvedValueOnce(true);
+        const { hook } = renderChecklistHook(commit);
 
         renderer.act(() => {
-            hook().addChecklistItem('   ');
-        });
-        renderer.act(() => {
-            vi.runAllTimers();
+            hook().toggleChecklistItem('item-1');
+            hook().toggleChecklistItem('item-2');
         });
 
-        expect(hook().localChecklist).toEqual([{ id: 'item-1', title: 'Bread', isCompleted: false }]);
-        expect(updateTask).not.toHaveBeenCalled();
+        expect(hook().localChecklist?.map((item) => item.id)).toEqual(['item-1', 'item-2']);
+        expect(hook().localChecklist?.every((item) => item.isCompleted)).toBe(true);
+        expect(commit).toHaveBeenCalledTimes(1);
+
+        await renderer.act(async () => {
+            finishFirst(true);
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+
+        expect(commit).toHaveBeenCalledTimes(2);
+        expect(commit.mock.calls[1][0].nextChecklist).toEqual([
+            { id: 'item-1', title: 'Build', isCompleted: true },
+            { id: 'item-2', title: 'Upload', isCompleted: true },
+        ]);
     });
 
-    // The status recomputation lives in flushPendingChecklist, not in the caller:
-    // an unchecked item on a finished list-mode task reopens it.
-    it('reopens a completed list-mode task when a new item lands on it', () => {
-        const task = {
-            id: 'task-1',
-            title: 'Groceries',
-            status: 'done',
-            taskMode: 'list',
-            checklist: [{ id: 'item-1', title: 'Bread', isCompleted: true }],
-            createdAt: '2026-01-01T00:00:00.000Z',
-            updatedAt: '2026-01-01T00:00:00.000Z',
-        } as any;
-        storeState._allTasks = [task];
-        const { hook } = renderChecklistHook(task);
+    it('rolls the latest optimistic item back when persistence fails', async () => {
+        const commit = vi.fn(async () => false);
+        const { hook } = renderChecklistHook(commit);
 
-        renderer.act(() => {
-            hook().addChecklistItem('Milk');
-        });
-        renderer.act(() => {
-            vi.runAllTimers();
+        await renderer.act(async () => {
+            hook().toggleChecklistItem('item-1');
+            await Promise.resolve();
+            await Promise.resolve();
         });
 
-        expect(updateTask).toHaveBeenCalledWith('task-1', {
-            checklist: [
-                { id: 'item-1', title: 'Bread', isCompleted: true },
-                expect.objectContaining({ title: 'Milk', isCompleted: false }),
-            ],
-            status: 'next',
-        });
+        expect(hook().localChecklist).toEqual(task.checklist);
     });
 
-    it('flushes an item added just before unmount', () => {
-        const task = {
-            id: 'task-1',
-            title: 'Groceries',
-            status: 'next',
-            checklist: [] as any[],
-            createdAt: '2026-01-01T00:00:00.000Z',
-            updatedAt: '2026-01-01T00:00:00.000Z',
-        } as any;
-        storeState._allTasks = [task];
-        const { hook, tree } = renderChecklistHook(task);
+    it('cancels queued mutations when the row becomes read-only', async () => {
+        let finishFirst!: (value: boolean) => void;
+        const commit = vi.fn(() => new Promise<boolean>((resolve) => { finishFirst = resolve; }));
+        const { hook, setDisabled } = renderChecklistHook(commit);
 
         renderer.act(() => {
-            hook().addChecklistItem('Milk');
+            hook().toggleChecklistItem('item-1');
+            hook().toggleChecklistItem('item-2');
         });
-        renderer.act(() => {
-            tree.unmount();
+        setDisabled(true);
+        await renderer.act(async () => {
+            finishFirst(true);
+            await Promise.resolve();
+            await Promise.resolve();
         });
 
-        expect(updateTask).toHaveBeenCalledWith('task-1', {
-            checklist: [expect.objectContaining({ title: 'Milk', isCompleted: false })],
-        });
+        expect(commit).toHaveBeenCalledTimes(1);
+        expect(hook().localChecklist).toEqual(task.checklist);
     });
 });

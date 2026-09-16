@@ -1213,7 +1213,7 @@ function TaskListComponent({
   // row, so show a compact icon button to change status instead of the redundant status-name badge.
   // The 'all' list keeps the labeled badge because its rows have mixed statuses.
   const statusBadgeAsIconForList = statusFilter !== 'all';
-  const hideChecklistProgressForList = statusFilter === 'inbox';
+  const hideChecklistProgressForList = false;
   const handleTaskStatusChange = useCallback((taskId: string, status: TaskStatus) => {
     const diagnostic = beginMobilePerformanceDiagnostic({
       operation: status === 'done' ? 'task_done_to_list' : 'task_mutation',
