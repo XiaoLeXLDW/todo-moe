@@ -3,6 +3,7 @@ import renderer from 'react-test-renderer';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useSwipeableChecklist, type CommitChecklistItemMutation } from './useSwipeableChecklist';
+import { resetChecklistWriteQueueForTests } from './checklist-write-queue';
 
 type Hook = ReturnType<typeof useSwipeableChecklist>;
 
@@ -39,7 +40,10 @@ function renderChecklistHook(commit: CommitChecklistItemMutation, disabled = fal
 }
 
 describe('useSwipeableChecklist execution', () => {
-    beforeEach(() => vi.clearAllMocks());
+    beforeEach(() => {
+        resetChecklistWriteQueueForTests();
+        vi.clearAllMocks();
+    });
 
     it('optimistically toggles by stable item identity and starts persistence immediately', () => {
         const commit = vi.fn(async () => true);
@@ -89,6 +93,34 @@ describe('useSwipeableChecklist execution', () => {
         ]);
     });
 
+    it('persists every accepted item write after the row unmounts', async () => {
+        let finishFirst!: (value: boolean) => void;
+        const commit = vi.fn()
+            .mockImplementationOnce(() => new Promise<boolean>((resolve) => { finishFirst = resolve; }))
+            .mockResolvedValueOnce(true);
+        const { hook, tree } = renderChecklistHook(commit);
+
+        renderer.act(() => {
+            hook().toggleChecklistItem('item-1');
+            hook().toggleChecklistItem('item-2');
+            tree.unmount();
+        });
+
+        expect(commit).toHaveBeenCalledTimes(1);
+
+        await renderer.act(async () => {
+            finishFirst(true);
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+
+        expect(commit).toHaveBeenCalledTimes(2);
+        expect(commit.mock.calls[1][0].nextChecklist).toEqual([
+            { id: 'item-1', title: 'Build', isCompleted: true },
+            { id: 'item-2', title: 'Upload', isCompleted: true },
+        ]);
+    });
+
     it('rolls the latest optimistic item back when persistence fails', async () => {
         const commit = vi.fn(async () => false);
         const { hook } = renderChecklistHook(commit);
@@ -102,9 +134,11 @@ describe('useSwipeableChecklist execution', () => {
         expect(hook().localChecklist).toEqual(task.checklist);
     });
 
-    it('cancels queued mutations when the row becomes read-only', async () => {
+    it('blocks new taps but lets already accepted writes reach the business guard', async () => {
         let finishFirst!: (value: boolean) => void;
-        const commit = vi.fn(() => new Promise<boolean>((resolve) => { finishFirst = resolve; }));
+        const commit = vi.fn()
+            .mockImplementationOnce(() => new Promise<boolean>((resolve) => { finishFirst = resolve; }))
+            .mockResolvedValueOnce(false);
         const { hook, setDisabled } = renderChecklistHook(commit);
 
         renderer.act(() => {
@@ -112,13 +146,17 @@ describe('useSwipeableChecklist execution', () => {
             hook().toggleChecklistItem('item-2');
         });
         setDisabled(true);
+        renderer.act(() => hook().toggleChecklistItem('item-1'));
         await renderer.act(async () => {
             finishFirst(true);
             await Promise.resolve();
             await Promise.resolve();
         });
 
-        expect(commit).toHaveBeenCalledTimes(1);
-        expect(hook().localChecklist).toEqual(task.checklist);
+        expect(commit).toHaveBeenCalledTimes(2);
+        expect(hook().localChecklist).toEqual([
+            { id: 'item-1', title: 'Build', isCompleted: true },
+            { id: 'item-2', title: 'Upload', isCompleted: false },
+        ]);
     });
 });

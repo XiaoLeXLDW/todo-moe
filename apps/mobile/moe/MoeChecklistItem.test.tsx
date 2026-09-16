@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
-import { Animated } from 'react-native';
+import { Animated, StyleSheet } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ThemeColors } from '../hooks/use-theme-colors';
@@ -25,6 +25,22 @@ afterEach(() => {
 });
 
 describe('checklist item feedback', () => {
+  it('uses the whole row as the checkbox target and keeps a static text strike', () => {
+    const write = vi.fn();
+    const stopPropagation = vi.fn();
+    act(() => { tree = create(<MoeChecklistItem checked={false} disabled={false} label="Upload" onPress={write} tc={tc} />); });
+
+    const pressable = tree!.root.findByType('Pressable' as any);
+    expect(pressable.findByType(Animated.Text as any).props.children).toBe('Upload');
+    act(() => pressable.props.onPress({ stopPropagation }));
+    expect(stopPropagation).toHaveBeenCalledTimes(1);
+    expect(write).toHaveBeenCalledTimes(1);
+
+    act(() => { tree!.update(<MoeChecklistItem checked disabled={false} label="Upload" onPress={write} tc={tc} />); });
+    const label = tree!.root.findByType(Animated.Text as any);
+    expect(StyleSheet.flatten(label.props.style).textDecorationLine).toBe('line-through');
+  });
+
   it('animates completion and reopening in opposite directions', () => {
     const timing = vi.spyOn(Animated, 'timing').mockReturnValue({ start: vi.fn(), stop: vi.fn() } as any);
     vi.spyOn(Animated, 'spring').mockReturnValue({ start: vi.fn(), stop: vi.fn() } as any);
@@ -38,6 +54,7 @@ describe('checklist item feedback', () => {
     timing.mockClear();
     act(() => { tree!.update(<MoeChecklistItem {...props} checked={false} />); });
     expect(timing.mock.calls.filter(([, config]) => config.toValue === 0).length).toBeGreaterThanOrEqual(2);
+    expect(tree!.root.findAll((node) => node.props.pointerEvents === 'none').length).toBeGreaterThan(0);
     expect(tree!.root.findByType('Pressable' as any).props.accessibilityState.checked).toBe(false);
   });
 

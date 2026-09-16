@@ -16,11 +16,12 @@ export function MoeChecklistItem({ checked, disabled, label, onPress, tc }: {
   const reduced = useReducedMotion();
   const scale = useRef(new Animated.Value(1)).current;
   const mark = useRef(new Animated.Value(checked ? 1 : 0)).current;
-  const strike = useRef(new Animated.Value(checked ? 1 : 0)).current;
+  const strike = useRef(new Animated.Value(0)).current;
   const textOpacity = useRef(new Animated.Value(checked ? 0.55 : 1)).current;
   const burst = useRef(new Animated.Value(1)).current;
   const previous = useRef(checked);
   const [bursting, setBursting] = useState(false);
+  const [sweeping, setSweeping] = useState(false);
 
   useEffect(() => {
     const changed = previous.current !== checked;
@@ -33,17 +34,22 @@ export function MoeChecklistItem({ checked, disabled, label, onPress, tc }: {
     if (!changed || reduced || AppState.currentState !== 'active') {
       scale.setValue(1);
       mark.setValue(checked ? 1 : 0);
-      strike.setValue(checked ? 1 : 0);
+      strike.setValue(0);
       textOpacity.setValue(checked ? 0.55 : 1);
       burst.setValue(1);
       setBursting(false);
+      setSweeping(false);
       return;
     }
     if (checked) {
       burst.setValue(0);
       setBursting(true);
+      strike.setValue(0);
+      setSweeping(true);
     } else {
       setBursting(false);
+      strike.setValue(1);
+      setSweeping(true);
       burst.setValue(1);
     }
     scale.setValue(checked ? 0.74 : 1.12);
@@ -77,7 +83,10 @@ export function MoeChecklistItem({ checked, disabled, label, onPress, tc }: {
       }),
     ]);
     animation.start((result) => {
-      if (result?.finished !== false) setBursting(false);
+      if (result?.finished !== false) {
+        setBursting(false);
+        setSweeping(false);
+      }
     });
     return () => animation.stop();
   }, [burst, checked, mark, reduced, scale, strike, textOpacity]);
@@ -86,25 +95,25 @@ export function MoeChecklistItem({ checked, disabled, label, onPress, tc }: {
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') return;
       scale.stopAnimation(); mark.stopAnimation(); strike.stopAnimation(); textOpacity.stopAnimation(); burst.stopAnimation();
-      scale.setValue(1); mark.setValue(previous.current ? 1 : 0); strike.setValue(previous.current ? 1 : 0);
-      textOpacity.setValue(previous.current ? 0.55 : 1); burst.setValue(1); setBursting(false);
+      scale.setValue(1); mark.setValue(previous.current ? 1 : 0); strike.setValue(0);
+      textOpacity.setValue(previous.current ? 0.55 : 1); burst.setValue(1); setBursting(false); setSweeping(false);
     });
     return () => subscription.remove();
   }, [burst, mark, scale, strike, textOpacity]);
 
   return (
-    <View style={styles.row}>
-      <Pressable
-        accessibilityLabel={label}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked, disabled }}
-        disabled={disabled}
-        onPress={disabled ? undefined : (event) => {
-          event?.stopPropagation?.();
-          if (!disabled) onPress();
-        }}
-        style={styles.target}
-      >
+    <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked, disabled }}
+      disabled={disabled}
+      onPress={disabled ? undefined : (event) => {
+        event?.stopPropagation?.();
+        onPress();
+      }}
+      style={styles.row}
+    >
+      <View style={styles.target}>
         {bursting ? <View pointerEvents="none" style={styles.particleOrigin}>
           <MoeCompletionParticles progress={burst} color={tc.success} secondaryColor={tc.tint} variant="checklist" />
         </View> : null}
@@ -120,17 +129,25 @@ export function MoeChecklistItem({ checked, disabled, label, onPress, tc }: {
             <Check size={15} color={tc.onTint} strokeWidth={3} />
           </Animated.View>
         </Animated.View>
-      </Pressable>
+      </View>
       <View style={styles.labelWrap}>
-        <Animated.Text numberOfLines={2} style={[styles.label, { color: tc.text, opacity: textOpacity }]}>
+        <Animated.Text numberOfLines={2} style={[
+          styles.label,
+          {
+            color: tc.text,
+            opacity: textOpacity,
+            textDecorationColor: tc.secondaryText,
+            textDecorationLine: checked ? 'line-through' : 'none',
+          },
+        ]}>
           {label}
         </Animated.Text>
-        <Animated.View pointerEvents="none" style={[
+        {sweeping ? <Animated.View pointerEvents="none" style={[
           styles.strike,
           { backgroundColor: tc.secondaryText, transform: [{ scaleX: strike }] },
-        ]} />
+        ]} /> : null}
       </View>
-    </View>
+    </Pressable>
   );
 }
 

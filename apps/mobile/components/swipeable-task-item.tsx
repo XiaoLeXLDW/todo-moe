@@ -344,7 +344,6 @@ function SwipeableTaskItemInner({
     }, [showToast, t]);
 
     const commitChecklistMutation = useCallback(async (mutation: ChecklistItemMutation) => {
-        if (mutationBlockedRef.current) return false;
         const snapshot = moeCompletionSnapshot();
         const latest = snapshot.tasks.find((candidate) => candidate.id === mutation.taskId);
         if (!latest || latest.deletedAt || !isTaskActionable(latest)) return false;
@@ -446,7 +445,6 @@ function SwipeableTaskItemInner({
 
     const checklistWriteDisabled = mutationBlockedRef.current || !isTaskActionable(task);
     const {
-        cancelPendingChecklist,
         checklistProgress,
         localChecklist,
         showChecklist,
@@ -790,7 +788,6 @@ function SwipeableTaskItemInner({
         deletePendingRef.current = true;
         const deleteOccurredAt = Date.now();
         cancelRowExit();
-        cancelPendingChecklist();
         void settleStoreAction(() => onDelete())
             .then((outcome) => {
                 if (!outcome.ok) {

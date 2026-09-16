@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getChecklistProgress, type Task } from '@mindwtr/core';
 
-export type ChecklistItems = NonNullable<Task['checklist']>;
+import {
+    enqueueChecklistWrite,
+    getChecklistWriteSnapshot,
+    subscribeChecklistWrites,
+    type ChecklistItems,
+} from './checklist-write-queue';
+
+export type { ChecklistItems } from './checklist-write-queue';
 
 export type ChecklistItemMutation = {
     taskId: string;
@@ -25,18 +32,14 @@ export function useSwipeableChecklist(
     commitMutation: CommitChecklistItemMutation,
     writeDisabled = false,
 ) {
-    const initialChecklist = (task.checklist || []) as ChecklistItems;
+    const initialChecklist = getChecklistWriteSnapshot(task.id)?.checklist
+        ?? (task.checklist || []) as ChecklistItems;
     const [showChecklist, setShowChecklist] = useState(false);
     const [localChecklist, setLocalChecklist] = useState<ChecklistItems>(initialChecklist);
     const localChecklistRef = useRef<ChecklistItems>(initialChecklist);
-    const durableChecklistRef = useRef<ChecklistItems>(initialChecklist);
     const taskIdRef = useRef(task.id);
     const writeDisabledRef = useRef(writeDisabled);
-    const writeGeneration = useRef(0);
-    const revision = useRef(0);
-    const pendingWrites = useRef(0);
     const mounted = useRef(true);
-    const writeQueue = useRef<Promise<void>>(Promise.resolve());
     writeDisabledRef.current = writeDisabled;
 
     const publishLocalChecklist = useCallback((checklist: ChecklistItems) => {
@@ -44,41 +47,37 @@ export function useSwipeableChecklist(
         if (mounted.current) setLocalChecklist(checklist);
     }, []);
 
-    const cancelPendingChecklist = useCallback(() => {
-        writeGeneration.current += 1;
-        revision.current += 1;
+    useEffect(() => {
+        mounted.current = true;
+        return () => {
+            mounted.current = false;
+        };
     }, []);
 
     useEffect(() => {
         if (taskIdRef.current !== task.id) {
-            cancelPendingChecklist();
             taskIdRef.current = task.id;
             setShowChecklist(false);
-            pendingWrites.current = 0;
-            durableChecklistRef.current = (task.checklist || []) as ChecklistItems;
-            publishLocalChecklist((task.checklist || []) as ChecklistItems);
-            return;
         }
-        // A store echo must not replace a newer optimistic sequence. Once the
-        // queue is empty the row can safely accept external/sync changes again.
-        if (pendingWrites.current === 0) {
-            durableChecklistRef.current = (task.checklist || []) as ChecklistItems;
-            publishLocalChecklist((task.checklist || []) as ChecklistItems);
-        }
-    }, [cancelPendingChecklist, publishLocalChecklist, task.checklist, task.id]);
+        // A store echo must not replace a newer accepted sequence. A remounted
+        // row reads the same task-level optimistic snapshot until the queue is
+        // fully durable (or rolls back to its last durable snapshot).
+        publishLocalChecklist(
+            getChecklistWriteSnapshot(task.id)?.checklist
+            ?? (task.checklist || []) as ChecklistItems,
+        );
+    }, [publishLocalChecklist, task.checklist, task.id]);
+
+    useEffect(() => subscribeChecklistWrites(task.id, (snapshot) => {
+        if (!mounted.current || taskIdRef.current !== task.id) return;
+        publishLocalChecklist(snapshot.checklist);
+    }), [publishLocalChecklist, task.id]);
 
     useEffect(() => {
         if (!writeDisabled) return;
-        cancelPendingChecklist();
-        pendingWrites.current = 0;
-        durableChecklistRef.current = (task.checklist || []) as ChecklistItems;
-        publishLocalChecklist((task.checklist || []) as ChecklistItems);
-    }, [cancelPendingChecklist, publishLocalChecklist, task.checklist, writeDisabled]);
-
-    useEffect(() => () => {
-        mounted.current = false;
-        cancelPendingChecklist();
-    }, [cancelPendingChecklist]);
+        const acceptedSnapshot = getChecklistWriteSnapshot(task.id);
+        publishLocalChecklist(acceptedSnapshot?.checklist ?? (task.checklist || []) as ChecklistItems);
+    }, [publishLocalChecklist, task.checklist, task.id, writeDisabled]);
 
     const toggleChecklist = useCallback(() => {
         setShowChecklist((value) => !value);
@@ -94,38 +93,20 @@ export function useSwipeableChecklist(
             itemIndex === index ? { ...item, isCompleted: !item.isCompleted } : item
         ));
         const nextItem = nextChecklist[index];
-        const operationRevision = ++revision.current;
-        const operationGeneration = writeGeneration.current;
-        pendingWrites.current += 1;
+        const operationTaskId = task.id;
         publishLocalChecklist(nextChecklist);
 
-        const run = async () => {
-            if (operationGeneration !== writeGeneration.current || writeDisabledRef.current) {
-                pendingWrites.current = Math.max(0, pendingWrites.current - 1);
-                return;
-            }
-            let succeeded = false;
-            try {
-                succeeded = await commitMutation({
-                    taskId: task.id,
-                    itemId,
-                    itemIndex: index,
-                    isCompleted: nextItem.isCompleted,
-                    previousChecklist,
-                    nextChecklist,
-                });
-            } finally {
-                pendingWrites.current = Math.max(0, pendingWrites.current - 1);
-            }
-            if (succeeded) durableChecklistRef.current = nextChecklist;
-            else if (mounted.current && operationRevision === revision.current) {
-                publishLocalChecklist(durableChecklistRef.current);
-            }
-        };
-        // Start the first persistence call in the same press turn. Later taps
-        // queue behind it so every full checklist snapshot reaches the store in
-        // user order instead of racing or being debounce-merged.
-        writeQueue.current = pendingWrites.current === 1 ? run() : writeQueue.current.then(run, run);
+        enqueueChecklistWrite(
+            { taskId: operationTaskId, previousChecklist, nextChecklist },
+            () => commitMutation({
+                taskId: operationTaskId,
+                itemId,
+                itemIndex: index,
+                isCompleted: nextItem.isCompleted,
+                previousChecklist,
+                nextChecklist,
+            }),
+        );
     }, [commitMutation, publishLocalChecklist, task.id]);
 
     const checklistProgress = useMemo(
@@ -134,7 +115,6 @@ export function useSwipeableChecklist(
     );
 
     return {
-        cancelPendingChecklist,
         checklistProgress,
         localChecklist,
         showChecklist,
