@@ -59,6 +59,22 @@ const createProps = (overrides: Partial<ProjectAreaModalsProps> = {}): ProjectAr
 });
 
 describe('folder management from the lists screen', () => {
+  it('does not crowd inactive sort controls into an empty folder manager header', () => {
+    let tree!: ReturnType<typeof create>;
+    act(() => {
+      tree = create(<ProjectAreaModals {...createProps({
+        standalone: true,
+        showAreaManager: true,
+        sortedAreas: [],
+      })} />);
+    });
+
+    expect(tree.root.findAllByType(Text).some(node => node.props.children === 'projects.sortByName')).toBe(false);
+    expect(tree.root.findAllByType(Text).some(node => node.props.children === 'projects.sortByColor')).toBe(false);
+    expect(tree.root.findAllByType(Text).some(node => node.props.children === 'projects.noArea')).toBe(true);
+    act(() => tree.unmount());
+  });
+
   it('allows standalone creation and keeps the typed name and manager open when creation fails', async () => {
     const addArea = vi.fn().mockResolvedValue(null);
     const onClose = vi.fn(), setName = vi.fn();

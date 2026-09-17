@@ -274,6 +274,7 @@ export const jaOverrides: Record<string, string> = {
         'task.promoteToProjectCreated': 'タスクからプロジェクトを作成しました',
         'task.promoteToProjectMoved': '既存のプロジェクトにタスクを移動しました',
         'task.updateFailed': 'タスクを更新できませんでした。',
+        'task.undoExpired': '完了後にタスクが変更されたため、元に戻せません。',
         'task.cancel': 'タスクを取り消す',
         'task.cancelRecurringSeries': '繰り返しシリーズを取り消す',
         'task.cancelled': '取り消し済み',

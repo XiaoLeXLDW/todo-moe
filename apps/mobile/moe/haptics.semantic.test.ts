@@ -34,6 +34,13 @@ beforeEach(() => {
 });
 
 describe('semantic haptic ownership', () => {
+  it('uses low-tier semantic patterns for checklist completion and reopening', async () => {
+    state.nativeResult = false;
+    await emitMoeHaptic({ event: 'checklistStepConfirmed', interactionId: 'step-on' });
+    await emitMoeHaptic({ event: 'checklistStepReopened', interactionId: 'step-off' });
+    expect(state.android.mock.calls).toEqual([['segment-tick'], ['gesture-end']]);
+  });
+
   it('sends a completed list as one native pattern and deduplicates its operation', async () => {
     await emitMoeHaptic({ event: 'listCompleted', interactionId: 42 });
     await emitMoeHaptic({ event: 'listCompleted', interactionId: 42 });

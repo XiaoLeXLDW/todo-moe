@@ -77,6 +77,7 @@ const storeState = vi.hoisted(() => ({
   tasks: [] as Task[],
   _allTasks: [] as Task[],
   projects: [projectFixture as Project],
+  _allProjects: [projectFixture as Project],
   sections: [],
   _allSections: [],
   areas: [] as Area[],
@@ -148,6 +149,10 @@ vi.mock('react-native', () => ({
 }));
 
 vi.mock('@/moe/haptics', () => ({ moeHaptic: vi.fn() }));
+
+vi.mock('@/moe/glass/MoeGlassPanel', () => ({
+  MoeGlassPanel: ({ children, ...props }: any) => React.createElement('MoeGlassPanel', props, children),
+}));
 
 vi.mock('expo-router', () => ({
   router: { push: vi.fn() },
@@ -385,11 +390,14 @@ describe('TaskList', () => {
   });
   beforeEach(() => {
     vi.clearAllMocks();
+    updateTaskMock.mockReset();
+    updateTaskMock.mockResolvedValue({ success: true });
     resetTaskListSelectionState();
     storeState.tasks = [];
     storeState._allTasks = [];
     storeState.areas = [];
     storeState.projects = [projectFixture as Project];
+    storeState._allProjects = [projectFixture as Project];
     storeState.sections = [];
     storeState._allSections = [];
     storeState.highlightTaskId = null;
@@ -407,6 +415,26 @@ describe('TaskList', () => {
       callback(0);
       return 1;
     });
+  });
+
+  it('keeps checklist progress available in the inbox task list', async () => {
+    const listTask = makeTask('list-inbox', 'Inbox checklist', {
+      projectId: undefined,
+      status: 'inbox',
+      taskMode: 'list',
+      checklist: [{ id: 'step-1', title: 'First step', isCompleted: false }],
+    });
+    storeState.tasks = [listTask];
+    storeState._allTasks = [listTask];
+
+    let tree!: ReturnType<typeof create>;
+    await act(async () => {
+      tree = create(<TaskList statusFilter="inbox" title="Inbox" taskSource={[listTask]} showHeader={false} />);
+    });
+
+    const row = tree.root.findByType('SwipeableTaskItem' as any);
+    expect(row.props.hideChecklistProgress).toBe(false);
+    act(() => tree.unmount());
   });
 
   afterEach(() => {
@@ -535,6 +563,8 @@ describe('TaskList', () => {
       groupByLabel: 'Tags',
       onOpenGroup: expect.any(Function),
     }));
+    act(() => latestHeaderProps().onOpenGroup());
+    expect(tree.root.findByType('MoeGlassPanel' as unknown as React.ElementType).props.active).toBe(true);
 
     act(() => {
       tree.unmount();
@@ -833,12 +863,15 @@ describe('TaskList', () => {
     });
   });
 
-  // The editor closes the moment a save is handed off, so a swallowed
-  // `{ success: false }` reads to the user as a task that saved. useTaskEditActions
-  // only sees the result if the handler returns the store promise.
+  // The editor owns its draft lifecycle, so the list must return the store
+  // result and leave the session open when persistence refuses the write.
   it('hands the store result back to the editor so a failed save can surface', async () => {
     const visibleTask = makeTask('task-save', 'Review launch notes');
-    updateTaskMock.mockResolvedValue({ success: false, error: 'Task is deleted' });
+    storeState.tasks = [visibleTask];
+    storeState._allTasks = [visibleTask];
+    updateTaskMock
+      .mockResolvedValueOnce({ success: false, error: 'Task is deleted' })
+      .mockResolvedValueOnce({ success: true });
 
     let tree!: ReturnType<typeof create>;
     await act(async () => {
@@ -852,7 +885,12 @@ describe('TaskList', () => {
       );
     });
 
-    const onSave = taskEditModalPropsSpy.mock.calls.at(-1)?.[0].onSave;
+    const row = tree.root.findByType('SwipeableTaskItem' as unknown as React.ElementType);
+    act(() => row.props.actions.edit(visibleTask));
+    const openEditor = taskEditModalPropsSpy.mock.calls.at(-1)?.[0];
+    expect(openEditor).toEqual(expect.objectContaining({ visible: true, task: visibleTask }));
+
+    const onSave = openEditor.onSave;
     let saveResult: unknown;
     await act(async () => {
       saveResult = await onSave('task-save', { title: 'Review launch notes v2' });
@@ -860,10 +898,66 @@ describe('TaskList', () => {
 
     expect(updateTaskMock).toHaveBeenCalledWith('task-save', { title: 'Review launch notes v2' });
     expect(saveResult).toEqual({ success: false, error: 'Task is deleted' });
+    const retainedEditor = taskEditModalPropsSpy.mock.calls.at(-1)?.[0];
+    expect(retainedEditor).toEqual(expect.objectContaining({ visible: true, task: visibleTask }));
+
+    await act(async () => {
+      saveResult = await retainedEditor.onSave('task-save', { title: 'Review launch notes v2' });
+    });
+    expect(saveResult).toEqual({ success: true });
+    expect(updateTaskMock).toHaveBeenCalledTimes(2);
+    act(() => retainedEditor.onClose());
+    expect(taskEditModalPropsSpy.mock.calls.at(-1)?.[0].visible).toBe(false);
 
     act(() => {
       tree.unmount();
     });
+  });
+
+  it('does not let an older async editor session close a newer task', async () => {
+    const firstTask = makeTask('task-save-a', 'Review launch notes');
+    const secondTask = makeTask('task-save-b', 'Publish launch notes');
+    storeState.tasks = [firstTask, secondTask];
+    storeState._allTasks = [firstTask, secondTask];
+    let finishFirstSave!: (value: { success: boolean }) => void;
+    updateTaskMock.mockImplementationOnce(() => new Promise((resolve) => {
+      finishFirstSave = resolve;
+    }));
+
+    let tree!: ReturnType<typeof create>;
+    await act(async () => {
+      tree = create(
+        <TaskList
+          statusFilter="next"
+          title="Next"
+          taskSource={[firstTask, secondTask]}
+          showHeader={false}
+        />,
+      );
+    });
+
+    const rows = tree.root.findAllByType('SwipeableTaskItem' as unknown as React.ElementType);
+    act(() => rows[0].props.actions.edit(firstTask));
+    const firstEditor = taskEditModalPropsSpy.mock.calls.at(-1)?.[0];
+    const pendingSave = firstEditor.onSave(firstTask.id, { title: 'Review launch notes v2' });
+    act(() => firstEditor.onClose());
+    act(() => rows[1].props.actions.edit(secondTask));
+    expect(taskEditModalPropsSpy.mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({
+      visible: true,
+      task: secondTask,
+    }));
+
+    await act(async () => {
+      finishFirstSave({ success: true });
+      await pendingSave;
+    });
+    act(() => firstEditor.onClose());
+
+    expect(taskEditModalPropsSpy.mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({
+      visible: true,
+      task: secondTask,
+    }));
+    act(() => tree.unmount());
   });
 
   it('passes shared row context to task rows instead of making each row subscribe to the store', async () => {

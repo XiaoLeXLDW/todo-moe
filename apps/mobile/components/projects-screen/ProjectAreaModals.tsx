@@ -191,6 +191,7 @@ export function ProjectAreaModals({
             >
                 <Pressable style={styles.overlay} onPress={() => onSetShowAreaPicker(false)}>
                     <Pressable
+                        style={styles.pickerFrame}
                         onPress={(event) => event.stopPropagation()}
                     >
                         <MoeGlassPanel active={showAreaPicker} cornerRadius={14}
@@ -250,20 +251,21 @@ export function ProjectAreaModals({
                     onPress={saving ? undefined : onCloseAreaManager}
                 >
                     <Pressable
+                        style={styles.pickerFrame}
                         onPress={(event) => event.stopPropagation()}
                     >
                         <MoeGlassPanel active={showAreaManager} cornerRadius={14}
                             style={[styles.pickerCard, { borderColor: tc.border, maxHeight: pickerCardMaxHeight }]}>
                         <View style={styles.areaManagerHeader}>
-                            <Text style={[styles.linkModalTitle, { color: tc.text }]}>{t('projects.areaLabel')}</Text>
-                            <View style={styles.areaSortButtons}>
+                            <Text style={[styles.linkModalTitle, styles.areaManagerTitle, { color: tc.text }]}>{t('projects.areaLabel')}</Text>
+                            {sortedAreas.length > 0 ? <View style={styles.areaSortButtons}>
                                 <TouchableOpacity onPress={sortAreasByName} style={[styles.areaSortButton, { borderColor: tc.border }]}>
                                     <Text style={[styles.areaSortText, { color: tc.secondaryText }]}>{t('projects.sortByName')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity onPress={sortAreasByColor} style={[styles.areaSortButton, { borderColor: tc.border }]}>
                                     <Text style={[styles.areaSortText, { color: tc.secondaryText }]}>{t('projects.sortByColor')}</Text>
                                 </TouchableOpacity>
-                            </View>
+                            </View> : null}
                         </View>
                         {sortedAreas.length === 0 ? (
                             <Text style={[styles.helperText, { color: tc.secondaryText }]}>{t('projects.noArea')}</Text>
@@ -368,52 +370,54 @@ export function ProjectAreaModals({
                                 })}
                             </ScrollView>
                         )}
-                        <View style={styles.areaEditorHeading}>
-                            <Text style={{ color: tc.text, fontWeight: '600' }}>{editingAreaId ? t('projects.renameArea') : t('areas.new')}</Text>
-                            {editingAreaId ? (
-                                <TouchableOpacity disabled={saving} onPress={() => {
-                                    setEditingAreaId(null);
-                                    setSaveError('');
-                                    onSetNewAreaName('');
-                                }} accessibilityRole="button" style={styles.areaRenameButton}>
-                                    <Text style={{ color: tc.tint }}>+ {t('areas.new')}</Text>
+                        <View style={[styles.areaEditorSection, { borderColor: tc.border }]}>
+                            <View style={styles.areaEditorHeading}>
+                                <Text style={{ color: tc.text, fontWeight: '600' }}>{editingAreaId ? t('projects.renameArea') : t('areas.new')}</Text>
+                                {editingAreaId ? (
+                                    <TouchableOpacity disabled={saving} onPress={() => {
+                                        setEditingAreaId(null);
+                                        setSaveError('');
+                                        onSetNewAreaName('');
+                                    }} accessibilityRole="button" style={styles.areaRenameButton}>
+                                        <Text style={{ color: tc.tint }}>+ {t('areas.new')}</Text>
+                                    </TouchableOpacity>
+                                ) : null}
+                            </View>
+                            <TextInput
+                                value={newAreaName}
+                                editable={!saving}
+                                onChangeText={onSetNewAreaName}
+                                placeholder={t('projects.areaLabel')}
+                                placeholderTextColor={tc.secondaryText}
+                                style={[styles.linkModalInput, { backgroundColor: tc.inputBg, borderColor: tc.border, color: tc.text }]}
+                            />
+                            {saveError ? <Text accessibilityLiveRegion="polite" style={{ color: tc.danger ?? tc.text }}>{saveError}</Text> : null}
+                            <View style={styles.colorPicker}>
+                                {colors.map((color) => (
+                                    <TouchableOpacity
+                                        key={color}
+                                        style={[
+                                            styles.colorOption,
+                                            { backgroundColor: color },
+                                            newAreaColor === color && styles.colorOptionSelected,
+                                        ]}
+                                        onPress={() => onSetNewAreaColor(color)}
+                                    />
+                                ))}
+                            </View>
+                            <View style={styles.linkModalButtons}>
+                                <TouchableOpacity onPress={onCloseAreaManager} disabled={saving} style={styles.linkModalButton}>
+                                    <Text style={[styles.linkModalButtonText, { color: tc.secondaryText }]}>{t('common.cancel')}</Text>
                                 </TouchableOpacity>
-                            ) : null}
-                        </View>
-                        <TextInput
-                            value={newAreaName}
-                            editable={!saving}
-                            onChangeText={onSetNewAreaName}
-                            placeholder={t('projects.areaLabel')}
-                            placeholderTextColor={tc.secondaryText}
-                            style={[styles.linkModalInput, { backgroundColor: tc.inputBg, borderColor: tc.border, color: tc.text }]}
-                        />
-                        {saveError ? <Text accessibilityLiveRegion="polite" style={{ color: tc.danger ?? tc.text, marginBottom: 8 }}>{saveError}</Text> : null}
-                        <View style={styles.colorPicker}>
-                            {colors.map((color) => (
                                 <TouchableOpacity
-                                    key={color}
-                                    style={[
-                                        styles.colorOption,
-                                        { backgroundColor: color },
-                                        newAreaColor === color && styles.colorOptionSelected,
-                                    ]}
-                                    onPress={() => onSetNewAreaColor(color)}
-                                />
-                            ))}
-                        </View>
-                        <View style={styles.linkModalButtons}>
-                            <TouchableOpacity onPress={onCloseAreaManager} disabled={saving} style={styles.linkModalButton}>
-                                <Text style={[styles.linkModalButtonText, { color: tc.secondaryText }]}>{t('common.cancel')}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={saveArea}
-                                disabled={saving || !newAreaName.trim()}
-                                accessibilityState={{ busy: saving, disabled: saving || !newAreaName.trim() }}
-                                style={[styles.linkModalButton, (saving || !newAreaName.trim()) && styles.linkModalButtonDisabled]}
-                            >
-                                <Text style={[styles.linkModalButtonText, { color: tc.tint }]}>{t('common.save')}</Text>
-                            </TouchableOpacity>
+                                    onPress={saveArea}
+                                    disabled={saving || !newAreaName.trim()}
+                                    accessibilityState={{ busy: saving, disabled: saving || !newAreaName.trim() }}
+                                    style={[styles.linkModalButton, (saving || !newAreaName.trim()) && styles.linkModalButtonDisabled]}
+                                >
+                                    <Text style={[styles.linkModalButtonText, { color: tc.tint }]}>{t('common.save')}</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                         </MoeGlassPanel>
                     </Pressable>

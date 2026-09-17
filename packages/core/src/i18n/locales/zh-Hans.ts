@@ -299,6 +299,7 @@ export const zhHans: Record<string, string> = {
         'task.promoteToProjectCreated': '已从任务创建项目',
         'task.promoteToProjectMoved': '已将任务移至现有项目',
         'task.updateFailed': '更新任务失败',
+        'task.undoExpired': '任务完成后已发生更改，无法再撤销。',
         'task.cancel': '取消任务',
         'task.cancelRecurringSeries': '取消重复系列',
         'task.cancelled': '已取消',

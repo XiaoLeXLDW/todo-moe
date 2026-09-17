@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useStartupScreenReady } from '@/hooks/use-startup-screen-ready';
 import { workspaceSessionStorage as AsyncStorage } from '@/lib/workspace-session-storage';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Dimensions, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, Platform, useWindowDimensions } from 'react-native';
 import type { GettingStartedAction } from '@/components/GettingStartedActions';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AREA_PRESET_COLORS, Attachment, DEFAULT_PROJECT_COLOR, getProjectSectionsForView, Project, shallow, Task, type Section, type TaskSortBy, useTaskStore } from '@mindwtr/core';
@@ -68,6 +68,7 @@ function resolveTaskRouteTab(value?: string | string[]): TaskEditTab {
 }
 
 export default function ProjectsScreen() {
+  const { height: windowHeight } = useWindowDimensions();
   const moeTabInset = useMoeTabInset();
   const reducedMotion = useReducedMotion();
   const onStartupLayout = useStartupScreenReady('projects');
@@ -246,7 +247,6 @@ export default function ProjectsScreen() {
   }, [t]);
   const [showTagFilter, setShowTagFilter] = useState(false);
   const [tagDraft, setTagDraft] = useState('');
-  const windowHeight = Dimensions.get('window').height;
   const pickerCardMaxHeight = Math.min(windowHeight * 0.8, 560);
   const areaListMaxHeight = Math.min(windowHeight * 0.4, 280);
   const areaManagerListMaxHeight = Math.min(windowHeight * 0.45, 320);

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "version": "0.4.0",
+  "changes": [
+    "带 checklist 的 list 任务可在主要任务列表直接展开，显示连续进度，并逐项完成或取消完成，不必先打开编辑器。",
+    "最后一个小步骤完成时会原子完成父任务并触发大型完成反馈；撤销只恢复最后一次点击前的父任务和该步骤状态。",
+    "小步骤写入按稳定 itemId 对实时 checklist 重放，保留并发发生的改名、新增和排序；只读、归档及过期撤销不会覆盖较新内容。",
+    "任务编辑器在异步保存失败时保留草稿，并使用单调会话标识阻止旧保存回调关闭后来打开的任务。",
+    "修正管理文件夹和引用分组弹层的拥挤与视觉层级，统一使用 Todo Moe 玻璃容器。"
+  ],
+  "knownIssues": [
+    "Dev 与 Stable 使用不同包名且不会自动共享数据；从 Dev 迁移到 Stable 前应先导出备份，再在 Stable 恢复并核对。",
+    "本轮代表性真机验收限定于 Xiaomi MIX Fold 2 / Android 15，不代表所有 Android 设备、无障碍组合或长期功耗表现。",
+    "任务同步继续按现有产品边界保持可选；本轮没有修改同步协议、底栏、AI、图标或发布系统。"
+  ],
+  "supportedDevices": [
+    "Android arm64-v8a，最低 API24；发布前在 Xiaomi MIX Fold 2 / Android 15 上执行覆盖安装和定向交互验收。"
+  ],
+  "validation": [
+    "关键竞态均先以失败回归锁定；定向 Mobile 3 files / 90 tests 与 Core 5 tests 通过。",
+    "UTC Core 203 files passed / 1 skipped、3879 passed / 8 skipped；Mobile 297 files / 2940 tests，类型、lint、国际化、schema、治理脚本和发布资料检查通过。",
+    "正式发布只接受合并到 main 的批准 SHA，并由受控工作流重新构建、隔离签名、回读身份后公开。"
+  ],
+  "versionRecord": "docs/todo-moe/docs/versions/0.4.0-release-candidate-vc51-2026-09-17.md"
+}

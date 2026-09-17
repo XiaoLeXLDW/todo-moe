@@ -14,7 +14,13 @@ import { createCompletionFeedbackStore, feedbackGeometry, type CompletionFeedbac
 export type CompletionMeasureRefs = { row: AnimatedRef<View>; title: AnimatedRef<Text>; check: AnimatedRef<View> };
 export type CompletionFeedbackDetails = { title: string; appearance: FeedbackAppearance };
 type FeedbackStore = ReturnType<typeof createCompletionFeedbackStore>;
-type FeedbackHost = { store: FeedbackStore; hostRef: AnimatedRef<View>; layoutGate: SharedValue<FeedbackLayoutGate>; available: () => boolean };
+type FeedbackHost = {
+    store: FeedbackStore;
+    hostRef: AnimatedRef<View>;
+    layoutGate: SharedValue<FeedbackLayoutGate>;
+    interactiveLayoutUntil: SharedValue<number>;
+    available: () => boolean;
+};
 const Context = createContext<FeedbackHost | null>(null);
 const noSubscribe = () => () => {};
 const falseSnapshot = () => false;
@@ -32,6 +38,19 @@ export function useMoeCompletionUndoPending(taskId?: string) {
 }
 
 export function useMoeCompletionLayoutGate() { return useContext(Context)?.layoutGate; }
+export function useMoeInteractiveLayoutUntil() { return useContext(Context)?.interactiveLayoutUntil; }
+export function useMoeInteractiveListLayout() {
+    const host = useContext(Context);
+    return useCallback(() => {
+        if (!host?.available() || AppState.currentState !== 'active') return;
+        try {
+            runOnUISync((target, until) => {
+                'worklet';
+                target.value = until;
+            }, host.interactiveLayoutUntil, Date.now() + 240);
+        } catch { /* A missing animation runtime must never block the toggle. */ }
+    }, [host]);
+}
 
 /** One stable paint host per native window, outside the list's filtered cells. */
 export function MoeCompletionFeedbackHost({ children, active = true, scopeKey = '' }: {
@@ -41,6 +60,7 @@ export function MoeCompletionFeedbackHost({ children, active = true, scopeKey = 
     const entries = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
     const hostRef = useAnimatedRef<View>();
     const layoutGate = useSharedValue<FeedbackLayoutGate>(store.getLayoutGate());
+    const interactiveLayoutUntil = useSharedValue(0);
     const navigation = useContext(NavigationContext);
     const ready = useRef(false);
     const enabled = useRef(false);
@@ -69,7 +89,8 @@ export function MoeCompletionFeedbackHost({ children, active = true, scopeKey = 
         const focus = navigation?.addListener('focus', updateEnabled);
         return () => { enabled.current = false; subscription.remove(); blur?.(); beforeRemove?.(); focus?.(); store.clear(); unsubscribeLayout(); };
     }, [active, layoutGate, navigation, scopeKey, store]);
-    const host = useMemo(() => ({ store, hostRef, layoutGate, available: () => enabled.current && ready.current }), [hostRef, layoutGate, store]);
+    const host = useMemo(() => ({ store, hostRef, layoutGate, interactiveLayoutUntil,
+        available: () => enabled.current && ready.current }), [hostRef, interactiveLayoutUntil, layoutGate, store]);
     const rememberTouch = useCallback((event: GestureResponderEvent) => {
         touchOrigin.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY };
     }, []);

@@ -253,6 +253,7 @@ export const svOverrides: Record<string, string> = {
         'task.promoteToProjectCreated': 'Projekt skapat från uppgiften',
         'task.promoteToProjectMoved': 'Uppgiften flyttades till ett befintligt projekt',
         'task.updateFailed': 'Det gick inte att uppdatera uppgiften.',
+        'task.undoExpired': 'Uppgiften ändrades efter att den slutfördes. Det går inte längre att ångra.',
         'task.cancel': 'Avbryt uppgift',
         'task.cancelRecurringSeries': 'Avbryt återkommande serie',
         'task.cancelled': 'Avbruten',

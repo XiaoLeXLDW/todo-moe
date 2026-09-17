@@ -245,6 +245,7 @@ export const esOverrides: Record<string, string> = {
 'task.promoteToProjectCreated': "Proyecto creado a partir de la tarea",
 'task.promoteToProjectMoved': "Tarea movida a un proyecto existente",
 'task.updateFailed': "No se pudo actualizar la tarea.",
+'task.undoExpired': "La tarea cambió después de completarla. Ya no se puede deshacer.",
 'task.cancel': 'Cancelar tarea',
 'task.cancelRecurringSeries': 'Cancelar serie recurrente',
 'task.cancelled': 'Cancelada',

@@ -10,6 +10,19 @@ export const styles = StyleSheet.create({
         marginBottom: 6,
         position: 'relative',
     },
+    completionMeasureSurface: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 72,
+    },
+    listParentCompletionControl: {
+        // An expanded checklist makes the card much taller. Keep the parent
+        // control beside the title instead of vertically centering it among
+        // child steps, so the stable completion snapshot can measure it too.
+        alignSelf: 'flex-start',
+    },
     priorityStrip: {
         position: 'absolute',
         insetInlineStart: 6,
@@ -121,24 +134,24 @@ export const styles = StyleSheet.create({
         fontSize: 11,
     },
     checklistItems: {
-        marginTop: 6,
-        gap: 4,
+        marginTop: 8,
+        paddingTop: 6,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        gap: 1,
     },
-    checklistItem: {
-        paddingVertical: 2,
+    checklistEditButton: {
+        alignSelf: 'flex-start',
+        minHeight: 40,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 7,
+        paddingHorizontal: 10,
+        marginTop: 2,
+        borderRadius: 10,
     },
-    checklistItemText: {
-        fontSize: 11,
-    },
-    checklistAddInput: {
-        fontSize: 11,
-        paddingVertical: 4,
-        paddingHorizontal: 0,
-        minHeight: 28,
-    },
-    checklistItemCompleted: {
-        textDecorationLine: 'line-through',
-        opacity: 0.6,
+    checklistEditText: {
+        fontSize: 12,
+        fontWeight: '700',
     },
     statusBadge: {
         minHeight: 44,

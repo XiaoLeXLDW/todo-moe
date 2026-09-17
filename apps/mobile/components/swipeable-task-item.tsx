@@ -44,8 +44,13 @@ import {
     moeSwipeActionStyles,
 } from '@/moe/MoeSwipeActionsTrack';
 import { CompactText } from '@/components/compact-text';
-import { useSwipeableChecklist } from './swipeable-task-item/useSwipeableChecklist';
+import {
+    useSwipeableChecklist,
+    type ChecklistItemMutation,
+    type ChecklistItems,
+} from './swipeable-task-item/useSwipeableChecklist';
 import { settleStoreAction } from './store-action-result';
+import { useMoeInteractiveListLayout } from '../moe/MoeCompletionFeedback';
 
 /**
  * Everything a row can mutate, on one object whose identity never changes
@@ -154,6 +159,24 @@ const noop = () => {};
 const moeCompletionSnapshot = () => {
     const state = useTaskStore.getState();
     return { tasks: state._allTasks ?? state.tasks ?? [], projects: state._allProjects ?? state.projects ?? [] };
+};
+
+const checklistsMatch = (current: Task['checklist'], expected: ChecklistItems): boolean => {
+    const currentItems = current ?? [];
+    return currentItems.length === expected.length
+        && currentItems.every((item, index) => {
+            const expectedItem = expected[index];
+            return expectedItem !== undefined
+                && item.id === expectedItem.id
+                && item.title === expectedItem.title
+                && item.isCompleted === expectedItem.isCompleted;
+        });
+};
+
+const isTaskProjectWritable = (task: Task, projects: readonly Project[]): boolean => {
+    if (!task.projectId) return true;
+    const project = projects.find((candidate) => candidate.id === task.projectId);
+    return Boolean(project && !project.deletedAt && project.status !== 'archived');
 };
 
 /** Binds this row's task into the shared `actions`, inside the memo boundary. */
@@ -287,16 +310,6 @@ function SwipeableTaskItemInner({
     const canShowFocusToggle = !interactionDisabled
         && showFocusToggle
         && isTaskActionable(task);
-    const isReference = task.status === 'reference';
-    const {
-        addChecklistItem,
-        cancelPendingChecklist,
-        checklistProgress,
-        localChecklist,
-        showChecklist,
-        toggleChecklist,
-        toggleChecklistItem,
-    } = useSwipeableChecklist(task, updateTask, interactionDisabled);
     const [showStatusMenu, setShowStatusMenu] = useState(false);
     const [completionPending, setCompletionPending] = useState(false);
     const rowTransition = useMoeCompletionRow(task.id, task.status === 'done');
@@ -351,6 +364,156 @@ function SwipeableTaskItemInner({
             durationMs: 4200,
         });
     }, [showToast, t]);
+
+    const commitChecklistMutation = useCallback(async (mutation: ChecklistItemMutation) => {
+        const snapshot = moeCompletionSnapshot();
+        const latest = snapshot.tasks.find((candidate) => candidate.id === mutation.taskId);
+        if (!latest || latest.deletedAt || !isTaskActionable(latest)
+            || !isTaskProjectWritable(latest, snapshot.projects)) {
+            showActionFailure();
+            return false;
+        }
+        const previousChecklist = (latest.checklist ?? []) as ChecklistItems;
+        if (!previousChecklist.some((item) => item.id === mutation.itemId)) {
+            showActionFailure();
+            return false;
+        }
+        // The queue stores the clicked item's intent, not an authoritative full
+        // snapshot. Replaying that intent against the live task preserves edits,
+        // inserts, deletes, and reordering that happened while an earlier write
+        // was still settling.
+        const nextChecklist = previousChecklist.map((item) => (
+            item.id === mutation.itemId
+                ? { ...item, isCompleted: mutation.isCompleted }
+                : item
+        ));
+        const autoCompletesParent = latest.taskMode === 'list'
+            && mutation.isCompleted
+            && nextChecklist.length > 0
+            && nextChecklist.every((item) => item.isCompleted);
+        const interactionId = `${mutation.taskId}:${mutation.itemId}:${Date.now()}`;
+
+        if (!autoCompletesParent) {
+            const outcome = await settleStoreAction(() => updateTask(mutation.taskId, {
+                checklist: nextChecklist,
+            }));
+            if (!outcome.ok) {
+                showActionFailure(outcome.message);
+                return false;
+            }
+            void emitMoeHaptic({
+                event: mutation.isCompleted ? 'checklistStepConfirmed' : 'checklistStepReopened',
+                interactionId,
+                ownerActive: navigation?.isFocused() !== false,
+            });
+            const durableTask = moeCompletionSnapshot().tasks.find((candidate) => candidate.id === mutation.taskId);
+            return (durableTask?.checklist ?? nextChecklist) as ChecklistItems;
+        }
+
+        const operation = beginMoeCompletion(mutation.taskId, snapshot, true);
+        if (!operation) return false;
+        const previousStatus = latest.status;
+        const wasFocusedToday = latest.isFocusedToday === true;
+        setCompletionPending(true);
+        armRowExit(operation.id, completionAppearance.current
+            ? { title: latest.title, appearance: completionAppearance.current }
+            : undefined);
+        const outcome = await settleStoreAction(() => updateTask(mutation.taskId, {
+            checklist: nextChecklist,
+            status: 'done',
+        }));
+        const after = moeCompletionSnapshot();
+        settleRowExit(operation.id, outcome.ok && after.tasks.some((candidate) => (
+            candidate.id === mutation.taskId && candidate.status === 'done' && !candidate.deletedAt
+        )));
+        const celebration = finishMoeCompletion(operation, outcome.ok, after);
+        setCompletionPending(false);
+        if (!outcome.ok) {
+            showActionFailure(outcome.message);
+            return false;
+        }
+
+        void emitMoeHaptic({
+            event: 'checklistStepConfirmed',
+            interactionId,
+            occurredAt: operation.occurredAt,
+            ownerActive: navigation?.isFocused() !== false,
+        });
+        void emitMoeHaptic({
+            event: celebration ? 'listCompleted' : 'taskConfirmed',
+            interactionId: operation.id,
+            occurredAt: operation.occurredAt,
+            ownerActive: navigation?.isFocused() !== false,
+        });
+        if (celebration) publishListCompleted(celebration);
+        showToast({
+            message: formatTaskMarkedDoneMessage(t, latest.title),
+            tone: 'info',
+            actionLabel: tFallback(t, 'common.undo', 'Undo'),
+            onAction: async () => {
+                const undoSnapshot = moeCompletionSnapshot();
+                const undoTask = undoSnapshot.tasks.find((candidate) => candidate.id === mutation.taskId);
+                if (!undoTask
+                    || undoTask.status !== 'done'
+                    || !checklistsMatch(undoTask.checklist, nextChecklist)
+                    || !isTaskProjectWritable(undoTask, undoSnapshot.projects)) {
+                    showActionFailure(tFallback(
+                        t,
+                        'task.undoExpired',
+                        'This task changed after completion. Undo is no longer available.',
+                    ));
+                    return;
+                }
+                const undoOccurredAt = Date.now();
+                cancelMoeCompletion(mutation.taskId);
+                cancelRowExit(operation.id, true);
+                if (wasFocusedToday) beginRowUndo(operation.id);
+                try {
+                    const undoOutcome = await settleStoreAction(() => undoTaskCompletion(
+                        mutation.taskId,
+                        previousStatus,
+                        wasFocusedToday,
+                        {
+                            restoreUpdates: { checklist: previousChecklist },
+                            expectedCurrent: { status: 'done', checklist: nextChecklist },
+                        },
+                    ));
+                    if (!undoOutcome.ok) {
+                        cancelRowExit(operation.id);
+                        showActionFailure(undoOutcome.message);
+                    } else {
+                        void emitMoeHaptic({
+                            event: 'undoReleased',
+                            interactionId: operation.id,
+                            occurredAt: undoOccurredAt,
+                            ownerActive: navigation?.isFocused() !== false,
+                        });
+                    }
+                } finally {
+                    finishRowUndo(operation.id);
+                }
+            },
+            replaceKey: TASK_COMPLETION_TOAST_KEY,
+            durationMs: 5200,
+        });
+        openProjectNextActionPromptIfNeeded(mutation.taskId);
+        const durableTask = after.tasks.find((candidate) => candidate.id === mutation.taskId);
+        return (durableTask?.checklist ?? nextChecklist) as ChecklistItems;
+    }, [armRowExit, beginRowUndo, cancelRowExit, finishRowUndo, navigation, openProjectNextActionPromptIfNeeded, settleRowExit, showActionFailure, showToast, t, updateTask]);
+
+    const checklistWriteDisabled = mutationBlockedRef.current || !isTaskActionable(task);
+    const {
+        checklistProgress,
+        localChecklist,
+        showChecklist,
+        toggleChecklist,
+        toggleChecklistItem,
+    } = useSwipeableChecklist(task, commitChecklistMutation, checklistWriteDisabled);
+    const beginInteractiveListLayout = useMoeInteractiveListLayout();
+    const toggleChecklistWithFastLayout = useCallback(() => {
+        beginInteractiveListLayout();
+        toggleChecklist();
+    }, [beginInteractiveListLayout, toggleChecklist]);
 
     const handleStatusChange = useCallback((status: TaskStatus) => {
         if (mutationBlockedRef.current) return;
@@ -654,13 +817,22 @@ function SwipeableTaskItemInner({
     ].filter(Boolean).join('. ');
 
     const handlePress = () => {
-        if (interactionDisabled) {
-            if (allowInspectionWhenDisabled) onPress();
-            return;
-        }
         if (Date.now() < ignorePressUntil.current) return;
         if (selectionMode && onToggleSelect) {
             onToggleSelect();
+            return;
+        }
+        const executesChecklist = task.taskMode === 'list'
+            && task.status !== 'reference'
+            && Boolean(checklistProgress?.total);
+        if (interactionDisabled) {
+            if (executesChecklist) toggleChecklistWithFastLayout();
+            else if (allowInspectionWhenDisabled) onPress();
+            return;
+        }
+        if (executesChecklist) {
+            swipeableRef.current?.close();
+            toggleChecklistWithFastLayout();
             return;
         }
         onPress();
@@ -674,7 +846,6 @@ function SwipeableTaskItemInner({
         deletePendingRef.current = true;
         const deleteOccurredAt = Date.now();
         cancelRowExit();
-        cancelPendingChecklist();
         void settleStoreAction(() => onDelete())
             .then((outcome) => {
                 if (!outcome.ok) {
@@ -724,9 +895,19 @@ function SwipeableTaskItemInner({
         if (onToggleSelect) onToggleSelect();
     };
 
+    const checklistInspectable = task.taskMode === 'list'
+        && task.status !== 'reference'
+        && Boolean(checklistProgress?.total);
     const accessibilityActions = interactionDisabled
-        ? (allowInspectionWhenDisabled
-            ? [{ name: 'activate', label: tFallback(t, 'common.view', 'View') }]
+        ? (allowInspectionWhenDisabled || checklistInspectable
+            ? [{
+                name: 'activate',
+                label: checklistInspectable
+                    ? showChecklist
+                        ? tFallback(t, 'markdown.collapse', 'Collapse')
+                        : tFallback(t, 'markdown.expand', 'Expand')
+                    : tFallback(t, 'common.view', 'View'),
+            }]
             : [])
         : [
         {
@@ -735,7 +916,11 @@ function SwipeableTaskItemInner({
                 ? isMultiSelected
                     ? tFallback(t, 'task.deselect', 'Deselect task')
                     : tFallback(t, 'task.select', 'Select task')
-                : tFallback(t, 'common.edit', 'Edit'),
+                : task.taskMode === 'list' && checklistProgress?.total
+                    ? showChecklist
+                        ? tFallback(t, 'markdown.collapse', 'Collapse')
+                        : tFallback(t, 'markdown.expand', 'Expand')
+                    : tFallback(t, 'common.edit', 'Edit'),
         },
         ...(!selectionMode
             ? [
@@ -751,7 +936,7 @@ function SwipeableTaskItemInner({
     const handleAccessibilityAction = (event: { nativeEvent: { actionName: string } }) => {
         const { actionName } = event.nativeEvent;
         if (interactionDisabled) {
-            if (allowInspectionWhenDisabled && actionName === 'activate') handlePress();
+            if ((allowInspectionWhenDisabled || checklistInspectable) && actionName === 'activate') handlePress();
             return;
         }
         if (actionName === 'activate') {
@@ -780,7 +965,7 @@ function SwipeableTaskItemInner({
             areas={areas}
             canShowFocusToggle={canShowFocusToggle}
             checklistProgress={checklistProgress}
-            hideChecklistProgress={hideChecklistProgress || isReference}
+            hideChecklistProgress={hideChecklistProgress || task.status === 'reference'}
             hideContexts={hideContexts}
             hideProjectMeta={hideProjectMeta}
             hideStatusBadge={hideStatusBadge}
@@ -794,8 +979,8 @@ function SwipeableTaskItemInner({
             allowInspectionWhenDisabled={allowInspectionWhenDisabled}
             language={language}
             localChecklist={localChecklist}
+            checklistWriteDisabled={checklistWriteDisabled}
             onAccessibilityAction={handleAccessibilityAction}
-            onAddChecklistItem={addChecklistItem}
             onContextPress={onContextPress}
             onEditCompletedAt={!interactionDisabled && isTaskFinished(task) && !selectionMode
                 ? () => setCompletedAtPicker('edit')
@@ -806,6 +991,7 @@ function SwipeableTaskItemInner({
             }}
             onPress={handlePress}
             onComplete={() => handleStatusChange(task.status === 'done' ? 'inbox' : 'done')}
+            onEditChecklist={onPress}
             completionPending={completionPending}
             completionMeasureRefs={rowTransition.measurementRefs}
             completionAppearanceRef={completionAppearance}
@@ -814,7 +1000,7 @@ function SwipeableTaskItemInner({
             projectDeadlineLabel={projectDeadlineLabel}
             footerContent={footerContent}
             recurrenceLabel={recurrenceLabel}
-            onToggleChecklist={toggleChecklist}
+            onToggleChecklist={toggleChecklistWithFastLayout}
             onToggleChecklistItem={toggleChecklistItem}
             onToggleFocus={toggleFocus}
             focusToggleDisabledLabel={task.isFocusedToday ? undefined : focusToggleDisabledLabel}
@@ -822,7 +1008,7 @@ function SwipeableTaskItemInner({
             sectionById={sectionById}
             selectionMode={selectionMode}
             sequenceCue={sequenceCue}
-            showChecklist={!isReference && showChecklist}
+            showChecklist={task.status !== 'reference' && showChecklist}
             showTaskAge={showTaskAge}
             t={t}
             task={{

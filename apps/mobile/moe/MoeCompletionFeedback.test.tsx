@@ -1,10 +1,10 @@
 import React from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { AppState, Text } from 'react-native';
+import { AppState, StyleSheet, Text } from 'react-native';
 import { measure, useAnimatedStyle } from 'react-native-reanimated';
 import { runOnUISync } from 'react-native-worklets';
-import { MoeCompletionFeedbackHost, useMoeCompletionFeedback, useMoeCompletionFeedbackActive } from './MoeCompletionFeedback';
+import { MoeCompletionFeedbackHost, useMoeCompletionFeedback, useMoeCompletionFeedbackActive, useMoeInteractiveListLayout } from './MoeCompletionFeedback';
 import { MoeCompletionRow, useMoeCompletionRow } from './MoeCompletionRow';
 import { settleStoreAction } from '../components/store-action-result';
 import { MoeCompletionCell } from './MoeCompletionCell';
@@ -29,13 +29,15 @@ const appearance: FeedbackAppearance = { backgroundColor: '#fff', borderColor: '
 const details = { title: 'Only the visible task title', appearance };
 type Transition = ReturnType<typeof useMoeCompletionRow>;
 let transition: Transition; let feedbackActive = false; let tree: ReactTestRenderer | undefined;
+let beginInteractiveListLayout: () => void = () => {};
 function Row({ done = false, focused = true }: { done?: boolean; focused?: boolean }) {
     transition = useMoeCompletionRow('task-a', done);
     return <MoeCompletionCell style={undefined} item={{ type: 'task', task: { id: 'task-a' } }}><MoeCompletionRow transition={transition}><Text testID="restore-star-state">{focused ? 'filled' : 'hollow'}</Text></MoeCompletionRow></MoeCompletionCell>;
 }
 function Active() { feedbackActive = useMoeCompletionFeedbackActive(); return null; }
+function InteractiveLayoutControl() { beginInteractiveListLayout = useMoeInteractiveListLayout(); return null; }
 function layout({ row = true, done = false, focused = true, scope = '/focus', active = true } = {}) {
-    return <MoeCompletionFeedbackHost scopeKey={scope} active={active}><Active />{row ? <Row key={focused ? 'focus' : 'next'} done={done} focused={focused} /> : null}</MoeCompletionFeedbackHost>;
+    return <MoeCompletionFeedbackHost scopeKey={scope} active={active}><Active /><InteractiveLayoutControl />{row ? <Row key={focused ? 'focus' : 'next'} done={done} focused={focused} /> : null}</MoeCompletionFeedbackHost>;
 }
 function mount() {
     act(() => { tree = create(layout()); });
@@ -205,6 +207,22 @@ const cellPaint = () => tree!.root.findByType(MoeCompletionCell).findAllByType('
 const layoutValues = { currentOriginX: 0, currentOriginY: 100, currentWidth: 320, currentHeight: 64,
     targetOriginX: 0, targetOriginY: 180, targetWidth: 320, targetHeight: 64 };
 type UndoVisual = Transition;
+
+it('clips expanding row content to the animated cell height so it cannot cover its neighbor', () => {
+    mount();
+    expect(StyleSheet.flatten(cellPaint().props.style)).toMatchObject({ overflow: 'hidden' });
+});
+
+it('uses a short immediate layout transition for checklist expansion', () => {
+    mount();
+    act(() => beginInteractiveListLayout());
+    const animation = cellPaint().props.layout({
+        ...layoutValues,
+        targetHeight: 300,
+    }).animations.height;
+    expect(animation.config.duration).toBeLessThanOrEqual(220);
+    expect(animation.config.easing(0.1)).toBeGreaterThan(0);
+});
 
 it('hides the real unfocused intermediate row until both original Undo writes settle', async () => {
     mount(); geometry(); const old = transition as UndoVisual;
