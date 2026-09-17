@@ -32,7 +32,10 @@ import { useStatusColors } from '../hooks/use-status-colors';
 import { TASK_COMPLETION_TOAST_KEY, TASK_UNDO_TOAST_KEY, useToast } from '../contexts/toast-context';
 import { AppPressable } from './app-pressable';
 import { presentProjectNextActionPrompt } from './project-next-action-prompt';
-import { SwipeableTaskItemContent } from './swipeable-task-item/SwipeableTaskItemContent';
+import {
+    canExecuteTaskChecklist,
+    SwipeableTaskItemContent,
+} from './swipeable-task-item/SwipeableTaskItemContent';
 import { ProjectNextActionPromptModal } from './swipeable-task-item/ProjectNextActionPromptModal';
 import { SwipeableTaskItemStatusMenu } from './swipeable-task-item/SwipeableTaskItemStatusMenu';
 import { CompletedAtPicker } from './completed-at-picker';
@@ -822,9 +825,7 @@ function SwipeableTaskItemInner({
             onToggleSelect();
             return;
         }
-        const executesChecklist = task.taskMode === 'list'
-            && task.status !== 'reference'
-            && Boolean(checklistProgress?.total);
+        const executesChecklist = canExecuteTaskChecklist(task, checklistProgress);
         if (interactionDisabled) {
             if (executesChecklist) toggleChecklistWithFastLayout();
             else if (allowInspectionWhenDisabled) onPress();
@@ -895,9 +896,7 @@ function SwipeableTaskItemInner({
         if (onToggleSelect) onToggleSelect();
     };
 
-    const checklistInspectable = task.taskMode === 'list'
-        && task.status !== 'reference'
-        && Boolean(checklistProgress?.total);
+    const checklistInspectable = canExecuteTaskChecklist(task, checklistProgress);
     const accessibilityActions = interactionDisabled
         ? (allowInspectionWhenDisabled || checklistInspectable
             ? [{
@@ -916,7 +915,7 @@ function SwipeableTaskItemInner({
                 ? isMultiSelected
                     ? tFallback(t, 'task.deselect', 'Deselect task')
                     : tFallback(t, 'task.select', 'Select task')
-                : task.taskMode === 'list' && checklistProgress?.total
+                : checklistInspectable
                     ? showChecklist
                         ? tFallback(t, 'markdown.collapse', 'Collapse')
                         : tFallback(t, 'markdown.expand', 'Expand')
