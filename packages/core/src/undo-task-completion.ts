@@ -26,9 +26,9 @@ function checklistsMatch(
 function matchesUndoExpectation(
     task: Task | undefined,
     expected: TaskCompletionUndoExpectation | undefined,
-): task is Task {
-    if (!task || task.deletedAt) return false;
+): boolean {
     if (!expected) return true;
+    if (!task || task.deletedAt) return false;
     return task.status === expected.status
         && checklistsMatch(task.checklist, expected.checklist);
 }
