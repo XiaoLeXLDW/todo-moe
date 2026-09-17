@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "version": "0.4.1",
+  "changes": [
+    "兼容已有 checklist 但仍使用普通 taskMode=task 的历史或普通任务：紧凑列表直接显示进度，点击任务主体可原地展开并逐项勾选。",
+    "普通任务完成最后一个 checklist 小步骤时只更新该步骤，不误自动完成父任务；taskMode=list 仍保留父任务原子完成、现有大型庆祝和精确撤销语义。",
+    "已完成或归档的普通任务保留原查看行为，参考任务继续不可执行；多选、只读和现有列表交互边界保持不变。"
+  ],
+  "knownIssues": [
+    "Dev 与 Stable 使用不同包名且不会自动共享数据；从 Dev 迁移到 Stable 前应先导出备份，再在 Stable 恢复并核对。",
+    "本轮代表性真机验收限定于 Xiaomi MIX Fold 2 / Android 15，不代表所有 Android 设备、无障碍组合或长期功耗表现。",
+    "任务同步继续按现有产品边界保持可选；本轮没有修改同步协议、底栏、AI、图标或发布系统。"
+  ],
+  "supportedDevices": [
+    "Android arm64-v8a，最低 API24；本次兼容修复已在 Xiaomi MIX Fold 2 / Android 15 的 Dev vc52 上执行定向交互验收，Stable 仍由受控工作流重新构建和签名。"
+  ],
+  "validation": [
+    "SwipeableTaskItem 回归 64/64、checklist 相关回归 39/39、Mobile TypeScript 和修改文件 ESLint 通过。",
+    "UTC Mobile 全量 297 files / 2941 tests 通过；PR #15 及合并提交 main 的 12/12 GitHub 检查均通过。",
+    "MIX Fold 2 真机验证普通 task-mode checklist 折叠态显示 0/1、主体原地展开、步骤 1/1 持久化至重启，父任务保持未完成；当前进程无 error 级日志。"
+  ],
+  "versionRecord": "docs/todo-moe/docs/versions/0.4.1-release-candidate-vc52-2026-09-18.md"
+}
