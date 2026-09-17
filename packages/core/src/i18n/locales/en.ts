@@ -264,6 +264,7 @@ export const en: Record<string, string> = {
         'task.promoteToProjectCreated': 'Project created from task',
         'task.promoteToProjectMoved': 'Moved task into existing project',
         'task.updateFailed': 'Could not update task.',
+        'task.undoExpired': 'This task changed after completion. Undo is no longer available.',
         'task.cancel': 'Cancel task',
         'task.cancelRecurringSeries': 'Cancel recurring series',
         'task.cancelled': 'Cancelled',

@@ -253,6 +253,7 @@ export const faOverrides: Record<string, string> = {
         'task.promoteToProjectCreated': 'پروژه از کار ایجاد شد',
         'task.promoteToProjectMoved': 'کار به پروژه موجود منتقل شد',
         'task.updateFailed': 'کار به‌روزرسانی نشد.',
+        'task.undoExpired': 'این کار پس از تکمیل تغییر کرده است و دیگر نمی‌توان آن را واگردانی کرد.',
         'task.cancel': 'لغو کار',
         'task.cancelRecurringSeries': 'لغو مجموعه تکرارشونده',
         'task.cancelled': 'لغوشده',

@@ -44,7 +44,11 @@ import {
     moeSwipeActionStyles,
 } from '@/moe/MoeSwipeActionsTrack';
 import { CompactText } from '@/components/compact-text';
-import { useSwipeableChecklist, type ChecklistItemMutation } from './swipeable-task-item/useSwipeableChecklist';
+import {
+    useSwipeableChecklist,
+    type ChecklistItemMutation,
+    type ChecklistItems,
+} from './swipeable-task-item/useSwipeableChecklist';
 import { settleStoreAction } from './store-action-result';
 import { useMoeInteractiveListLayout } from '../moe/MoeCompletionFeedback';
 
@@ -155,6 +159,24 @@ const noop = () => {};
 const moeCompletionSnapshot = () => {
     const state = useTaskStore.getState();
     return { tasks: state._allTasks ?? state.tasks ?? [], projects: state._allProjects ?? state.projects ?? [] };
+};
+
+const checklistsMatch = (current: Task['checklist'], expected: ChecklistItems): boolean => {
+    const currentItems = current ?? [];
+    return currentItems.length === expected.length
+        && currentItems.every((item, index) => {
+            const expectedItem = expected[index];
+            return expectedItem !== undefined
+                && item.id === expectedItem.id
+                && item.title === expectedItem.title
+                && item.isCompleted === expectedItem.isCompleted;
+        });
+};
+
+const isTaskProjectWritable = (task: Task, projects: readonly Project[]): boolean => {
+    if (!task.projectId) return true;
+    const project = projects.find((candidate) => candidate.id === task.projectId);
+    return Boolean(project && !project.deletedAt && project.status !== 'archived');
 };
 
 /** Binds this row's task into the shared `actions`, inside the memo boundary. */
@@ -346,16 +368,34 @@ function SwipeableTaskItemInner({
     const commitChecklistMutation = useCallback(async (mutation: ChecklistItemMutation) => {
         const snapshot = moeCompletionSnapshot();
         const latest = snapshot.tasks.find((candidate) => candidate.id === mutation.taskId);
-        if (!latest || latest.deletedAt || !isTaskActionable(latest)) return false;
+        if (!latest || latest.deletedAt || !isTaskActionable(latest)
+            || !isTaskProjectWritable(latest, snapshot.projects)) {
+            showActionFailure();
+            return false;
+        }
+        const previousChecklist = (latest.checklist ?? []) as ChecklistItems;
+        if (!previousChecklist.some((item) => item.id === mutation.itemId)) {
+            showActionFailure();
+            return false;
+        }
+        // The queue stores the clicked item's intent, not an authoritative full
+        // snapshot. Replaying that intent against the live task preserves edits,
+        // inserts, deletes, and reordering that happened while an earlier write
+        // was still settling.
+        const nextChecklist = previousChecklist.map((item) => (
+            item.id === mutation.itemId
+                ? { ...item, isCompleted: mutation.isCompleted }
+                : item
+        ));
         const autoCompletesParent = latest.taskMode === 'list'
             && mutation.isCompleted
-            && mutation.nextChecklist.length > 0
-            && mutation.nextChecklist.every((item) => item.isCompleted);
+            && nextChecklist.length > 0
+            && nextChecklist.every((item) => item.isCompleted);
         const interactionId = `${mutation.taskId}:${mutation.itemId}:${Date.now()}`;
 
         if (!autoCompletesParent) {
             const outcome = await settleStoreAction(() => updateTask(mutation.taskId, {
-                checklist: mutation.nextChecklist,
+                checklist: nextChecklist,
             }));
             if (!outcome.ok) {
                 showActionFailure(outcome.message);
@@ -366,7 +406,8 @@ function SwipeableTaskItemInner({
                 interactionId,
                 ownerActive: navigation?.isFocused() !== false,
             });
-            return true;
+            const durableTask = moeCompletionSnapshot().tasks.find((candidate) => candidate.id === mutation.taskId);
+            return (durableTask?.checklist ?? nextChecklist) as ChecklistItems;
         }
 
         const operation = beginMoeCompletion(mutation.taskId, snapshot, true);
@@ -378,7 +419,7 @@ function SwipeableTaskItemInner({
             ? { title: latest.title, appearance: completionAppearance.current }
             : undefined);
         const outcome = await settleStoreAction(() => updateTask(mutation.taskId, {
-            checklist: mutation.nextChecklist,
+            checklist: nextChecklist,
             status: 'done',
         }));
         const after = moeCompletionSnapshot();
@@ -410,6 +451,19 @@ function SwipeableTaskItemInner({
             tone: 'info',
             actionLabel: tFallback(t, 'common.undo', 'Undo'),
             onAction: async () => {
+                const undoSnapshot = moeCompletionSnapshot();
+                const undoTask = undoSnapshot.tasks.find((candidate) => candidate.id === mutation.taskId);
+                if (!undoTask
+                    || undoTask.status !== 'done'
+                    || !checklistsMatch(undoTask.checklist, nextChecklist)
+                    || !isTaskProjectWritable(undoTask, undoSnapshot.projects)) {
+                    showActionFailure(tFallback(
+                        t,
+                        'task.undoExpired',
+                        'This task changed after completion. Undo is no longer available.',
+                    ));
+                    return;
+                }
                 const undoOccurredAt = Date.now();
                 cancelMoeCompletion(mutation.taskId);
                 cancelRowExit(operation.id, true);
@@ -419,7 +473,10 @@ function SwipeableTaskItemInner({
                         mutation.taskId,
                         previousStatus,
                         wasFocusedToday,
-                        { restoreUpdates: { checklist: mutation.previousChecklist } },
+                        {
+                            restoreUpdates: { checklist: previousChecklist },
+                            expectedCurrent: { status: 'done', checklist: nextChecklist },
+                        },
                     ));
                     if (!undoOutcome.ok) {
                         cancelRowExit(operation.id);
@@ -440,7 +497,8 @@ function SwipeableTaskItemInner({
             durationMs: 5200,
         });
         openProjectNextActionPromptIfNeeded(mutation.taskId);
-        return true;
+        const durableTask = after.tasks.find((candidate) => candidate.id === mutation.taskId);
+        return (durableTask?.checklist ?? nextChecklist) as ChecklistItems;
     }, [armRowExit, beginRowUndo, cancelRowExit, finishRowUndo, navigation, openProjectNextActionPromptIfNeeded, settleRowExit, showActionFailure, showToast, t, updateTask]);
 
     const checklistWriteDisabled = mutationBlockedRef.current || !isTaskActionable(task);

@@ -42,6 +42,7 @@ import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import Animated from 'react-native-reanimated';
 import { useMoeCompletionListLayout } from '@/moe/MoeCompletionRow';
 import { useMoeCompletionFeedbackActive } from '@/moe/MoeCompletionFeedback';
+import { MoeGlassPanel } from '@/moe/glass/MoeGlassPanel';
 import { useMobileAreaFilter } from '@/hooks/use-mobile-area-filter';
 import { useToast } from '@/contexts/toast-context';
 import { PullSyncIndicator } from '@/components/PullSyncIndicator';
@@ -331,6 +332,8 @@ function TaskListComponent({
   }), shallow);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const editingSessionRef = useRef(0);
+  const [editingSessionId, setEditingSessionId] = useState(0);
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [referenceGroupModalVisible, setReferenceGroupModalVisible] = useState(false);
   const [filtersVisible, setFiltersVisible] = useState(false);
@@ -1176,13 +1179,24 @@ function TaskListComponent({
   }, [highlightTaskId, setHighlightTask]);
 
   const handleEditTask = useCallback((task: Task) => {
+    const nextSessionId = editingSessionRef.current + 1;
+    editingSessionRef.current = nextSessionId;
+    setEditingSessionId(nextSessionId);
     setEditingTask(task);
     setIsModalVisible(true);
   }, []);
 
+  const closeTaskEditor = useCallback((expectedSessionId: number) => {
+    if (editingSessionRef.current !== expectedSessionId) return;
+    setIsModalVisible(false);
+    setEditingTask(null);
+  }, []);
+
   const onSaveTask = useCallback((taskId: string, updates: Partial<Task>) => {
+    if (projectReadOnly) return { success: false };
     const state = useTaskStore.getState();
     const liveTask = state._allTasks?.find((task) => task.id === taskId);
+    if (!liveTask || liveTask.deletedAt) return { success: false };
     const owningProjectId = liveTask?.projectId ?? projectId;
     if (owningProjectId) {
       const liveProject = state._allProjects?.find((project) => project.id === owningProjectId);
@@ -1194,17 +1208,15 @@ function TaskListComponent({
       listItemCount: listItemCountForDiagnostics,
     });
     const result = state.updateTask(taskId, updates);
-    setIsModalVisible(false);
-    setEditingTask(null);
     void Promise.resolve(result).finally(() => {
       void finishMobilePerformanceDiagnostic(diagnostic, {
         visibleItemCount: listItemCountForDiagnostics,
       });
     });
-    // The editor closes above, so the save result has to reach `reportSaveResult`
-    // or a `{ success: false }` write reads as saved.
+    // TaskEditModal owns the draft lifecycle: it closes only after this result
+    // confirms success, and retains the same draft after a failed write.
     return result;
-  }, [listItemCountForDiagnostics, performanceRoute, projectId]);
+  }, [listItemCountForDiagnostics, performanceRoute, projectId, projectReadOnly]);
 
   const sortOptions = statusFilter === 'done'
     ? DONE_TASK_LIST_SORT_OPTIONS
@@ -1726,7 +1738,7 @@ function TaskListComponent({
           onRequestClose={() => setReferenceGroupModalVisible(false)}
         >
           <Pressable style={styles.modalOverlay} onPress={() => setReferenceGroupModalVisible(false)}>
-            <View style={[styles.modalCard, { backgroundColor: themeColors.cardBg }]}>
+            <MoeGlassPanel active={referenceGroupModalVisible} cornerRadius={12} style={styles.modalCard}>
               <Text style={[styles.modalTitle, { color: themeColors.text }]}>{groupLabel}</Text>
               <View style={styles.sortList}>
                 {groupByOptions.map((option) => (
@@ -1747,7 +1759,7 @@ function TaskListComponent({
                   </Pressable>
                 ))}
               </View>
-            </View>
+            </MoeGlassPanel>
           </Pressable>
         </Modal>
       )}
@@ -1757,14 +1769,14 @@ function TaskListComponent({
           visible={isModalVisible}
           task={editingTask}
           readOnly={projectReadOnly}
-          onClose={() => setIsModalVisible(false)}
+          onClose={() => closeTaskEditor(editingSessionId)}
           onSave={onSaveTask}
           defaultTab={defaultEditTab}
           onProjectNavigate={projectId ? undefined : openProjectScreen}
           onContextNavigate={openContextsScreen}
           onTagNavigate={openContextsScreen}
           onFocusMode={(taskId) => {
-            setIsModalVisible(false);
+            closeTaskEditor(editingSessionId);
             router.push(`/check-focus?id=${taskId}`);
           }}
         />

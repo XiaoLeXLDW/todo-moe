@@ -2,9 +2,9 @@
 
 ## Reporting a vulnerability
 
-Please report vulnerabilities privately via [GitHub security advisories](https://github.com/dongdongbh/Mindwtr/security/advisories/new). Do not open a public issue for anything exploitable.
+Please report vulnerabilities privately through [Todo Moe private vulnerability reporting](https://github.com/XiaoLeXLDW/todo-moe/security/advisories/new). Do not open a public issue for anything exploitable or include secrets, private task data, or proof-of-concept details in a public report.
 
-You can expect an initial response within a few days. There is no bug bounty; fixes are credited in the release notes unless you prefer otherwise.
+There is no guaranteed response time or bug bounty. Fixes may be credited in release notes unless you prefer otherwise.
 
 ## Supported versions
 
@@ -19,4 +19,4 @@ Only the latest release receives security fixes. Older tags are immutable and ar
 
 ## Scope notes
 
-Mindwtr is local-first. The optional self-hosted cloud server authenticates with bearer tokens (hashed at rest, constant-time comparison) and is the main network-exposed surface; reports about it are especially welcome.
+Todo Moe currently distributes the Android app and its release pipeline. This repository retains upstream code for other platforms and services, but that does not mean Todo Moe operates or supports those services. Report fork-specific Android, privacy, update, build, and release issues here; report vulnerabilities that affect unmodified Mindwtr upstream code to the upstream project as well.

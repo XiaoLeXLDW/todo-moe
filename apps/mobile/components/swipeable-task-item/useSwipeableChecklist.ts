@@ -5,6 +5,7 @@ import {
     enqueueChecklistWrite,
     getChecklistWriteSnapshot,
     subscribeChecklistWrites,
+    type ChecklistWriteCommitResult,
     type ChecklistItems,
 } from './checklist-write-queue';
 
@@ -19,7 +20,9 @@ export type ChecklistItemMutation = {
     nextChecklist: ChecklistItems;
 };
 
-export type CommitChecklistItemMutation = (mutation: ChecklistItemMutation) => Promise<boolean>;
+export type CommitChecklistItemMutation = (
+    mutation: ChecklistItemMutation,
+) => Promise<ChecklistWriteCommitResult>;
 
 /**
  * Owns only row-local presentation state. Business persistence is delegated to

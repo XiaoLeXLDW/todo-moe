@@ -2,6 +2,8 @@ import type { Task } from '@mindwtr/core';
 
 export type ChecklistItems = NonNullable<Task['checklist']>;
 
+export type ChecklistWriteCommitResult = boolean | ChecklistItems;
+
 type ChecklistWrite = {
     taskId: string;
     previousChecklist: ChecklistItems;
@@ -57,7 +59,7 @@ export function subscribeChecklistWrites(
  */
 export function enqueueChecklistWrite(
     mutation: ChecklistWrite,
-    commit: () => Promise<boolean>,
+    commit: () => Promise<ChecklistWriteCommitResult>,
 ) {
     let entry = entries.get(mutation.taskId);
     const hadPendingWrite = Boolean(entry);
@@ -80,14 +82,16 @@ export function enqueueChecklistWrite(
     });
 
     const execute = async () => {
-        let succeeded = false;
+        let committedChecklist: ChecklistItems | null = null;
         try {
-            succeeded = await commit();
+            const result = await commit();
+            if (Array.isArray(result)) committedChecklist = result;
+            else if (result) committedChecklist = mutation.nextChecklist;
         } catch {
             // Store failures are represented as a false result to the queue.
             // The row-level callback remains responsible for user messaging.
         }
-        if (succeeded) entry!.durableChecklist = mutation.nextChecklist;
+        if (committedChecklist) entry!.durableChecklist = committedChecklist;
         entry!.pending = Math.max(0, entry!.pending - 1);
         if (entry!.pending > 0) return;
 

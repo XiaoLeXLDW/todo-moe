@@ -299,6 +299,7 @@ export const zhHant: Record<string, string> = {
         'task.promoteToProjectCreated': '已從任務建立專案',
         'task.promoteToProjectMoved': '已將任務移至現有專案',
         'task.updateFailed': '更新任務失敗',
+        'task.undoExpired': '任務完成後已發生變更，無法再撤銷。',
         'task.cancel': '取消任務',
         'task.cancelRecurringSeries': '取消重複系列',
         'task.cancelled': '已取消',

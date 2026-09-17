@@ -5,6 +5,34 @@ import type { Task, TaskStatus } from './types';
 
 type TranslateFn = (key: string) => string;
 
+export type TaskCompletionUndoExpectation = Pick<Task, 'status' | 'checklist'>;
+
+function checklistsMatch(
+    current: Task['checklist'],
+    expected: Task['checklist'],
+): boolean {
+    const currentItems = current ?? [];
+    const expectedItems = expected ?? [];
+    return currentItems.length === expectedItems.length
+        && currentItems.every((item, index) => {
+            const expectedItem = expectedItems[index];
+            return expectedItem !== undefined
+                && item.id === expectedItem.id
+                && item.title === expectedItem.title
+                && item.isCompleted === expectedItem.isCompleted;
+        });
+}
+
+function matchesUndoExpectation(
+    task: Task | undefined,
+    expected: TaskCompletionUndoExpectation | undefined,
+): task is Task {
+    if (!task || task.deletedAt) return false;
+    if (!expected) return true;
+    return task.status === expected.status
+        && checklistsMatch(task.checklist, expected.checklist);
+}
+
 // One copy of the completion/move toast text for every surface that completes a
 // task on either platform: keyboard scopes, the row's own done button, the status
 // chord, mobile search. The copies had already drifted, one of them untranslated.
@@ -26,10 +54,16 @@ export async function undoTaskCompletion(
     taskId: string,
     previousStatus: TaskStatus,
     wasFocusedToday: boolean,
-    options: { restoreUpdates?: Partial<Task> } = {},
+    options: {
+        restoreUpdates?: Partial<Task>;
+        expectedCurrent?: TaskCompletionUndoExpectation;
+    } = {},
 ): Promise<void> {
     const state = useTaskStore.getState();
     const completedTask = state._allTasks.find((task) => task.id === taskId);
+    if (!matchesUndoExpectation(completedTask, options.expectedCurrent)) {
+        throw new Error('Task changed after completion; undo is no longer available');
+    }
     const recurrence = completedTask?.recurrence;
     const seriesId = recurrence && typeof recurrence === 'object'
         ? recurrence.seriesId?.trim() || taskId
@@ -59,14 +93,22 @@ export async function undoTaskCompletion(
         focusOrder: previousFocusOrder,
         ...restoreUpdates
     } = options.restoreUpdates ?? {};
+    const currentState = useTaskStore.getState();
+    const currentTask = currentState._allTasks.find((task) => task.id === taskId);
+    if (!matchesUndoExpectation(currentTask, options.expectedCurrent)) {
+        if (generatedOccurrence) {
+            await Promise.resolve(currentState.restoreTask(generatedOccurrence.id));
+        }
+        throw new Error('Task changed after completion; undo is no longer available');
+    }
     const moveResult = options.restoreUpdates
-        ? await Promise.resolve(state.updateTask(taskId, {
+        ? await Promise.resolve(currentState.updateTask(taskId, {
             ...restoreUpdates,
             status: previousStatus,
             isFocusedToday: false,
             focusOrder: undefined,
         }))
-        : await Promise.resolve(state.moveTask(taskId, previousStatus));
+        : await Promise.resolve(currentState.moveTask(taskId, previousStatus));
     if (!moveResult.success) {
         if (generatedOccurrence) {
             await Promise.resolve(useTaskStore.getState().restoreTask(generatedOccurrence.id));

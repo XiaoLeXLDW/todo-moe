@@ -69,6 +69,7 @@ const translate = vi.hoisted(() => {
     'common.notice': 'Notice',
     'common.skip': 'Skip',
     'common.undo': 'Undo',
+    'task.undoExpired': 'This task changed after completion. Undo is no longer available.',
     'agenda.addToFocus': 'Add to focus',
     'agenda.removeFromFocus': 'Remove from focus',
     'list.taskDeleted': 'Task deleted',
@@ -2475,10 +2476,278 @@ it('can keep the focus star without adding a redundant focus outline', () => {
             { id: 'item-2', title: 'Upload', isCompleted: false },
           ],
         },
+        expectedCurrent: {
+          status: 'done',
+          checklist: [
+            { id: 'item-1', title: 'Build', isCompleted: true },
+            { id: 'item-2', title: 'Upload', isCompleted: true },
+          ],
+        },
       });
     } finally {
       unsubscribe();
     }
+  });
+
+  it('expires the final-step undo after a newer checklist edit', async () => {
+    const task = {
+      id: 'list-task-stale-undo',
+      title: 'Ship release',
+      projectId: 'project-1',
+      status: 'next',
+      taskMode: 'list',
+      checklist: [
+        { id: 'item-1', title: 'Build', isCompleted: true },
+        { id: 'item-2', title: 'Upload', isCompleted: false },
+      ],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    } as any;
+    storeState._allTasks = [task];
+    storeState._allProjects = [{ id: 'project-1', title: 'Release', status: 'active' }];
+    getChecklistProgress.mockImplementation((value: any) => {
+      const checklist = value?.checklist ?? [];
+      return checklist.length ? {
+        completed: checklist.filter((item: any) => item.isCompleted).length,
+        total: checklist.length,
+        percent: checklist.filter((item: any) => item.isCompleted).length / checklist.length,
+      } : null;
+    });
+    updateTask.mockImplementation(async (_taskId: string, updates: any) => {
+      const latest = storeState._allTasks[0];
+      storeState._allTasks = [{ ...latest, ...updates, updatedAt: '2026-01-01T00:01:00.000Z' }];
+      return { success: true };
+    });
+
+    let tree!: renderer.ReactTestRenderer;
+    await renderer.act(async () => {
+      tree = renderer.create(<SwipeableTaskItem
+        task={task}
+        isDark={false}
+        tc={{ taskItemBg: '#111', border: '#222', text: '#fff', secondaryText: '#999', tint: '#3b82f6', success: '#16a34a', onTint: '#fff', warning: '#f59e0b' } as any}
+        onPress={vi.fn()}
+        onStatusChange={vi.fn()}
+        onDelete={vi.fn()}
+      />);
+    });
+    renderer.act(() => tree.root.find(node => node.props.accessibilityLabel === 'checklist.progress').props.onPress());
+    await renderer.act(async () => {
+      tree.root.find(node => node.props.accessibilityLabel === 'Upload').props.onPress();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const completionToast = showToast.mock.calls.find(([options]) => options?.actionLabel === 'Undo')?.[0];
+    expect(completionToast).toBeTruthy();
+    storeState._allTasks = [{
+      ...storeState._allTasks[0],
+      checklist: [
+        { id: 'item-1', title: 'Build v2', isCompleted: true },
+        { id: 'item-2', title: 'Upload', isCompleted: true },
+        { id: 'item-3', title: 'Notify Tibo', isCompleted: false },
+      ],
+      updatedAt: '2026-01-01T00:02:00.000Z',
+    }];
+    undoTaskCompletion.mockClear();
+
+    await completionToast.onAction();
+
+    expect(undoTaskCompletion).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'This task changed after completion. Undo is no longer available.',
+      tone: 'error',
+    }));
+    renderer.act(() => tree.unmount());
+  });
+
+  it('rebases queued checklist item intent onto a newer checklist snapshot', async () => {
+    const task = {
+      id: 'list-task-rebase',
+      title: 'Ship release',
+      status: 'next',
+      taskMode: 'list',
+      checklist: [
+        { id: 'item-1', title: 'Build', isCompleted: false },
+        { id: 'item-2', title: 'Upload', isCompleted: false },
+        { id: 'item-3', title: 'Announce', isCompleted: false },
+      ],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    } as any;
+    storeState._allTasks = [task];
+    getChecklistProgress.mockImplementation((value: any) => {
+      const checklist = value?.checklist ?? [];
+      return checklist.length ? {
+        completed: checklist.filter((item: any) => item.isCompleted).length,
+        total: checklist.length,
+        percent: checklist.filter((item: any) => item.isCompleted).length / checklist.length,
+      } : null;
+    });
+    let finishFirst!: (value: { success: boolean }) => void;
+    updateTask
+      .mockImplementationOnce(() => new Promise((resolve) => { finishFirst = resolve; }))
+      .mockImplementationOnce(async (_taskId: string, updates: any) => {
+        storeState._allTasks = [{ ...storeState._allTasks[0], ...updates }];
+        return { success: true };
+      });
+
+    let tree!: renderer.ReactTestRenderer;
+    await renderer.act(async () => {
+      tree = renderer.create(<SwipeableTaskItem
+        task={task}
+        isDark={false}
+        tc={{ taskItemBg: '#111', border: '#222', text: '#fff', secondaryText: '#999', tint: '#3b82f6', success: '#16a34a', onTint: '#fff', warning: '#f59e0b' } as any}
+        onPress={vi.fn()}
+        onStatusChange={vi.fn()}
+        onDelete={vi.fn()}
+      />);
+    });
+    renderer.act(() => tree.root.find(node => node.props.accessibilityLabel === 'checklist.progress').props.onPress());
+    renderer.act(() => {
+      tree.root.find(node => node.props.accessibilityLabel === 'Build').props.onPress();
+      tree.root.find(node => node.props.accessibilityLabel === 'Upload').props.onPress();
+    });
+    expect(updateTask).toHaveBeenCalledTimes(1);
+
+    storeState._allTasks = [{
+      ...task,
+      checklist: [
+        { id: 'item-1', title: 'Build v2', isCompleted: true },
+        { id: 'item-2', title: 'Upload', isCompleted: false },
+        { id: 'item-3', title: 'Announce', isCompleted: false },
+        { id: 'item-4', title: 'Notify Tibo', isCompleted: false },
+      ],
+      updatedAt: '2026-01-01T00:01:00.000Z',
+    }];
+    await renderer.act(async () => {
+      finishFirst({ success: true });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(updateTask).toHaveBeenCalledTimes(2);
+    expect(updateTask.mock.calls[1]).toEqual(['list-task-rebase', {
+      checklist: [
+        { id: 'item-1', title: 'Build v2', isCompleted: true },
+        { id: 'item-2', title: 'Upload', isCompleted: true },
+        { id: 'item-3', title: 'Announce', isCompleted: false },
+        { id: 'item-4', title: 'Notify Tibo', isCompleted: false },
+      ],
+    }]);
+    expect(tree.root.find(node => node.props.accessibilityLabel === 'Build v2')).toBeTruthy();
+    expect(tree.root.find(node => node.props.accessibilityLabel === 'Notify Tibo')).toBeTruthy();
+    renderer.act(() => tree.unmount());
+  });
+
+  it('does not persist an earlier optimistic tick through a later queued success', async () => {
+    const task = {
+      id: 'list-task-failed-earlier-write',
+      title: 'Ship release',
+      status: 'next',
+      taskMode: 'list',
+      checklist: [
+        { id: 'item-1', title: 'Build', isCompleted: false },
+        { id: 'item-2', title: 'Upload', isCompleted: false },
+        { id: 'item-3', title: 'Announce', isCompleted: false },
+      ],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    } as any;
+    storeState._allTasks = [task];
+    getChecklistProgress.mockReturnValue({ completed: 0, total: 3, percent: 0 });
+    updateTask
+      .mockResolvedValueOnce({ success: false, error: 'Injected write failure' })
+      .mockImplementationOnce(async (_taskId: string, updates: any) => {
+        storeState._allTasks = [{ ...storeState._allTasks[0], ...updates }];
+        return { success: true };
+      });
+
+    let tree!: renderer.ReactTestRenderer;
+    await renderer.act(async () => {
+      tree = renderer.create(<SwipeableTaskItem
+        task={task}
+        isDark={false}
+        tc={{ taskItemBg: '#111', border: '#222', text: '#fff', secondaryText: '#999', tint: '#3b82f6', success: '#16a34a', onTint: '#fff', warning: '#f59e0b' } as any}
+        onPress={vi.fn()}
+        onStatusChange={vi.fn()}
+        onDelete={vi.fn()}
+      />);
+    });
+    renderer.act(() => tree.root.find(node => node.props.accessibilityLabel === 'checklist.progress').props.onPress());
+    await renderer.act(async () => {
+      tree.root.find(node => node.props.accessibilityLabel === 'Build').props.onPress();
+      tree.root.find(node => node.props.accessibilityLabel === 'Upload').props.onPress();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(updateTask).toHaveBeenCalledTimes(2);
+    expect(updateTask.mock.calls[1]).toEqual(['list-task-failed-earlier-write', {
+      checklist: [
+        { id: 'item-1', title: 'Build', isCompleted: false },
+        { id: 'item-2', title: 'Upload', isCompleted: true },
+        { id: 'item-3', title: 'Announce', isCompleted: false },
+      ],
+    }]);
+    expect(tree.root.find(node => node.props.accessibilityLabel === 'Build').props.accessibilityState.checked).toBe(false);
+    expect(tree.root.find(node => node.props.accessibilityLabel === 'Upload').props.accessibilityState.checked).toBe(true);
+    renderer.act(() => tree.unmount());
+  });
+
+  it('rejects a queued checklist write after its project becomes archived', async () => {
+    const task = {
+      id: 'list-task-project-archive',
+      title: 'Ship release',
+      projectId: 'project-archive',
+      status: 'next',
+      taskMode: 'list',
+      checklist: [
+        { id: 'item-1', title: 'Build', isCompleted: false },
+        { id: 'item-2', title: 'Upload', isCompleted: false },
+        { id: 'item-3', title: 'Announce', isCompleted: false },
+      ],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    } as any;
+    storeState._allTasks = [task];
+    storeState._allProjects = [{ id: 'project-archive', title: 'Release', status: 'active' }];
+    getChecklistProgress.mockReturnValue({ completed: 0, total: 3, percent: 0 });
+    let finishFirst!: (value: { success: boolean }) => void;
+    updateTask.mockImplementationOnce(() => new Promise((resolve) => {
+      finishFirst = resolve;
+    }));
+
+    let tree!: renderer.ReactTestRenderer;
+    await renderer.act(async () => {
+      tree = renderer.create(<SwipeableTaskItem
+        task={task}
+        isDark={false}
+        tc={{ taskItemBg: '#111', border: '#222', text: '#fff', secondaryText: '#999', tint: '#3b82f6', success: '#16a34a', onTint: '#fff', warning: '#f59e0b' } as any}
+        onPress={vi.fn()}
+        onStatusChange={vi.fn()}
+        onDelete={vi.fn()}
+      />);
+    });
+    renderer.act(() => tree.root.find(node => node.props.accessibilityLabel === 'checklist.progress').props.onPress());
+    renderer.act(() => {
+      tree.root.find(node => node.props.accessibilityLabel === 'Build').props.onPress();
+      tree.root.find(node => node.props.accessibilityLabel === 'Upload').props.onPress();
+    });
+    expect(updateTask).toHaveBeenCalledTimes(1);
+
+    storeState._allProjects = [{ id: 'project-archive', title: 'Release', status: 'archived' }];
+    await renderer.act(async () => {
+      finishFirst({ success: true });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(updateTask).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledWith(expect.objectContaining({ tone: 'error' }));
+    renderer.act(() => tree.unmount());
   });
 
   it('disables nested mutation controls when the task row is read-only', () => {
