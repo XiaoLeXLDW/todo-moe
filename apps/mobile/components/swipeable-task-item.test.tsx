@@ -2338,6 +2338,60 @@ it('can keep the focus star without adding a redundant focus outline', () => {
     expect(tree.root.findAll(node => node.props.accessibilityLabel === 'Add Item')).toHaveLength(0);
   });
 
+  it('executes historical task-mode checklists from compact rows without completing the parent', async () => {
+    const onPress = vi.fn();
+    const task = {
+      id: 'historical-checklist-task',
+      title: 'Restock bathroom',
+      status: 'next',
+      taskMode: 'task',
+      checklist: [{ id: 'item-1', title: 'Buy face wash', isCompleted: false }],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    } as any;
+    storeState._allTasks = [task];
+    getChecklistProgress.mockReturnValue({ completed: 0, total: 1, percent: 0 });
+
+    let tree!: renderer.ReactTestRenderer;
+    await renderer.act(async () => {
+      tree = renderer.create(<SwipeableTaskItem
+        task={task}
+        isDark={false}
+        tc={{ taskItemBg: '#111', border: '#222', text: '#fff', secondaryText: '#999', tint: '#3b82f6', success: '#16a34a', onTint: '#fff', warning: '#f59e0b' } as any}
+        onPress={onPress}
+        onStatusChange={vi.fn()}
+        onDelete={vi.fn()}
+        hideDetails
+      />);
+    });
+
+    expect(tree.root.find(node => node.props.accessibilityLabel === 'checklist.progress')).toBeTruthy();
+    const row = tree.root.find(node => (
+      typeof node.props.accessibilityLabel === 'string'
+      && node.props.accessibilityLabel.startsWith('Restock bathroom')
+      && typeof node.props.onPress === 'function'
+    ));
+    renderer.act(() => row.props.onPress());
+
+    expect(onPress).not.toHaveBeenCalled();
+    expect(tree.root.find(node => node.props.accessibilityLabel === 'Buy face wash')).toBeTruthy();
+    expect(tree.root.find(node => node.props.accessibilityLabel === 'Edit: Checklist')).toBeTruthy();
+
+    await renderer.act(async () => {
+      tree.root.find(node => node.props.accessibilityLabel === 'Buy face wash').props.onPress();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(updateTask).toHaveBeenCalledWith('historical-checklist-task', {
+      checklist: [{ id: 'item-1', title: 'Buy face wash', isCompleted: true }],
+    });
+    expect(updateTask).not.toHaveBeenCalledWith(
+      'historical-checklist-task',
+      expect.objectContaining({ status: 'done' }),
+    );
+  });
+
   it('keeps list progress visible in compact rows while multi-select owns the body press', () => {
     const onToggleSelect = vi.fn();
     const task = {

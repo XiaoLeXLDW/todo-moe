@@ -1,6 +1,6 @@
 import React, { type ReactNode, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
-import { CircleDot, History, Hourglass, ListChecks, Pencil, Repeat } from 'lucide-react-native';
+import { CircleDot, History, Hourglass, Pencil, Repeat } from 'lucide-react-native';
 import { MOE_VISUAL } from '../../moe/visual-system';
 import { useStatusColors } from '../../hooks/use-status-colors';
 import {
@@ -12,6 +12,7 @@ import {
     formatTimeEstimateLabel,
     formatTimeSpentLabel,
     hasTimeComponent,
+    isTaskActionable,
     isTaskCancelled,
     isTaskCompleted,
     resolveTaskTextDirection,
@@ -92,6 +93,21 @@ interface SwipeableTaskItemContentProps {
     tc: ThemeColors;
 }
 
+export function hasInspectableTaskChecklist(
+    task: Pick<Task, 'status'>,
+    checklistProgress: Pick<NonNullable<SwipeableTaskItemContentProps['checklistProgress']>, 'total'> | null,
+) {
+    return task.status !== 'reference' && Boolean(checklistProgress?.total);
+}
+
+export function canExecuteTaskChecklist(
+    task: Pick<Task, 'status' | 'taskMode'>,
+    checklistProgress: Pick<NonNullable<SwipeableTaskItemContentProps['checklistProgress']>, 'total'> | null,
+) {
+    return hasInspectableTaskChecklist(task, checklistProgress)
+        && (task.taskMode === 'list' || isTaskActionable(task));
+}
+
 export function SwipeableTaskItemContent({
     accessibilityActions,
     accessibilityHint,
@@ -158,9 +174,8 @@ export function SwipeableTaskItemContent({
 
     const resolvedDirection = resolveTaskTextDirection(task);
     const editChecklistLabel = `${tFallback(t, 'common.edit', 'Edit')}: ${tFallback(t, 'taskEdit.checklist', 'Checklist')}`;
-    const canInspectChecklist = task.taskMode === 'list'
-        && task.status !== 'reference'
-        && Boolean(checklistProgress?.total);
+    const canInspectChecklist = hasInspectableTaskChecklist(task, checklistProgress);
+    const executesChecklistFromBody = canExecuteTaskChecklist(task, checklistProgress);
     const textDirection = resolvedDirection === 'rtl' ? 'rtl' : 'ltr';
     const textAlign = resolvedDirection === 'rtl' ? 'right' : 'left';
     const timeEstimateLabel = (() => {
@@ -473,27 +488,6 @@ export function SwipeableTaskItemContent({
         );
     }
 
-    if (task.taskMode !== 'list' && !hideChecklistProgress && checklistProgress) {
-        addMetaPart(
-            <Pressable
-                key="checklist"
-                onPress={onToggleChecklist}
-                hitSlop={4}
-                accessibilityRole="button"
-                accessibilityLabel={t('checklist.progress')}
-                style={styles.inlineMetaButton}
-            >
-                <View style={styles.inlineMetaItem}>
-                    <ListChecks size={13} color={tc.secondaryText} strokeWidth={2} />
-                    <Text style={[styles.metaText, { color: tc.secondaryText }]}>
-                        {checklistProgress.completed}/{checklistProgress.total}
-                    </Text>
-                </View>
-            </Pressable>,
-            'checklist'
-        );
-    }
-
     const cardStyle = StyleSheet.flatten<ViewStyle>([
                 styles.taskItem,
                 { borderRadius: MOE_VISUAL.cardRadius },
@@ -520,13 +514,13 @@ export function SwipeableTaskItemContent({
             onPress={onPress}
             onLongPress={onLongPress}
             delayLongPress={300}
-            disabled={interactionDisabled && !allowInspectionWhenDisabled && !canInspectChecklist}
+            disabled={interactionDisabled && !allowInspectionWhenDisabled && !executesChecklistFromBody}
             accessibilityLabel={accessibilityLabel}
             accessibilityHint={accessibilityHint}
             accessibilityRole="button"
-            accessibilityState={(interactionDisabled && !allowInspectionWhenDisabled && !canInspectChecklist) || selectionMode
+            accessibilityState={(interactionDisabled && !allowInspectionWhenDisabled && !executesChecklistFromBody) || selectionMode
                 ? {
-                    ...(interactionDisabled && !allowInspectionWhenDisabled && !canInspectChecklist ? { disabled: true } : {}),
+                    ...(interactionDisabled && !allowInspectionWhenDisabled && !executesChecklistFromBody ? { disabled: true } : {}),
                     ...(selectionMode ? { selected: isMultiSelected } : {}),
                 }
                 : undefined}
@@ -601,7 +595,7 @@ export function SwipeableTaskItemContent({
                         </Pressable>
                     )}
                 </View>
-                {task.taskMode === 'list' && task.status !== 'reference' && checklistProgress ? (
+                {canInspectChecklist && !hideChecklistProgress && checklistProgress ? (
                     <MoeChecklistProgress
                         disabled={selectionMode}
                         expanded={showChecklist}
@@ -638,7 +632,7 @@ export function SwipeableTaskItemContent({
                                 tc={tc}
                             />
                         ))}
-                        {!selectionMode && !interactionDisabled && task.taskMode === 'list' ? (
+                        {!selectionMode && !interactionDisabled && canInspectChecklist ? (
                             <Pressable
                                 accessibilityLabel={editChecklistLabel}
                                 accessibilityRole="button"
