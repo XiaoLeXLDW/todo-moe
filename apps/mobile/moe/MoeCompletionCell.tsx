@@ -3,11 +3,10 @@ import { StyleSheet, type CellRendererProps } from 'react-native';
 import Animated, { withTiming, type LayoutAnimationsValues } from 'react-native-reanimated';
 import { useReducedMotion } from '../hooks/use-reduced-motion';
 import { useMoePreferences } from './preferences';
-import { resolveMoeCompletionMotion } from './completion-motion';
+import { MOE_LIST_REFLOW_MS, resolveMoeCompletionMotion } from './completion-motion';
 import { useMoeCompletionLayoutGate, useMoeInteractiveLayoutUntil } from './MoeCompletionFeedback';
 
 type CompletionCellProps = Pick<CellRendererProps<unknown>, 'children' | 'style' | 'onLayout' | 'onFocusCapture'> & { item?: unknown };
-const INTERACTIVE_LAYOUT_MS = 180;
 
 // Keep the native cell ancestor alive while a completed child exits. Forward
 // VirtualizedList's measurement and focus handlers without changing its data.
@@ -38,7 +37,7 @@ export function MoeCompletionCell({ children, style, onLayout, onFocusCapture }:
             const hold = motion.confirmationHold;
             return Math.min(1, Math.max(0, (progress - hold) / (1 - hold)));
         };
-        const config = { duration: interactive ? INTERACTIVE_LAYOUT_MS : motion.exitMs, easing };
+        const config = { duration: interactive ? MOE_LIST_REFLOW_MS : motion.exitMs, easing };
         return {
             initialValues: { originX: values.currentOriginX, originY: values.currentOriginY,
                 width: values.currentWidth, height: values.currentHeight },

@@ -5,7 +5,7 @@ import Animated, { LinearTransition, useSharedValue, withTiming, type AnimatedRe
 import { runOnUISync } from 'react-native-worklets';
 import { useReducedMotion } from '../hooks/use-reduced-motion';
 import { useMoePreferences } from './preferences';
-import { resolveMoeCompletionMotion } from './completion-motion';
+import { MOE_LIST_REFLOW_MS, resolveMoeCompletionMotion } from './completion-motion';
 import { useMoeCompletionFeedback, type CompletionFeedbackDetails } from './MoeCompletionFeedback';
 
 // Bounded, short-lived visual identities only. No Task objects, rendered rows,
@@ -159,7 +159,7 @@ export function MoeCompletionRow({ transition, children }: {
 
 export function useMoeCompletionListLayout() {
     const motion = useCompletionMotion();
-    return useMemo(() => motion.reduced ? undefined : LinearTransition.duration(motion.rowExitMs), [motion.reduced, motion.rowExitMs]);
+    return useMemo(() => motion.reduced ? undefined : LinearTransition.duration(MOE_LIST_REFLOW_MS), [motion.reduced]);
 }
 
 /** Only this task row's title fades; its text and business status stay original. */
