@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "version": "0.4.2",
+  "changes": [
+    "修复旧数据中带 checklist、但仍标记为普通 taskMode=task 的任务：完成最后一个小步骤时，父任务现在会与 checklist 一次写入为完成状态。",
+    "撤销自动完成会恢复父任务原状态和最后一次点击的小步骤；此前已经完成的 checklist 项保持不变。",
+    "删除任务和撤销恢复后的相邻列表让位缩短为 180ms；父任务完成反馈、粒子庆祝和 reduced motion 行为保持原有边界。"
+  ],
+  "knownIssues": [
+    "Dev 与 Stable 使用不同包名且不会自动共享数据；从 Dev 迁移到 Stable 前应先导出备份，再在 Stable 恢复并核对。",
+    "本轮两个补丁没有新增真机交互验收；自动化、构建和签名结果不能替代具体设备上的手感与长期日用观察。",
+    "任务同步继续按现有产品边界保持可选；本轮没有修改同步协议、底栏、玻璃、AI、图标或发布系统。"
+  ],
+  "supportedDevices": [
+    "Android arm64-v8a，最低 API24；Stable 由受控工作流从批准源码重新构建和签名。"
+  ],
+  "validation": [
+    "PR #17 和 PR #18 的各自 12/12 GitHub 检查通过；PR #18 同步 PR #17 后的最终组合状态同样 12/12 通过。",
+    "本地合并模拟中 6 个相关测试文件 133/133 通过，Mobile TypeScript 通过。",
+    "本轮没有安装新的 Dev 或 Stable APK 到真机；发布后仍需将签名产物、版本身份、证书和下载哈希与工作流结果逐项回读。"
+  ],
+  "versionRecord": "docs/todo-moe/docs/versions/0.4.2-release-candidate-vc53-2026-09-19.md"
+}

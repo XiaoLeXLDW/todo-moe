@@ -1,6 +1,6 @@
 {
   "name": "Todo Moe",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "androidPackage": "io.github.xiaolexldw.todomoe",
   "scheme": "todomoe",
   "repository": "https://github.com/XiaoLeXLDW/todo-moe",
