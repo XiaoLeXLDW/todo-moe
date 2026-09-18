@@ -847,6 +847,7 @@ function SwipeableTaskItemInner({
         deletePendingRef.current = true;
         const deleteOccurredAt = Date.now();
         cancelRowExit();
+        beginInteractiveListLayout();
         void settleStoreAction(() => onDelete())
             .then((outcome) => {
                 if (!outcome.ok) {
@@ -865,6 +866,7 @@ function SwipeableTaskItemInner({
                     actionLabel: tFallback(t, 'common.undo', 'Undo'),
                     onAction: () => {
                         const undoOccurredAt = Date.now();
+                        beginInteractiveListLayout();
                         return settleStoreAction(() => restoreTask(task.id))
                             .then((restoreOutcome) => {
                                 if (!restoreOutcome.ok) {

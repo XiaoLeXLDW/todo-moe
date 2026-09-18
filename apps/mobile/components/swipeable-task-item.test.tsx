@@ -11,6 +11,7 @@ import { ToastProvider } from '../contexts/toast-context';
 
 const promptPreference = vi.hoisted(() => ({ enabled: false }));
 const toastMode = vi.hoisted(() => ({ realProvider: false }));
+const beginInteractiveListLayout = vi.hoisted(() => vi.fn());
 vi.mock('react-native', async (importOriginal) => {
   const actual = await importOriginal() as any;
   return { ...actual, Easing: { ...actual.Easing, out: (value: unknown) => value, quad: 'quad', cubic: 'cubic' } };
@@ -18,6 +19,10 @@ vi.mock('react-native', async (importOriginal) => {
 vi.mock('../moe/preferences', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../moe/preferences')>();
   return { ...actual, getMoePreferences: () => ({ ...actual.getMoePreferences(), nextActionPrompt: promptPreference.enabled }) };
+});
+vi.mock('../moe/MoeCompletionFeedback', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../moe/MoeCompletionFeedback')>();
+  return { ...actual, useMoeInteractiveListLayout: () => beginInteractiveListLayout };
 });
 
 const { addTask, updateTask, restoreTask, undoTaskCompletion, showToast, getChecklistProgress, getTaskAgeLabel, getTaskStaleness, safeFormatDate, safeParseDate, storeState } = vi.hoisted(() => ({
@@ -591,6 +596,8 @@ it('can keep the focus star without adding a redundant focus outline', () => {
     });
 
     expect(onDelete).toHaveBeenCalledTimes(1);
+    expect(beginInteractiveListLayout).toHaveBeenCalledTimes(1);
+    expect(beginInteractiveListLayout.mock.invocationCallOrder[0]).toBeLessThan(onDelete.mock.invocationCallOrder[0]);
     expect(hapticsMocks.impactAsync).toHaveBeenCalledWith('rigid');
     expect(showToast).toHaveBeenCalledWith(expect.objectContaining({
       message: 'Pay rent moved to Trash',

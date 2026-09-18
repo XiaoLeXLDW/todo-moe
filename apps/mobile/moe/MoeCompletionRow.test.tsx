@@ -164,11 +164,11 @@ describe('completion-only native row configuration (not a Fabric animation simul
         mocks.reduced = false; mocks.preference = 'lively'; const lively = mount('lively'); act(() => lively.handle.current.arm(14));
         expect(lively.handle.current.exiting().animations.opacity).toEqual({ target: 0, duration: 460 });
     });
-    it('keeps list layout duration on the shared completion parameters', () => {
+    it('keeps list reflow quick when a task is removed', () => {
         let result: any;
         function List() { result = useMoeCompletionListLayout(); return null; }
         let tree!: ReactTestRenderer; act(() => { tree = create(<List />); }); mounted.push(tree);
-        expect(result.options.duration).toBe(300);
+        expect(result.options.duration).toBe(180);
         mocks.reduced = true; act(() => tree.update(<List />));
         expect(result).toBeUndefined();
     });

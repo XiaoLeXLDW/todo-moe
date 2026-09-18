@@ -1,5 +1,9 @@
 import type { MoePreferences } from './preference-model';
 
+/** Neighboring rows should settle promptly after insertion/removal. The longer
+ * completion timing belongs to the departing row and its feedback overlay. */
+export const MOE_LIST_REFLOW_MS = 180;
+
 /** Completion-only values; changing these never retimes capture or glass. */
 export const MOE_COMPLETION_MOTION = Object.freeze({
   pressMs: 80, checkMs: 160, textMs: 180, exitMs: 300, enterMs: 220,
