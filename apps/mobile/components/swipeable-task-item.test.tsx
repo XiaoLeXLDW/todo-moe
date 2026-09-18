@@ -2338,19 +2338,27 @@ it('can keep the focus star without adding a redundant focus outline', () => {
     expect(tree.root.findAll(node => node.props.accessibilityLabel === 'Add Item')).toHaveLength(0);
   });
 
-  it('executes historical task-mode checklists from compact rows without completing the parent', async () => {
+  it('completes the parent when the final historical task-mode checklist item is completed', async () => {
     const onPress = vi.fn();
     const task = {
       id: 'historical-checklist-task',
       title: 'Restock bathroom',
       status: 'next',
       taskMode: 'task',
-      checklist: [{ id: 'item-1', title: 'Buy face wash', isCompleted: false }],
+      checklist: [
+        { id: 'item-1', title: 'Buy face wash', isCompleted: true },
+        { id: 'item-2', title: 'Buy toothpaste', isCompleted: true },
+        { id: 'item-3', title: 'Buy soap', isCompleted: false },
+      ],
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     } as any;
     storeState._allTasks = [task];
-    getChecklistProgress.mockReturnValue({ completed: 0, total: 1, percent: 0 });
+    getChecklistProgress.mockReturnValue({ completed: 2, total: 3, percent: 2 / 3 });
+    updateTask.mockImplementation(async (_taskId: string, updates: any) => {
+      storeState._allTasks = [{ ...task, ...updates }];
+      return { success: true };
+    });
 
     let tree!: renderer.ReactTestRenderer;
     await renderer.act(async () => {
@@ -2374,22 +2382,43 @@ it('can keep the focus star without adding a redundant focus outline', () => {
     renderer.act(() => row.props.onPress());
 
     expect(onPress).not.toHaveBeenCalled();
-    expect(tree.root.find(node => node.props.accessibilityLabel === 'Buy face wash')).toBeTruthy();
+    expect(tree.root.find(node => node.props.accessibilityLabel === 'Buy soap')).toBeTruthy();
     expect(tree.root.find(node => node.props.accessibilityLabel === 'Edit: Checklist')).toBeTruthy();
 
     await renderer.act(async () => {
-      tree.root.find(node => node.props.accessibilityLabel === 'Buy face wash').props.onPress();
+      tree.root.find(node => node.props.accessibilityLabel === 'Buy soap').props.onPress();
       await Promise.resolve();
       await Promise.resolve();
     });
 
     expect(updateTask).toHaveBeenCalledWith('historical-checklist-task', {
-      checklist: [{ id: 'item-1', title: 'Buy face wash', isCompleted: true }],
+      checklist: [
+        { id: 'item-1', title: 'Buy face wash', isCompleted: true },
+        { id: 'item-2', title: 'Buy toothpaste', isCompleted: true },
+        { id: 'item-3', title: 'Buy soap', isCompleted: true },
+      ],
+      status: 'done',
     });
-    expect(updateTask).not.toHaveBeenCalledWith(
-      'historical-checklist-task',
-      expect.objectContaining({ status: 'done' }),
-    );
+    const completionToast = showToast.mock.calls.find(([options]) => options?.actionLabel === 'Undo')?.[0];
+    expect(completionToast).toBeTruthy();
+    await completionToast.onAction();
+    expect(undoTaskCompletion).toHaveBeenCalledWith('historical-checklist-task', 'next', false, {
+      restoreUpdates: {
+        checklist: [
+          { id: 'item-1', title: 'Buy face wash', isCompleted: true },
+          { id: 'item-2', title: 'Buy toothpaste', isCompleted: true },
+          { id: 'item-3', title: 'Buy soap', isCompleted: false },
+        ],
+      },
+      expectedCurrent: {
+        status: 'done',
+        checklist: [
+          { id: 'item-1', title: 'Buy face wash', isCompleted: true },
+          { id: 'item-2', title: 'Buy toothpaste', isCompleted: true },
+          { id: 'item-3', title: 'Buy soap', isCompleted: true },
+        ],
+      },
+    });
   });
 
   it('keeps list progress visible in compact rows while multi-select owns the body press', () => {
@@ -2929,6 +2958,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
     expect(updateTask).toHaveBeenCalledTimes(1);
     expect(updateTask).toHaveBeenCalledWith('task-1', {
       checklist: [{ id: 'item-1', title: 'Stop pending write', isCompleted: true }],
+      status: 'done',
     });
     renderer.act(() => {
       tree.update(renderRow(true));

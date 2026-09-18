@@ -390,8 +390,7 @@ function SwipeableTaskItemInner({
                 ? { ...item, isCompleted: mutation.isCompleted }
                 : item
         ));
-        const autoCompletesParent = latest.taskMode === 'list'
-            && mutation.isCompleted
+        const autoCompletesParent = mutation.isCompleted
             && nextChecklist.length > 0
             && nextChecklist.every((item) => item.isCompleted);
         const interactionId = `${mutation.taskId}:${mutation.itemId}:${Date.now()}`;
