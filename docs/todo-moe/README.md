@@ -2,7 +2,7 @@
 
 把 Mindwtr 二次开发为适合自己日用的 Android 待办：快速记录、文件夹与多清单、完成动画、家族品牌、模糊或液态玻璃，并保留数据与同步能力。
 
-**最新正式版：0.4.0 Stable vc51；当前发布候选：0.4.1 Stable vc52。** PR #15 的历史/普通 task-mode checklist 兼容修复已合并，PR 与 `main` 的 12/12 检查通过；Dev vc52 已在 MIX Fold 2 完成展开、逐项写入、重启持久化和父任务状态定向验收。Stable vc52 仍须由发布资料合并后的批准 SHA 经受控工作流重新构建、隔离签名和公开。详见[版本索引](docs/versions/README.md)。
+**最新正式版：0.4.1 Stable vc52；当前发布候选：0.4.2 Stable vc53。** PR #17 修复旧 `taskMode=task` checklist 完成最后一步后父任务不完成及精确撤销，PR #18 将删除/恢复后的列表让位缩短为 180ms；两项已合并到 `main`，最终组合状态 12/12 检查通过。Stable vc53 仍须由发布资料合并后的批准 SHA 经受控工作流重新构建、隔离签名和公开。详见[版本索引](docs/versions/README.md)。
 
 **当前进度：vc7已正常覆盖安装，家族图标、两处文案、内屏键盘和升级数据已验证。** 本轮仅使用本地数据，暂不启用同步；10条人工任务保留。对应源码的全量core/mobile与常规CI通过，完整系统矩阵、连续日用和正式签名发布仍未放行。产物、哈希和证据见[vc7记录](docs/versions/0.1.0-dev-vc7-2026-09-12.md)、[真机记录](DEVICE-VALIDATION-20260911.md)及[草稿PR #1](https://github.com/XiaoLeXLDW/todo-moe/pull/1)。
 

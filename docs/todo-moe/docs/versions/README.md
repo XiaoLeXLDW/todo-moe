@@ -1,6 +1,6 @@
 # 分版本开发与验收记录
 
-最新正式版为 [0.4.0 Stable vc51](0.4.0-release-candidate-vc51-2026-09-17.md)；当前发布候选是 [0.4.1 Stable vc52 / PR #15 兼容补丁](0.4.1-release-candidate-vc52-2026-09-18.md)。PR #15 已合并且 `main` 12/12 检查通过，Dev vc52 已完成 MIX Fold 2 定向验收；Stable vc52 仍须从发布资料合并后的批准 SHA 经受控工作流重新构建、签名和公开。[Dev vc12](0.1.0-dev-vc12-2026-09-12.md)及更早记录是历史快照，不再代表当前版本。
+最新正式版为 [0.4.1 Stable vc52](0.4.1-release-candidate-vc52-2026-09-18.md)；当前发布候选是 [0.4.2 Stable vc53 / checklist 完成与删除让位补丁](0.4.2-release-candidate-vc53-2026-09-19.md)。PR #17、#18 已合并，最终组合状态 12/12 检查通过；本轮没有新增真机验收，Stable vc53 仍须从发布资料合并后的批准 SHA 经受控工作流重新构建、签名和公开。[Dev vc12](0.1.0-dev-vc12-2026-09-12.md)及更早记录是历史快照，不再代表当前版本。
 
 此前发布工程记录：[Stable vc1 发布资料链验证](0.1.0-stable-vc1-release-flow-2026-09-12.md)。源码`5fb560d6`的干净无签名构建4m44通过，直接消费builder说明输入的15个真实临时证书签名场景通过（Node含父测试16 pass）；未使用正式私钥、未安装Stable或发布Release。[旧Stable vc1无签名样本](0.1.0-stable-vc1-unsigned-2026-09-12.md)独立保留。手机仍为已测限定路径的vc7；[诊断vc9](0.1.0-diagnostic-vc9-2026-09-12.md)未安装，[临时诊断vc8](0.1.0-diagnostic-vc8-2026-09-12.md)未安装且已替代。证据范围见[收尾记录](../../FOLLOWUP-20260912.md)与[发布流程记录](../../RELEASE-FLOW-20260912.md)。
 
@@ -29,7 +29,8 @@ v0.1.0～v1.0.0 原本用于划分工程与验收里程碑，不能理解为已�
 
 | 候选 | 配置身份 | 源码与工作区 | APK | 验收/发行 |
 |---|---|---|---|---|
-| [0.4.1 Stable vc52 / PR #15 兼容补丁](0.4.1-release-candidate-vc52-2026-09-18.md) | 0.4.1 / stable / vc52 | `fa042895`；`main` | 待受控工作流重建 | PR #15 与合并后 main 12/12 通过；Dev vc52 USB 定向验收通过；正式签名发布待完成 |
+| [0.4.2 Stable vc53 / checklist 完成与删除让位补丁](0.4.2-release-candidate-vc53-2026-09-19.md) | 0.4.2 / stable / vc53 | `166baa32` 实现基线；发布资料待合并 | 待受控工作流重建 | PR #17、#18 与最终组合状态 12/12 通过；本轮未新增真机验收；正式签名发布待完成 |
+| [0.4.1 Stable vc52 / PR #15 兼容补丁](0.4.1-release-candidate-vc52-2026-09-18.md) | 0.4.1 / stable / vc52 | `98a7b270`；构建时干净 | 42,691,239 字节；SHA-256 `2d11c8c3…b286af6` | tag、正式签名和公开 Release 通过；Dev vc52 USB 定向验收通过 |
 | [0.4.0 Stable vc51 正式发布](0.4.0-release-candidate-vc51-2026-09-17.md) | 0.4.0 / stable / vc51 | `e3e4f986`；构建时干净 | 42,691,239 字节；公开资产已发布 | tag、正式签名和公开 Release 通过 |
 | [0.3.1 Stable vc50 正式发布](0.3.1-release-candidate-vc50-2026-09-16.md) | 0.3.1 / stable / vc50 | `b8ac5d62`；构建时干净 | 42,674,855 字节；SHA-256 `df12185e…e1e7de` | tag、正式签名、公开 Release、资产下载回读和 USB 冷启动通过 |
 | [0.3.0 Dev vc49](0.3.0-dev-vc49-2026-09-16.md) | 0.3.0 / development / vc49 | 95b61df5；构建时干净 | 42,528,464 字节；SHA 见独立记录 | USB `zizhan` 覆盖安装；归档菜单关闭/只读、重新激活与 5 项清单状态恢复通过；不发布 Release |
