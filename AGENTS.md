@@ -2,7 +2,7 @@
 
 Read `CONTEXT.md` before changing task placement, capture, completion or sync. It is the preserved upstream domain guide. The mobile words 文件夹/清单/分组 map to Area/Project/Section; use the original entities and store operations.
 
-For scope and acceptance, read `docs/todo-moe/IMPLEMENTATION.md` and the relevant version record under `docs/todo-moe/docs/versions/`. Keep code, automated checks, APK verification, device observations and publication status distinct. A successful build is evidence of compilation; runtime acceptance requires the corresponding device or backend record.
+For current Todo Moe scope and maintenance status, read `docs/todo-moe/README.md`. Read a record under `docs/todo-moe/docs/versions/` only when a task concerns that historical build or release. Keep code, automated checks, APK verification, device observations and publication status distinct. A successful build is evidence of compilation; runtime acceptance requires the corresponding device or backend record.
 
 Keep mobile presentation in `apps/mobile/moe` and the Android glass module in `apps/mobile/modules/moe-glass`. Start business operations immediately through the upstream store; visual completion callbacks manage presentation only. Validate failure, undo, recurrence and concurrent actions when changing task feedback. Theme preferences are local presentation settings, separate from synced task data.
 

@@ -1,14 +1,5 @@
-# Privacy Policy
+# Todo Moe privacy entry
 
-The official, up-to-date Mindwtr privacy policy lives on the website:
+The canonical privacy information for Todo Moe is [the repository privacy notice](../PRIVACY.md).
 
-**https://mindwtr.app/privacy**
-
-In short: Mindwtr is local-first and minimizes data collection by design. Your
-tasks, notes, and projects stay on your device. Sync, in-app feedback, and
-bring-your-own-key AI use the network only when you choose those features.
-Configured builds may also send a small anonymous usage heartbeat once per day;
-you can turn it off in Settings.
-
-Please see **https://mindwtr.app/privacy** for the complete, current policy,
-including exactly what each of those features sends and your choices.
+This compatibility path remains for repository tooling and inherited metadata. It does not point to the Mindwtr website or describe upstream telemetry as Todo Moe behavior.
