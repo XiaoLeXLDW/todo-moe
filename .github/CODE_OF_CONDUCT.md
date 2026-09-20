@@ -1,33 +1,22 @@
 # Code of Conduct
 
-## Our Pledge
-We are committed to providing a welcoming and inclusive environment for everyone contributing to Mindwtr, regardless of experience level, background, or identity.
+## Our pledge
 
-## Our Standards
-Expected behavior:
-- Be respectful and constructive in all interactions
-- Accept feedback gracefully and give it kindly
-- Focus on what's best for the project and community
-- Show empathy and patience with others
+Todo Moe contributors should have a welcoming, respectful, and constructive environment regardless of experience, background, or identity.
 
-Unacceptable behavior:
-- Harassment, insults, or personal attacks
-- Trolling, inflammatory comments, or sustained disruption
-- Spam or advertising, including promotion of unrelated products, services, or projects in issues, discussions, or pull requests
-- Publishing others' private information without permission
-- Any conduct that would be inappropriate in a professional setting
+## Expected conduct
 
-## Enforcement
-Instances of unacceptable behavior may be reported by:
-- Contacting the project maintainer directly (GitHub: @dongdongbh)
-- Opening an issue if the report is not sensitive
+- Discuss the work, not the person.
+- Give and receive feedback constructively.
+- Respect privacy and avoid publishing another person's information.
+- Keep issues and pull requests free of harassment, spam, and unrelated promotion.
 
-Project maintainers have the right to remove, edit, or reject comments, commits, code, issues, and other contributions that violate this Code of Conduct.
+## Reporting and enforcement
 
-## Scope
-This Code of Conduct applies to all project spaces (GitHub repository, issues, discussions, pull requests) and when representing the project in public spaces.
+For ordinary conduct concerns, contact the repository maintainer through the repository's GitHub facilities. For sensitive security reports, follow [SECURITY.md](../SECURITY.md). Do not put private evidence in a public issue.
+
+Maintainers may edit, hide, or reject content and contributions that violate this code. This code applies to the repository, its issues, pull requests, discussions, and public representation of the project.
 
 ## Attribution
-This Code of Conduct is adapted from the Contributor Covenant, version 2.1.
 
-TL;DR: Be kind, be professional, help us build something great together.
+Adapted from Contributor Covenant 2.1 and the inherited Mindwtr contribution policy.
